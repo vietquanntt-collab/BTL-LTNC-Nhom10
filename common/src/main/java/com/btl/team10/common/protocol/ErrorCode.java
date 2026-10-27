@@ -1,0 +1,16 @@
+package com.btl.team10.common.protocol;
+
+public enum ErrorCode {
+    NONE,
+    INVALID_REQUEST,
+    AUTHENTICATION_FAILED,
+    FORBIDDEN,
+    NOT_FOUND,
+    AUCTION_NOT_OPEN,
+    BID_TOO_LOW,
+    INSUFFICIENT_BALANCE,
+    CONFLICT,
+    DUPLICATE_REQUEST,
+    VALIDATION_ERROR,
+    INTERNAL_ERROR
+}

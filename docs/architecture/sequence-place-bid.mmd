@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant C1 as Bidder Client
+    participant S as Socket Server
+    participant P as PlaceBidService
+    participant DB as SQLite
+    participant E as EventPublisher
+    participant C2 as Other Clients
+
+    C1->>S: REQUEST PLACE_BID(requestId, auctionId, amount)
+    S->>P: authorize + validate request
+    P->>P: acquire per-auction lock
+    P->>DB: transaction: read auction/version
+    P->>DB: conditional insert bid + update auction
+    alt conflict/closed/invalid
+        DB-->>P: rollback/error
+        P-->>S: RESPONSE ok=false(errorCode)
+        S-->>C1: BID_REJECTED
+    else accepted
+        DB-->>P: commit
+        P->>E: publish BID_ACCEPTED(sequence+1)
+        E-->>S: event
+        S-->>C1: RESPONSE ok=true
+        S-->>C2: EVENT BID_ACCEPTED / OUTBID
+    end
+    P->>P: release lock
