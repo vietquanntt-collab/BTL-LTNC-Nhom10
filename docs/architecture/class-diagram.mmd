@@ -1,0 +1,65 @@
+classDiagram
+    class User {
+      <<abstract>>
+      +long id
+      +String account
+      +Role role
+    }
+    class Bidder
+    class Seller
+    class Admin
+    User <|-- Bidder
+    User <|-- Seller
+    User <|-- Admin
+
+    class Item {
+      <<abstract>>
+      +long id
+      +long sellerId
+      +ItemType type
+      +String name
+      +String description
+    }
+    class Figure
+    class Poster
+    class Card
+    Item <|-- Figure
+    Item <|-- Poster
+    Item <|-- Card
+
+    class Auction {
+      +long id
+      +long itemId
+      +AuctionStatus status
+      +long startPriceCents
+      +long currentPriceCents
+      +long minIncrementCents
+      +long version
+      +int extensionCount
+    }
+    class Bid {
+      +long id
+      +long auctionId
+      +long bidderId
+      +long amountCents
+      +BidStatus status
+      +String clientRequestId
+    }
+    class AutoBidRule {
+      +long auctionId
+      +long bidderId
+      +long maxAmountCents
+      +long incrementCents
+    }
+    class Settlement {
+      +long auctionId
+      +long winnerId
+      +long winningAmountCents
+      +long sellerId
+    }
+    Seller "1" --> "many" Item : owns
+    Item "1" --> "0..1" Auction : listed in
+    Auction "1" --> "many" Bid : records
+    Bidder "1" --> "many" Bid : places
+    Auction "1" --> "many" AutoBidRule : has
+    Auction "1" --> "0..1" Settlement : settles
