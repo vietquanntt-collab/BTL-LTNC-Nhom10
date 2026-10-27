@@ -1,20 +1,32 @@
-name: Nhóm 10 CI
+name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main, develop]
+    branches: [ main, develop ]
 
 jobs:
-  common:
+  build-and-test:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
-      - name: Compile and test common contract
-        run: mvn -B -pl common -am clean verify
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v5
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Build and run tests
+      run: |
+        if [ -f "./mvnw" ]; then
+          chmod +x ./mvnw
+          ./mvnw clean test
+        elif [ -f "pom.xml" ]; then
+          mvn clean test
+        else
+          echo "Chưa có pom.xml, hoàn tất kiểm tra cấu trúc tuần 1."
+        fi
