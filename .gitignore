@@ -1,0 +1,22 @@
+# Java/Maven
+target/
+*.class
+*.jar
+*.log
+# The Maven Wrapper JAR is intentionally tracked in .mvn/wrapper so a clean clone can build.
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Local database and secrets
+*.db
+*.sqlite
+*.sqlite3
+.env
+config/local.properties
+
+# OS
+Thumbs.db
+Desktop.ini
