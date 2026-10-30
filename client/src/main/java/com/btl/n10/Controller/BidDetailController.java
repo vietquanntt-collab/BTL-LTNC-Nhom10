@@ -1,15 +1,15 @@
 package com.btl.n10.Controller;
 
-import com.btl.n8.DTO.*;
-import com.btl.n8.Model.Entity.Auction;
-import com.btl.n8.Model.Entity.Bid;
-import com.btl.n8.Model.Entity.User;
-import com.btl.n8.Model.Enums.AuctionStatus;
-import com.btl.n8.Network.ClientSocket;
-import com.btl.n8.Network.ServerResponseListener;
-import com.btl.n8.Service.BidDetailControllerService;
-import com.btl.n8.Util.LocalDateTimeAdapter;
-import com.btl.n8.Util.UserTypeAdapter;
+import com.btl.n10.DTO.*;
+import com.btl.n10.Model.Entity.Auction;
+import com.btl.n10.Model.Entity.Bid;
+import com.btl.n10.Model.Entity.User;
+import com.btl.n10.Model.Enums.AuctionStatus;
+import com.btl.n10.Network.ClientSocket;
+import com.btl.n10.Network.ServerResponseListener;
+import com.btl.n10.Service.BidDetailControllerService;
+import com.btl.n10.Util.LocalDateTimeAdapter;
+import com.btl.n10.Util.UserTypeAdapter;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;

@@ -1,7 +1,7 @@
 package com.btl.n10.Controller;
 
-import com.btl.n8.Model.Entity.Auction;
-import com.btl.n8.Util.LocalDateTimeAdapter;
+import com.btl.n10.Model.Entity.Auction;
+import com.btl.n10.Util.LocalDateTimeAdapter;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -103,7 +103,7 @@ public class AutoBidController {
         }
 
         // Kiểm tra balance: maxPrice không được vượt quá balance hiện tại
-        com.btl.n8.Model.Entity.User currentUser = SessionManager.getInstance().getCurrentUser();
+        com.btl.n10.Model.Entity.User currentUser = SessionManager.getInstance().getCurrentUser();
         BigDecimal balance = currentUser != null && currentUser.getBalance() != null
                 ? currentUser.getBalance() : BigDecimal.ZERO;
         if (maxPrice.compareTo(balance) > 0) {
