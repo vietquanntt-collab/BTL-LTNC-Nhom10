@@ -11,6 +11,7 @@
     <name>Nhóm 10 - Online Auction System</name>
 
     <modules>
+        <module>client</module>
         <module>common</module>
     </modules>
 
