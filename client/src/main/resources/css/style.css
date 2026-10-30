@@ -1,0 +1,92 @@
+/* Áp dụng cho toàn bộ TextField */
+.text-field {
+    -fx-font-family: 'Press Start 2P';
+    -fx-font-size: 12px; /* Font này khá to, 12px là vừa đẹp cho ô nhập */
+    -fx-text-fill: #333333; /* Màu chữ khi gõ */
+    -fx-highlight-fill: #555555; /* Màu nền khi bôi đen chữ */
+    -fx-highlight-text-fill: white;
+}
+
+/* Ép font cho cả phần chữ gợi ý (Prompt Text) */
+.text-field .text {
+    -fx-font-family: 'Press Start 2P';
+}
+
+/* Nếu bạn muốn khi click vào ô (focus) nó có hiệu ứng pixel */
+.text-field:focused {
+    -fx-border-color: #7851a9; /* Ví dụ màu tím huyền bí hợp với ảnh Poké */
+    -fx-border-width: 2px;
+    -fx-background-color: white;
+}
+/* TableView dark theme */
+.table-view {
+    -fx-background-color: #0d1b2a;
+    -fx-border-color: #1a3a5c;
+    -fx-border-width: 1px;
+}
+
+.table-view .column-header-background {
+    -fx-background-color: #0a1628;
+}
+
+.table-view .column-header {
+    -fx-background-color: transparent;
+    -fx-border-color: #1a3a5c;
+    -fx-border-width: 0 1 1 0;
+}
+
+.table-view .column-header .label {
+    -fx-text-fill: #00ff88;
+    -fx-font-family: "Press Start 2P";
+    -fx-font-size: 9px;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.table-view .table-cell {
+    -fx-text-fill: #ffffff;
+    -fx-border-color: #1a3a5c;
+    -fx-border-width: 0 0 1 0;
+    -fx-font-size: 11px;
+    -fx-padding: 8px 10px;
+}
+
+.table-view .table-row-cell {
+    -fx-background-color: #0d1b2a;
+}
+
+.table-view .table-row-cell:odd {
+    -fx-background-color: #112240;
+}
+
+.table-view .table-row-cell:hover {
+    -fx-background-color: #1a3a5c;
+}
+
+.table-view .table-row-cell:selected {
+    -fx-background-color: #185FA5;
+}
+
+.table-view .table-row-cell:selected .table-cell {
+    -fx-text-fill: #ffffff;
+}
+
+/* Scrollbar dark theme */
+.table-view .scroll-bar {
+    -fx-background-color: #0a1628;
+}
+
+.table-view .scroll-bar .thumb {
+    -fx-background-color: #1a3a5c;
+    -fx-background-radius: 4px;
+}
+
+.table-view .scroll-bar .thumb:hover {
+    -fx-background-color: #378ADD;
+}
+
+/* Placeholder text */
+.table-view .placeholder .label {
+    -fx-text-fill: #7ecfff;
+    -fx-font-family: "Press Start 2P";
+    -fx-font-size: 9px;
+}
