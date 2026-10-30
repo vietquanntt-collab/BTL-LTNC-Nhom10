@@ -13,7 +13,6 @@
     </properties>
 
     <dependencies>
-        <!-- Thư viện JavaFX để làm giao diện -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
