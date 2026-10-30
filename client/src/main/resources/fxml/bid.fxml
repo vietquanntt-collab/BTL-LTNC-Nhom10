@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+
+<AnchorPane prefHeight="501.0" prefWidth="926.0" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.btl.n8.Controller.BidController">
+   <children>
+
+      <!-- Return button -->
+      <Button layoutX="871.0" onAction="#Return" prefHeight="30.0" prefWidth="90.0" text="← Return" />
+
+      <!-- Background -->
+      <ImageView fitHeight="533.0" fitWidth="968.0" layoutY="-1.0" mouseTransparent="true" pickOnBounds="true" preserveRatio="true" AnchorPane.rightAnchor="-6.0">
+         <image><Image url="@../images/bidhome.png" /></image>
+      </ImageView>
+
+      <!-- Search field -->
+      <TextField fx:id="searchField" layoutX="30.0" layoutY="65.0" prefHeight="34.0" prefWidth="300.0" promptText="Search by Item ID..." stylesheets="@../css/style.css" />
+
+      <!-- Search button -->
+      <Button fx:id="searchButton" layoutX="340.0" layoutY="65.0" onAction="#handleSearch" prefHeight="34.0" prefWidth="90.0" text="Search" />
+
+      <!-- TableView -->
+      <TableView fx:id="itemTable" layoutX="30.0" layoutY="115.0" prefHeight="360.0" prefWidth="866.0" stylesheets="@../css/style.css">
+         <columns>
+            <TableColumn fx:id="colId" prefWidth="127.99999618530273" text="Item ID" />
+            <TableColumn fx:id="colName" prefWidth="249.59999084472656" text="Item Name" />
+            <TableColumn fx:id="colType" prefWidth="108.79998779296875" text="Type" />
+            <TableColumn fx:id="colPrice" prefWidth="185.60003662109375" text="Current Price" />
+            <TableColumn fx:id="colStatus" prefWidth="95.199951171875" text="Status" />
+            <TableColumn fx:id="colAction" prefWidth="99.2000732421875" text="Action" />
+         </columns>
+      </TableView>
+
+   </children>
+</AnchorPane>

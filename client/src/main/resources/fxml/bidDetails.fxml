@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.chart.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.text.*?>
+<VBox spacing="0"
+      xmlns="http://javafx.com/javafx/25"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.btl.n8.Controller.BidDetailController"
+      prefWidth="600.0"
+      style="-fx-background-color: #0d1b2a; -fx-background-radius: 10; -fx-border-color: #1a3a5c; -fx-border-radius: 10; -fx-border-width: 1;">
+
+    <!-- Header -->
+    <HBox alignment="CENTER_LEFT" spacing="0"
+          style="-fx-padding: 14 18 14 18; -fx-border-color: #1a3a5c; -fx-border-width: 0 0 1 0; -fx-background-color: #0a1628; -fx-background-radius: 10 10 0 0;">
+        <Label text="Item detail" textFill="#00ff88">
+            <font><Font name="Press Start 2P" size="13.0"/></font>
+        </Label>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button fx:id="closeBtn" text="✕" onAction="#handleClose"
+                style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-font-size: 16px; -fx-cursor: hand; -fx-text-fill: #00ff88;"/>
+    </HBox>
+
+    <!-- Body: ảnh + info -->
+    <HBox spacing="16" style="-fx-padding: 16 18 16 18;">
+
+        <!-- Ảnh item -->
+        <VBox alignment="CENTER"
+              prefWidth="160.0" prefHeight="160.0" minWidth="160.0" minHeight="160.0"
+              style="-fx-border-color: #1a3a5c; -fx-border-radius: 8; -fx-background-radius: 8; -fx-background-color: #112240;">
+            <ImageView fx:id="itemImage" fitWidth="150.0" fitHeight="150.0"
+                       preserveRatio="true" pickOnBounds="true"/>
+        </VBox>
+
+        <!-- Info -->
+        <VBox spacing="10" HBox.hgrow="ALWAYS">
+
+            <Label fx:id="itemName" text="-" textFill="#ffd700">
+                <font><Font name="Press Start 2P" size="11.0"/></font>
+            </Label>
+
+            <HBox spacing="6" alignment="CENTER_LEFT">
+                <Label text="Item ID" textFill="#7ecfff">
+                    <font><Font name="Press Start 2P" size="8.0"/></font>
+                </Label>
+                <Label fx:id="itemId" text="-" textFill="#ffffff">
+                    <font><Font name="Press Start 2P" size="8.0"/></font>
+                </Label>
+            </HBox>
+
+            <HBox spacing="6" alignment="CENTER_LEFT">
+                <Label text="Type" textFill="#7ecfff">
+                    <font><Font name="Press Start 2P" size="8.0"/></font>
+                </Label>
+                <Label fx:id="itemType" text="-" textFill="#ffffff">
+                    <font><Font name="Press Start 2P" size="8.0"/></font>
+                </Label>
+            </HBox>
+
+            <HBox spacing="6" alignment="CENTER_LEFT">
+                <Label text="Status" textFill="#7ecfff">
+                    <font><Font name="Press Start 2P" size="8.0"/></font>
+                </Label>
+                <Label fx:id="itemStatus" text="-"
+                       style="-fx-background-color: #00ff88; -fx-text-fill: #0a1628; -fx-padding: 2 8 2 8; -fx-background-radius: 99;">
+                    <font><Font name="Press Start 2P" size="8.0"/></font>
+                </Label>
+            </HBox>
+
+            <HBox spacing="6" alignment="CENTER_LEFT">
+                <Label text="Price" textFill="#7ecfff">
+                    <font><Font name="Press Start 2P" size="8.0"/></font>
+                </Label>
+                <Label fx:id="currentPrice" text="-" textFill="#ffd700">
+                    <font><Font name="Press Start 2P" size="13.0"/></font>
+                </Label>
+            </HBox>
+
+            <HBox spacing="6" alignment="CENTER_LEFT">
+                <Label text="Ends in" textFill="#7ecfff">
+                    <font><Font name="Press Start 2P" size="8.0"/></font>
+                </Label>
+                <Label fx:id="timerLabel" text="--:--:--" textFill="#ff6b6b">
+                    <font><Font name="Press Start 2P" size="9.0"/></font>
+                </Label>
+            </HBox>
+        </VBox>
+    </HBox>
+
+    <!-- Chart -->
+    <VBox style="-fx-padding: 0 18 12 18; -fx-border-color: #1a3a5c; -fx-border-width: 1 0 0 0;">
+        <Label text="Price history" textFill="#7ecfff"
+               style="-fx-padding: 10 0 6 0;">
+            <font><Font name="Press Start 2P" size="9.0"/></font>
+        </Label>
+        <LineChart fx:id="bidChart" prefHeight="150.0"
+                   animated="false"
+                   style="-fx-background-color: transparent; -fx-padding: 0;">
+            <xAxis><CategoryAxis fx:id="xAxis"/></xAxis>
+            <yAxis><NumberAxis fx:id="yAxis"/></yAxis>
+        </LineChart>
+    </VBox>
+
+    <!-- Bid input -->
+    <HBox spacing="8" alignment="CENTER_LEFT"
+          style="-fx-padding: 12 18 14 18; -fx-border-color: #1a3a5c; -fx-border-width: 1 0 0 0;">
+        <TextField fx:id="bidInput" promptText="Enter your bid (₫)"
+                   prefHeight="36.0" HBox.hgrow="ALWAYS"
+                   stylesheets="@../css/style.css"/>
+
+        <!-- StackPane đè ImageView lên Button -->
+        <StackPane prefWidth="120.0" prefHeight="36.0">
+            <Button fx:id="bidButton" text="" onAction="#handlePlaceBid"
+                    prefWidth="120.0" prefHeight="36.0"
+                    style="-fx-background-color: transparent; -fx-border-color: transparent;"/>
+            <ImageView fitWidth="120.0" fitHeight="36.0"
+                       mouseTransparent="true" pickOnBounds="false" preserveRatio="false">
+                <image><Image url="@../images/PlaceBid.png"/></image>
+            </ImageView>
+        </StackPane>
+
+        <!-- AutoBid button -->
+        <Button fx:id="autoBidButton" onAction="#handleOpenAutoBid"
+                prefHeight="36.0" prefWidth="100.0"
+                style="-fx-background-color: #0f2035; -fx-text-fill: #ffd700; -fx-border-color: #ffd700; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand; -fx-border-width: 1.5;">
+            <graphic>
+                <HBox spacing="4" alignment="CENTER">
+                    <Label text="⚡" style="-fx-font-size: 12px;"/>
+                    <Label text="AutoBid" style="-fx-text-fill: #ffd700;">
+                        <font><Font name="Press Start 2P" size="6.5"/></font>
+                    </Label>
+                </HBox>
+            </graphic>
+        </Button>
+
+        <Label fx:id="bidMsg" text="">
+            <font><Font name="Press Start 2P" size="8.0"/></font>
+        </Label>
+    </HBox>
+
+</VBox>
