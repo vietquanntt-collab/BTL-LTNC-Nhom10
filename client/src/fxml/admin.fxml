@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane prefHeight="680.0" prefWidth="1100.0" stylesheets="@../css/admin.css" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.btl.n8.Controller.AdminController">
+
+    <!-- ══════════════════════ SIDEBAR ══════════════════════ -->
+    <left>
+        <VBox prefWidth="200.0" styleClass="sidebar">
+            <!-- Logo -->
+            <VBox styleClass="sidebar-logo">
+                <Label styleClass="logo-title" text="⚡ AuctionAdmin" />
+                <Label styleClass="logo-sub" text="Admin panel" />
+            </VBox>
+
+            <!-- Admin account info -->
+            <HBox styleClass="admin-info">
+                <Label styleClass="admin-icon" text="👤 " />
+                <Label fx:id="lblAdminAccount" styleClass="admin-name" text="admin" />
+            </HBox>
+
+            <Separator styleClass="sidebar-sep" />
+
+            <!-- Nav -->
+            <Label styleClass="nav-section" text="Overall" />
+            <Button fx:id="navDashboard" maxWidth="Infinity" onAction="#onNavDashboard" styleClass="nav-btn,nav-active" text="📊  Dashboard" />
+
+            <Label styleClass="nav-section" text="Manage" />
+            <Button fx:id="navUsers" maxWidth="Infinity" onAction="#onNavUsers" styleClass="nav-btn" text="👥  Users" />
+            <Button fx:id="navAuctions" maxWidth="Infinity" onAction="#onNavAuctions" styleClass="nav-btn" text="🔨  Auction session" />
+            <Button fx:id="navItems" maxWidth="Infinity" onAction="#onNavItems" styleClass="nav-btn" text="📦  Items" />
+
+            <!-- Spacer -->
+            <Region VBox.vgrow="ALWAYS" />
+
+            <Separator styleClass="sidebar-sep" />
+            <Button maxWidth="Infinity" onAction="#onLogout" styleClass="nav-btn,logout-btn" text="🚪  Log out" />
+            <VBox.margin>
+                <Insets bottom="12" />
+            </VBox.margin>
+        </VBox>
+    </left>
+
+    <!-- ══════════════════════ MAIN CONTENT ══════════════════════ -->
+    <center>
+        <StackPane fx:id="contentArea" styleClass="content-area">
+
+            <!-- ── USER PANEL ─────────────────────────────────────── -->
+            <VBox fx:id="panelUsers" managed="false" spacing="12" styleClass="panel" visible="false">
+                <VBox.margin><Insets topRightBottomLeft="20" /></VBox.margin>
+
+                <HBox alignment="CENTER_LEFT" spacing="12">
+                    <Label styleClass="panel-title" text="👥 Quản lý Người dùng" />
+                    <Region HBox.hgrow="ALWAYS" />
+                    <Button onAction="#onNavUsers" styleClass="btn-reload" text="🔄 Tải lại" />
+                </HBox>
+                <Label styleClass="panel-sub" text="Nâng cấp / hạ cấp / xóa tài khoản người dùng" />
+
+                <TableView fx:id="tableUsers" styleClass="data-table" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colUserId" prefWidth="55" text="ID" />
+                        <TableColumn fx:id="colUserAccount" prefWidth="180" text="Tài khoản" />
+                        <TableColumn fx:id="colUserRole" prefWidth="90" text="Role" />
+                        <TableColumn fx:id="colUserBalance" prefWidth="130" text="Số dư" />
+                        <TableColumn fx:id="colUserActions" prefWidth="280" text="Thao tác" />
+                    </columns>
+                    <placeholder>
+                        <Label styleClass="table-placeholder" text="Không có dữ liệu" />
+                    </placeholder>
+                </TableView>
+            </VBox>
+
+            <!-- ── AUCTION PANEL ──────────────────────────────────── -->
+            <VBox fx:id="panelAuctions" managed="false" spacing="12" styleClass="panel" visible="false">
+                <VBox.margin><Insets topRightBottomLeft="20" /></VBox.margin>
+
+                <HBox alignment="CENTER_LEFT" spacing="12">
+                    <Label styleClass="panel-title" text="Quản lý Phiên đấu giá" />
+                    <Region HBox.hgrow="ALWAYS" />
+                    <Button onAction="#onNavAuctions" styleClass="btn-reload" text="Tải lại" />
+                </HBox>
+                <Label styleClass="panel-sub" text="Đóng sớm hoặc hủy các phiên vi phạm" />
+
+                <TableView fx:id="tableAuctions" styleClass="data-table" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colAuctionId" prefWidth="50" text="ID" />
+                        <TableColumn fx:id="colAuctionItemId" prefWidth="75" text="Item ID" />
+                        <TableColumn fx:id="colAuctionStartPrice" prefWidth="110" text="Giá KĐ" />
+                        <TableColumn fx:id="colAuctionCurrentPrice" prefWidth="120" text="Giá hiện tại" />
+                        <TableColumn fx:id="colAuctionStatus" prefWidth="100" text="Trạng thái" />
+                        <TableColumn fx:id="colAuctionEndTime" prefWidth="150" text="Kết thúc" />
+                        <TableColumn fx:id="colAuctionActions" prefWidth="200" text="Thao tác" />
+                    </columns>
+                    <placeholder>
+                        <Label styleClass="table-placeholder" text="Không có dữ liệu" />
+                    </placeholder>
+                </TableView>
+            </VBox>
+
+            <!-- ── ITEM PANEL ─────────────────────────────────────── -->
+            <VBox fx:id="panelItems" managed="false" spacing="12" styleClass="panel" visible="false">
+                <VBox.margin><Insets topRightBottomLeft="20" /></VBox.margin>
+
+                <HBox alignment="CENTER_LEFT" spacing="12">
+                    <Label styleClass="panel-title" text="📦 Quản lý Vật phẩm" />
+                    <Region HBox.hgrow="ALWAYS" />
+                    <Button onAction="#onNavItems" styleClass="btn-reload" text="🔄 Tải lại" />
+                </HBox>
+                <Label styleClass="panel-sub" text="Xóa vật phẩm vi phạm khỏi hệ thống" />
+
+                <TableView fx:id="tableItems" styleClass="data-table" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colItemId" prefWidth="55" text="ID" />
+                        <TableColumn fx:id="colItemName" prefWidth="250" text="Tên vật phẩm" />
+                        <TableColumn fx:id="colItemType" prefWidth="120" text="Loại" />
+                        <TableColumn fx:id="colItemSeller" prefWidth="100" text="Seller ID" />
+                        <TableColumn fx:id="colItemActions" prefWidth="100" text="Thao tác" />
+                    </columns>
+                    <placeholder>
+                        <Label styleClass="table-placeholder" text="Không có dữ liệu" />
+                    </placeholder>
+                </TableView>
+            </VBox>
+
+            <!-- ── DASHBOARD PANEL ───────────────────────────────── -->
+            <VBox fx:id="panelDashboard" spacing="16" styleClass="panel">
+                <VBox.margin><Insets topRightBottomLeft="20" /></VBox.margin>
+
+                <Label styleClass="panel-title" text="Dashboard" />
+                <Label styleClass="panel-sub" text="Auction System Overall" />
+
+                <!-- Stat cards -->
+                <GridPane hgap="12" vgap="12">
+                    <!-- Row 0 -->
+                    <VBox styleClass="stat-card" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                        <Label styleClass="stat-label" text="Users" />
+                        <Label fx:id="lblTotalUsers" styleClass="stat-value" text="—" />
+                        <Label styleClass="stat-tag tag-blue" text="Number of account" />
+                    </VBox>
+                    <VBox styleClass="stat-card" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                        <Label styleClass="stat-label" text="Auction session" />
+                        <Label fx:id="lblTotalAuctions" styleClass="stat-value" text="—" />
+                        <Label styleClass="stat-tag tag-blue" text="Sum" />
+                    </VBox>
+                    <VBox styleClass="stat-card" GridPane.columnIndex="2" GridPane.rowIndex="0">
+                        <Label styleClass="stat-label" text="OPENING" />
+                        <Label fx:id="lblOpenAuctions" styleClass="stat-value" text="—" />
+                        <Label styleClass="stat-tag tag-green" text="OPENING auction" />
+                    </VBox>
+
+                    <!-- Row 1 -->
+                    <VBox styleClass="stat-card" GridPane.columnIndex="0" GridPane.rowIndex="1">
+                        <Label styleClass="stat-label" text="Item" />
+                        <Label fx:id="lblTotalItems" styleClass="stat-value" text="—" />
+                        <Label styleClass="stat-tag tag-blue" text="Total items" />
+                    </VBox>
+                    <VBox styleClass="stat-card" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                        <Label styleClass="stat-label" text="Seller" />
+                        <Label fx:id="lblTotalSellers" styleClass="stat-value" text="—" />
+                        <Label styleClass="stat-tag tag-green" text="Number" />
+                    </VBox>
+                    <VBox styleClass="stat-card" GridPane.columnIndex="2" GridPane.rowIndex="1">
+                        <Label styleClass="stat-label" text="Canceled" />
+                        <Label fx:id="lblCancelledAuctions" styleClass="stat-value" text="—" />
+                        <Label styleClass="stat-tag tag-red" text="CANCELLED auction" />
+                    </VBox>
+
+                    <columnConstraints>
+                        <ColumnConstraints hgrow="ALWAYS" minWidth="180" />
+                        <ColumnConstraints hgrow="ALWAYS" minWidth="180" />
+                        <ColumnConstraints hgrow="ALWAYS" minWidth="180" />
+                    </columnConstraints>
+               <rowConstraints>
+                  <RowConstraints />
+                  <RowConstraints />
+               </rowConstraints>
+                </GridPane>
+
+                <!-- Quick tip -->
+                <VBox styleClass="info-box">
+                    <Label styleClass="info-title" text="💡 Quick Tips" />
+                    <Label styleClass="info-line" text="- Users: upgrade Bidder → Seller, downgrade users, or delete violating accounts." />
+                    <Label styleClass="info-line" text="- Auctions: close early (CLOSED) or cancel violating auctions (CANCELLED)." />
+                    <Label styleClass="info-line" text="- Items: remove violating items from the system." />
+                </VBox>
+            </VBox>
+
+        </StackPane>
+    </center>
+
+</BorderPane>

@@ -1,0 +1,9 @@
+.root {
+    /* Ép font cho toàn bộ ứng dụng */
+    -fx-font-family: 'Press Start 2P';
+}
+/* Riêng cho ô nhập liệu */
+.text-field {
+    -fx-font-family: 'Press Start 2P';
+    -fx-font-size: 12px;
+}
