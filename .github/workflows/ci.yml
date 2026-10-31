@@ -1,4 +1,4 @@
-name: Nhóm 10 CI
+name: Nhom 10 - Week 1 CI
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 jobs:
-  common:
+  week1:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,5 +16,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Compile and test common contract
-        run: mvn -B -pl common -am clean verify
+      - name: Make Maven Wrapper executable
+        run: chmod +x mvnw
+      - name: Build and test week 1 baseline
+        run: ./mvnw -B -pl common,server,client -am clean verify

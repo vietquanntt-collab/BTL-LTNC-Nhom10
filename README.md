@@ -1,49 +1,66 @@
 # Nhóm 10 - Online Auction System
 
-Repository cho BTL Lập trình nâng cao của Nhóm 10. Tuần 1 tập trung xây dựng nền tảng độc lập gồm contract dùng chung, schema dữ liệu, tài liệu kiến trúc và kiểm thử contract.
+Đây là baseline tích hợp của tuần 1 cho BTL Lập trình nâng cao.
+Tuần 1 khóa contract dùng chung, schema dữ liệu, cấu trúc Maven, tài liệu kiến trúc và CI. Các luồng nghiệp vụ mạng, đấu giá và giao diện hoàn chỉnh được phát triển ở tuần 2 trở đi.
 
-> Hai file thử nghiệm `test.md` và `testt.cpp` không thuộc hệ thống đấu giá và không được đưa vào project.
+## Cấu trúc repository
 
-## Phạm vi hiện tại của TV1
+- `common/`: enum, request/response/event contract và contract test; không chứa JDBC hoặc JavaFX.
+- `server/`: server skeleton của tuần 1; chưa có socket hay nghiệp vụ đấu giá.
+- `client/`: JavaFX shell của tuần 1; chưa kết nối network.
+- `database/`: migration, seed và data dictionary SQLite.
+- `docs/`: ADR, protocol contract, sơ đồ và handoff.
+- `.github/workflows/`: CI chạy build/test bằng JDK 21.
 
-- `common/`: contract dùng chung giữa client và server, không truy cập DB.
-- `database/`: migration và seed SQLite local, cùng data dictionary.
-- `docs/`: ADR, class/sequence diagram và protocol v1.
-- `.mvn/wrapper/`: Maven Wrapper script, properties và JAR để build trên máy sạch.
+## Công nghệ đã khóa
 
-Server và client sẽ được thêm vào các tuần tiếp theo. Repository này được tổ chức độc lập, không phụ thuộc vào thư mục hay dịch vụ bên ngoài.
+- Java 21.
+- Maven Wrapper.
+- TCP/JSON là protocol đích; serializer chỉ được đặt ở module network.
+- SQLite local là đường chạy mặc định.
+- JUnit 5 cho contract test.
+- GitHub Actions cho CI.
 
-## Các quyết định đã khóa ở tuần 1
+## Kiểm tra baseline tuần 1
 
-- Java 21, Maven multi-module.
-- TCP Socket + JSON; chỉ dùng một serializer ở module network.
-- SQLite local là đường chạy mặc định; DB cloud là tùy chọn, không chứa credential trong Git.
-- Tất cả tiền lưu bằng số nguyên `cents`; thời gian là ISO-8601 UTC.
-- Chỉ server truy cập database; client chỉ gửi/nhận DTO.
-- `requestId` dùng cho idempotency; `event sequence` dùng để giữ thứ tự realtime.
+Từ thư mục repository:
 
-## Hướng dẫn đọc
-
-1. Đọc [`docs/adr/ADR-001-target-architecture.md`](docs/adr/ADR-001-target-architecture.md) và ADR-002 trước khi sửa DTO/schema.
-2. Chạy migration theo thứ tự trong [`database/README.md`](database/README.md).
-3. Chỉ đưa thay đổi contract qua PR có review của TV1.
-
-## Kiểm tra tuần 1
-
-Nếu máy đã có Maven:
-
-```bash
-mvn -B -pl common -am clean verify
+```powershell
+.\mvnw.cmd -B -pl common,server,client -am clean verify
 ```
 
-Khi Maven Wrapper đã được khởi tạo đầy đủ:
+Lệnh kiểm tra nhanh chỉ cho contract dùng chung:
 
-```bash
+```powershell
 .\mvnw.cmd -B -pl common -am clean verify
 ```
 
-Schema local có thể kiểm tra bằng SQLite CLI theo hướng dẫn trong `database/README.md`.
+Hai lệnh trên chỉ build các module skeleton của baseline tuần 1; không chạy server nghiệp vụ, client network, Auto-Bid, Anti-Snipe hoặc scheduler.
 
-## Quy tắc thay đổi contract
+Nếu Maven Wrapper báo không ghi được vào `C:\.m2`, dùng thiết lập thư mục người dùng trong phiên terminal hiện tại:
 
-Không đổi tên field, enum hoặc event đã công bố trong protocol v1 ở giữa một tuần mà không có version/adapter. Nếu cần thay đổi, cập nhật ADR và `docs/contracts/protocol-v1.md` trong cùng PR.
+```powershell
+$env:JAVA_TOOL_OPTIONS = "-Duser.home=$env:USERPROFILE"
+.\mvnw.cmd -B -pl common -am clean verify
+Remove-Item Env:JAVA_TOOL_OPTIONS
+```
+
+Không commit các thư mục `target/`, file `.class` hoặc database runtime.
+
+## Database local
+
+Chạy các script theo thứ tự trong `database/README.md`:
+
+1. `database/migrations/V001__core_schema.sql`
+2. `database/migrations/V002__advanced_schema.sql`
+3. `database/seed/V001__demo_seed.sql`
+
+Không commit file `*.db`; chỉ server được phép truy cập database khi phần nghiệp vụ được tích hợp.
+
+## Quy tắc nhánh
+
+```text
+feature/* -> develop -> main
+```
+
+`main` chỉ nhận release đã review. Mỗi thành viên làm việc trên feature branch và tạo Pull Request vào `develop`.
