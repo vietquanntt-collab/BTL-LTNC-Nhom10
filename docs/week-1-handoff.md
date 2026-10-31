@@ -12,6 +12,7 @@
 - SQLite core/advanced schema, index, constraint, migration và demo seed.
 - Data dictionary, ADR, protocol contract, class diagram và place-bid sequence diagram.
 - Server skeleton và JavaFX shell để các thành viên bắt đầu tuần 2 trên cùng cấu trúc.
+- UI state contract v1 trong `client/state/UIState`, gồm `LOADING`, `EMPTY`, `ERROR`, `RECONNECTING`, `CLOSED`.
 - GitHub Actions chạy build/test baseline.
 
 ## Tiêu chí nghiệm thu tuần 1
