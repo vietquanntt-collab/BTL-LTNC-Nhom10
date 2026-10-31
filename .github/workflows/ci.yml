@@ -1,32 +1,22 @@
-name: CI
+name: Nhom 10 - Week 1 CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 jobs:
-  build-and-test:
+  week1:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up JDK 21
-      uses: actions/setup-java@v5
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-
-    - name: Build and run tests
-      run: |
-        if [ -f "./mvnw" ]; then
-          chmod +x ./mvnw
-          ./mvnw clean test
-        elif [ -f "pom.xml" ]; then
-          mvn clean test
-        else
-          echo "Chưa có pom.xml, hoàn tất kiểm tra cấu trúc tuần 1."
-        fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Make Maven Wrapper executable
+        run: chmod +x mvnw
+      - name: Build and test week 1 baseline
+        run: ./mvnw -B -pl common,server,client -am clean verify

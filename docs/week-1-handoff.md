@@ -1,38 +1,53 @@
-# TV1 week 1 handoff
+# Nhóm 10 - Week 1 handoff
 
-**Owner:** TV1 - Kiến trúc & dữ liệu
-**Deadline:** Chủ nhật tuần 1, 20:00 (PR vào `develop`)
+**Phạm vi:** baseline tích hợp tuần 1 của cả nhóm
+**Nhánh phát hành:** `main` chỉ giữ bản đã nghiệm thu
+**Nhánh tích hợp:** `develop`
 
-## Delivered
+## Đã hoàn thành
 
-- Repository root POM, Maven Wrapper configuration and `common` module skeleton.
-- Protocol v1 enums/envelopes under `com.btl.team10.common`.
-- Contract tests for enum values, request identity, response error and event sequence.
-- SQLite core/advanced schema and idempotency/audit tables.
-- Demo seed and data dictionary using cents, UTC timestamps and hashed demo passwords.
-- ADR-001 target architecture, ADR-002 protocol/database and ADR-003 identity/config.
-- Class diagram and place-bid sequence diagram in Mermaid.
+- Root Maven POM và Maven Wrapper dùng Java 21.
+- Ba module có cấu trúc rõ ràng: `common`, `server`, `client`.
+- Protocol v1 trong `common`, gồm enum, request/response/event envelope và contract test.
+- SQLite core/advanced schema, index, constraint, migration và demo seed.
+- Data dictionary, ADR, protocol contract, class diagram và place-bid sequence diagram.
+- Server skeleton và JavaFX shell để các thành viên bắt đầu tuần 2 trên cùng cấu trúc.
+- GitHub Actions chạy build/test baseline.
 
-## Contract for other members
+## Tiêu chí nghiệm thu tuần 1
 
-- Import package `com.btl.team10.common.*`.
-- Do not add JDBC/JavaFX dependency to `common`.
-- Use `AuctionStatus` and `BidStatus` values exactly as defined in protocol v1.
-- Server actions/events must use `requestId`, `errorCode`, `eventId` and `sequence` fields.
-- Schema changes require a new migration file and an ADR update in the same PR.
+- Clone sạch nhận đúng Maven Wrapper và build được bằng JDK 21.
+- `common` biên dịch được; contract test kiểm tra enum, request identity, response error và event sequence.
+- Migration chạy theo thứ tự trên SQLite sạch; seed tạo được dữ liệu demo.
+- Không có file build, database runtime, conflict marker hoặc file thử nghiệm ngoài hệ thống.
+- Không có tài liệu truy nguyên nguồn code cũ trong baseline phát hành.
 
-## Verification command
+## Lệnh xác minh
 
-From `BTL/`:
-
-```bash
-mvn -B -pl common -am clean verify
+```powershell
+.\mvnw.cmd -B -pl common,server,client -am clean verify
 ```
 
-The command requires JDK 21 or a Maven installation. The repository includes the Maven Wrapper script, properties and JAR, so a clean clone does not need Maven preinstalled. The parent build sets `useModulePath=false` for this contract-only module so JUnit test sources compile on the ordinary classpath while the common API remains Java 21 compatible. In this sandbox, `mvn -DskipTests=true -pl common -am verify` succeeds and produces `common/target/auction-common-0.1.0-SNAPSHOT.jar`; the test source also compiles. Running the final Surefire phase is blocked only because this local Maven cache lacks `surefire-junit-platform`, while CI will resolve it normally. If the wrapper cannot download its Maven distribution in a restricted environment, use any local Maven 3.8+ installation to run the same command.
+Khi chỉ cần kiểm tra contract tuần 1:
 
-## Next owners
+```powershell
+.\mvnw.cmd -B -pl common -am clean verify
+```
 
-- TV2: consume common protocol and create server/network skeleton without changing v1 fields.
-- TV3: consume common enums/envelopes through a client adapter; use mock JSON until TV2 endpoints are ready.
-- TV4: extend contract tests and CI with server/client modules after their skeletons are merged.
+Kiểm tra migration và seed trên SQLite sạch:
+
+```powershell
+sqlite3 :memory: ".read database/migrations/V001__core_schema.sql" ".read database/migrations/V002__advanced_schema.sql" ".read database/seed/V001__demo_seed.sql"
+```
+
+## Kết quả kiểm tra trước khi chuyển sang tuần 2
+
+- `mvn validate`: PASS.
+- Biên dịch `common`, `server`, `client` bằng Java 21: PASS.
+- Migration/seed SQLite in-memory, chạy lặp migration và seed: PASS; có 9 bảng đích, 4 user demo, 1 item và 1 auction demo.
+- Không còn conflict marker, file thử nghiệm rác, file build hoặc database runtime được theo dõi trong Git.
+- Contract test JUnit cần chạy lại trên máy thành viên bằng terminal VS Code bình thường. Môi trường kiểm tra tự động bị `AccessDeniedException` khi javac đóng JAR `junit-jupiter-engine` trong cache `C:\Users\HP\.m2`; đây là giới hạn môi trường, chưa kết luận test logic hỏng.
+
+## Phạm vi tuần 2
+
+Tuần 2 mới được thêm socket server, repository/service, authentication, JavaFX screen, network adapter và các luồng nghiệp vụ. Các thành phần này phải đi qua feature branch và Pull Request vào `develop`.
