@@ -13,6 +13,7 @@ Biên bản này chỉ đánh giá baseline tích hợp tuần 1 trên nhánh `f
 - ADR, protocol contract, class diagram, place-bid sequence diagram.
 - Server entry point dạng skeleton, không mở socket và không xử lý nghiệp vụ.
 - JavaFX shell có FXML, chưa kết nối network.
+- UI state contract v1 trong `client/state/UIState`, gồm `LOADING`, `EMPTY`, `ERROR`, `RECONNECTING`, `CLOSED`.
 - GitHub Actions chạy `clean verify` bằng JDK 21.
 
 ## Kiểm tra đã thực hiện
