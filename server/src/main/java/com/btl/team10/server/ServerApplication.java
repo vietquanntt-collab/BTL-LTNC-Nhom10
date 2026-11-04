@@ -1,11 +1,64 @@
 package com.btl.team10.server;
 
-/** Week 1 server entry point; network and business services arrive in week 2. */
+import com.btl.team10.server.config.DatabaseConnection;
+import com.btl.team10.server.repository.UserRepository;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.sql.Connection;
+import java.sql.Statement;
+
 public final class ServerApplication {
+
     private ServerApplication() {
     }
 
     public static void main(String[] args) {
-        System.out.println("Auction server skeleton - week 1");
+        System.out.println("Auction server - Week 2 baseline");
+
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            if (conn != null && !conn.isClosed()) {
+                System.out.println("-> Ket noi SQLite thanh cong!");
+
+                // Tim thu muc migrations
+                File dir = new File("database/migrations");
+                if (!dir.exists()) {
+                    dir = new File("../database/migrations");
+                }
+
+                File[] sqlFiles = dir.listFiles((d, name) -> name.startsWith("V001") && name.endsWith(".sql"));
+                if (sqlFiles != null && sqlFiles.length > 0) {
+                    File schemaFile = sqlFiles[0];
+                    String content = Files.readString(schemaFile.toPath());
+
+                    // Loc bo comment va tach cac lenh SQL hop le
+                    String cleanContent = content.replaceAll("(?m)^--.*$", "");
+                    String[] queries = cleanContent.split(";");
+
+                    try (Statement stmt = conn.createStatement()) {
+                        for (String query : queries) {
+                            String trimmed = query.trim();
+                            if (!trimmed.isEmpty()) {
+                                stmt.execute(trimmed);
+                            }
+                        }
+                    }
+                    System.out.println("-> Da tao bang thanh cong tu file: " + schemaFile.getName());
+                }
+
+                // Chay thu UserRepository
+                UserRepository userRepo = new UserRepository();
+                userRepo.createUser("seller1", "hash123", "SELLER");
+
+                var user = userRepo.findByAccount("seller1");
+                if (user.isPresent()) {
+                    System.out.println("-> Test UserRepository THANH CONG: account=" + user.get().account() + ", role=" + user.get().role());
+                } else {
+                    System.err.println("-> Test that bai: khong tim thay user!");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("-> Loi: " + e.getMessage());
+        }
     }
 }
