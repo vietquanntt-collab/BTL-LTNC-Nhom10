@@ -2,6 +2,8 @@ package com.btl.team10.server;
 
 import com.btl.team10.server.config.DatabaseConnection;
 import com.btl.team10.server.repository.UserRepository;
+import com.btl.team10.server.repository.ItemRepository;
+import com.btl.team10.server.repository.AuctionRepository;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -55,6 +57,23 @@ public final class ServerApplication {
                     System.out.println("-> Test UserRepository THANH CONG: account=" + user.get().account() + ", role=" + user.get().role());
                 } else {
                     System.err.println("-> Test that bai: khong tim thay user!");
+                }
+                // Test Item & Auction Repository theo schema chuan
+                var userOpt = userRepo.findByAccount("seller1");
+                if (userOpt.isPresent()) {
+                    long sellerId = userOpt.get().userId();
+
+                    ItemRepository itemRepo = new ItemRepository();
+                    var itemOpt = itemRepo.createItem(sellerId, "The bai hiem", "The bai co so luong gioi han", "CARD", null);
+                    if (itemOpt.isPresent()) {
+                        System.out.println("-> Tao item THANH CONG, ID: " + itemOpt.get().itemId());
+
+                        AuctionRepository auctionRepo = new AuctionRepository();
+                        var auctionOpt = auctionRepo.createAuction(itemOpt.get().itemId(), 50000L, 5000L, 24);
+                        if (auctionOpt.isPresent()) {
+                            System.out.println("-> Tao auction THANH CONG, ID: " + auctionOpt.get().auctionId());
+                        }
+                    }
                 }
             }
         } catch (Exception e) {
