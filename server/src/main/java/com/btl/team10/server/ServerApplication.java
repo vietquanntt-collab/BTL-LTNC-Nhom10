@@ -75,6 +75,19 @@ public final class ServerApplication {
                         }
                     }
                 }
+                // Test Session & Role Authorization
+                com.btl.team10.server.session.SessionManager sessionManager = new com.btl.team10.server.session.SessionManager();
+                com.btl.team10.server.session.AuthService authService = new com.btl.team10.server.session.AuthService(userRepo, sessionManager);
+
+                var sessionOpt = authService.login("seller1", "hash123");
+                if (sessionOpt.isPresent()) {
+                    var session = sessionOpt.get();
+                    System.out.println("-> Dang nhap THANH CONG! Token: " + session.token());
+                    System.out.println("-> Kiem tra quyen SELLER: " + sessionManager.hasRole(session.token(), "SELLER"));
+                    System.out.println("-> Kiem tra quyen ADMIN: " + sessionManager.hasRole(session.token(), "ADMIN"));
+                } else {
+                    System.err.println("-> Dang nhap that bai!");
+                }
             }
         } catch (Exception e) {
             System.err.println("-> Loi: " + e.getMessage());
