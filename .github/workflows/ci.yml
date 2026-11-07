@@ -20,3 +20,11 @@ jobs:
         run: chmod +x mvnw
       - name: Build and test week 1 baseline
         run: ./mvnw -B -pl common,server,client -am clean verify
+      - name: Upload Surefire Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-test-reports
+          path: |
+            **/target/surefire-reports/*.xml
+            **/target/surefire-reports/*.txt
