@@ -5,14 +5,16 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
-/** Week 1 JavaFX shell; network integration arrives in week 2. */
-public final class ClientApp extends Application {
+public class ClientApp extends Application {
+
     @Override
-    public void start(Stage stage) throws Exception {
-        FXMLLoader loader = new FXMLLoader(ClientApp.class.getResource("/fxml/shell.fxml"));
-        stage.setTitle("Online Auction System - Nhom 10");
-        stage.setScene(new Scene(loader.load(), 640, 360));
-        stage.show();
+    public void start(Stage primaryStage) throws Exception {
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/btl/team10/client/view/MainShell.fxml"));
+        Scene scene = new Scene(loader.load());
+
+        primaryStage.setTitle("Online Auction System - Client Shell");
+        primaryStage.setScene(scene);
+        primaryStage.show();
     }
 
     public static void main(String[] args) {
