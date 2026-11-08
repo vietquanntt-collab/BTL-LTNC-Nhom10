@@ -13,8 +13,8 @@ public class MainShellController {
     @FXML
     public void initialize() {
         NavigationManager.getInstance().setContentArea(mainContentArea);
-        // Mặc định hiển thị trạng thái Loading khi khởi tạo
-        NavigationManager.getInstance().switchState(UIState.LOADING);
+        // Hiển thị form Login khi vừa mở ứng dụng
+        NavigationManager.getInstance().loadView("/com/btl/team10/client/view/Login.fxml");
     }
 
     @FXML
