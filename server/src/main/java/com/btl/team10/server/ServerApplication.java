@@ -1,10 +1,14 @@
 package com.btl.team10.server;
 
+import java.sql.Connection;
+import com.btl.team10.server.persistence.DatabaseConnectionFactory;
+import com.btl.team10.server.repository.JdbcUserRepository;
+import com.btl.team10.server.repository.JdbcItemRepository;
+import com.btl.team10.server.repository.JdbcAuctionRepository;
+
 import com.btl.team10.server.config.DatabaseConnection;
 import com.btl.team10.server.network.AuctionSocketServer;
-import com.btl.team10.server.repository.AuctionRepository;
-import com.btl.team10.server.repository.ItemRepository;
-import com.btl.team10.server.repository.UserRepository;
+import com.btl.team10.server.repository.*;
 import com.btl.team10.server.session.AuthService;
 import com.btl.team10.server.session.SessionManager;
 
@@ -24,7 +28,7 @@ public final class ServerApplication {
     private ServerApplication() {
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception{
         System.out.println("Auction server - Week 2 baseline");
 
         try (Connection conn = DatabaseConnection.getConnection()) {
@@ -49,12 +53,12 @@ public final class ServerApplication {
                         }
                     }
                 }
-
-                UserRepository userRepo = new UserRepository();
+                Connection connection = DatabaseConnectionFactory.open("jdbc:sqlite:auction.db");
+                UserRepository userRepo = new JdbcUserRepository(connection);
                 userRepo.createUser("seller1", "hash123", "SELLER");
 
-                ItemRepository itemRepo = new ItemRepository();
-                AuctionRepository auctionRepo = new AuctionRepository();
+                ItemRepository itemRepo = new JdbcItemRepository(connection);
+                AuctionRepository auctionRepo = new JdbcAuctionRepository(connection);
                 SessionManager sessionManager = new SessionManager();
                 AuthService authService = new AuthService(userRepo, sessionManager);
 

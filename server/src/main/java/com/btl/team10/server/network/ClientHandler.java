@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 
 public class ClientHandler implements Runnable {
 
@@ -63,46 +64,49 @@ public class ClientHandler implements Runnable {
         String[] parts = line.split("\\|", -1);
         String action = parts[0].toUpperCase();
 
-        return switch (action) {
-            case "LOGIN" -> {
-                if (parts.length < 3) yield "ERROR|Thieu thong tin LOGIN (dung LOGIN|account|password)";
-                var sessionOpt = authService.login(parts[1], parts[2]);
-                yield sessionOpt.map(s -> "SUCCESS|LOGIN|" + s.token() + "|" + s.account() + "|" + s.role())
-                        .orElse("ERROR|Sai tai khoan hoac mat khau");
-            }
-            case "CREATE_ITEM" -> {
-                if (parts.length < 5) yield "ERROR|Thieu tham so CREATE_ITEM (dung CREATE_ITEM|token|name|itemType|desc)";
-                String token = parts[1];
-                if (!sessionManager.hasRole(token, "SELLER")) yield "ERROR|Tu choi: Yeu cau quyen SELLER";
-
-                var session = sessionManager.getSession(token).get();
-                var itemOpt = itemRepo.createItem(session.userId(), parts[2], parts[4], parts[3], null);
-                yield itemOpt.map(item -> "SUCCESS|CREATE_ITEM|" + item.itemId())
-                        .orElse("ERROR|Tao item that bai");
-            }
-            case "CREATE_AUCTION" -> {
-                if (parts.length < 6) yield "ERROR|Thieu tham so CREATE_AUCTION (dung CREATE_AUCTION|token|itemId|startPrice|minInc|hours)";
-                String token = parts[1];
-                if (!sessionManager.hasRole(token, "SELLER")) yield "ERROR|Tu choi: Yeu cau quyen SELLER";
-
-                try {
-                    long itemId = Long.parseLong(parts[2]);
-                    long startPrice = Long.parseLong(parts[3]);
-                    long minInc = Long.parseLong(parts[4]);
-                    int hours = Integer.parseInt(parts[5]);
-
-                    var auctionOpt = auctionRepo.createAuction(itemId, startPrice, minInc, hours);
-                    yield auctionOpt.map(a -> "SUCCESS|CREATE_AUCTION|" + a.auctionId())
-                            .orElse("ERROR|Tao auction that bai");
-                } catch (NumberFormatException e) {
-                    yield "ERROR|Sai dinh dang so";
+        try{
+            return switch (action) {
+                case "LOGIN" -> {
+                    if (parts.length < 3) yield "ERROR|Thieu thong tin LOGIN (dung LOGIN|account|password)";
+                    var sessionOpt = authService.login(parts[1], parts[2]);
+                    yield sessionOpt.map(s -> "SUCCESS|LOGIN|" + s.token() + "|" + s.account() + "|" + s.role())
+                            .orElse("ERROR|Sai tai khoan hoac mat khau");
                 }
-            }
-            case "LIST_AUCTIONS" -> {
-                var active = auctionRepo.findActiveAuctions();
-                yield "SUCCESS|LIST_AUCTIONS|COUNT=" + active.size();
-            }
-            default -> "ERROR|Hanh dong khong hop le: " + action;
-        };
+                case "CREATE_ITEM" -> {
+                    if (parts.length < 5) yield "ERROR|Thieu tham so CREATE_ITEM (dung CREATE_ITEM|token|name|itemType|desc)";
+                    String token = parts[1];
+                    if (!sessionManager.hasRole(token, "SELLER")) yield "ERROR|Tu choi: Yeu cau quyen SELLER";
+
+                    var session = sessionManager.getSession(token).get();
+                    long itemId = itemRepo.createItem(session.userId(), parts[2], parts[4], parts[3], null);
+                    yield "SUCCESS|CREATE_ITEM|" + itemId;
+                }
+                case "CREATE_AUCTION" -> {
+                    if (parts.length < 6) yield "ERROR|Thieu tham so CREATE_AUCTION (dung CREATE_AUCTION|token|itemId|startPrice|minInc|hours)";
+                    String token = parts[1];
+                    if (!sessionManager.hasRole(token, "SELLER")) yield "ERROR|Tu choi: Yeu cau quyen SELLER";
+
+                    try {
+                        long itemId = Long.parseLong(parts[2]);
+                        long startPrice = Long.parseLong(parts[3]);
+                        long minInc = Long.parseLong(parts[4]);
+                        int hours = Integer.parseInt(parts[5]);
+
+                        var auctionOpt = auctionRepo.createAuction(itemId, startPrice, minInc, hours);
+                        long auctionId = auctionRepo.createAuction(itemId, startPrice, minInc, hours);
+                        yield "SUCCESS|CREATE_AUCTION|" + auctionId;
+                    } catch (NumberFormatException e) {
+                        yield "ERROR|Sai dinh dang so";
+                    }
+                }
+                case "LIST_AUCTIONS" -> {
+                    var active = auctionRepo.findActiveAuctions();
+                    yield "SUCCESS|LIST_AUCTIONS|COUNT=" + active.size();
+                }
+                default -> "ERROR|Hanh dong khong hop le: " + action;
+            };
+        } catch (SQLException e) {
+            return "ERROR|Loi co so du lieu: " + e.getMessage();
+        }
     }
 }

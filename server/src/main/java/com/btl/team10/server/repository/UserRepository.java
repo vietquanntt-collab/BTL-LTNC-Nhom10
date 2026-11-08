@@ -1,52 +1,23 @@
 package com.btl.team10.server.repository;
 
-import com.btl.team10.server.config.DatabaseConnection;
+import com.btl.team10.common.dto.UserDto;
+import com.btl.team10.common.model.Role;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
 
-public class UserRepository {
+public interface UserRepository {
+    Optional<UserDto> findById(long userId) throws SQLException;
 
-    public record UserRecord(long userId, String account, String passwordHash, String role) {}
+    Optional<UserDto> findByAccount(String account) throws SQLException;
 
-    public Optional<UserRecord> findByAccount(String account) {
-        String sql = "SELECT user_id, account, password_hash, role FROM users WHERE account = ?";
+    long insert(String account, String passwordHash, Role role) throws SQLException;
+
+    // Default method tương thích với ServerApplication cũ
+    default boolean createUser(String account, String passwordHash, String role) {
         try {
-            Connection conn = DatabaseConnection.getConnection();
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, account);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    if (rs.next()) {
-                        return Optional.of(new UserRecord(
-                                rs.getLong("user_id"),
-                                rs.getString("account"),
-                                rs.getString("password_hash"),
-                                rs.getString("role")
-                        ));
-                    }
-                }
-            }
+            return insert(account, passwordHash, Role.valueOf(role.toUpperCase())) > 0;
         } catch (SQLException e) {
-            System.err.println("Loi truy van findByAccount: " + e.getMessage());
-        }
-        return Optional.empty();
-    }
-
-    public boolean createUser(String account, String passwordHash, String role) {
-        String sql = "INSERT INTO users (account, password_hash, role) VALUES (?, ?, ?)";
-        try {
-            Connection conn = DatabaseConnection.getConnection();
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, account);
-                stmt.setString(2, passwordHash);
-                stmt.setString(3, role);
-                return stmt.executeUpdate() > 0;
-            }
-        } catch (SQLException e) {
-            System.err.println("Loi tao user: " + e.getMessage());
             return false;
         }
     }
