@@ -12,4 +12,13 @@ public interface UserRepository {
     Optional<UserDto> findByAccount(String account) throws SQLException;
 
     long insert(String account, String passwordHash, Role role) throws SQLException;
+
+    // Default method tương thích với ServerApplication cũ
+    default boolean createUser(String account, String passwordHash, String role) {
+        try {
+            return insert(account, passwordHash, Role.valueOf(role.toUpperCase())) > 0;
+        } catch (SQLException e) {
+            return false;
+        }
+    }
 }
