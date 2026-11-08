@@ -28,6 +28,15 @@ public class AuctionRepository {
     ) {}
 
     public Optional<AuctionRecord> createAuction(long itemId, long startPriceCents, long minIncrementCents, int durationHours) {
+        if (startPriceCents < 0) {
+            throw new com.btl.team10.server.exception.ValidationException("Gia khoi diem khong the am");
+        }
+        if (minIncrementCents <= 0) {
+            throw new com.btl.team10.server.exception.ValidationException("Buoc gia toi thieu phai lon hon 0");
+        }
+        if (durationHours < 1) {
+            throw new com.btl.team10.server.exception.ValidationException("Thoi gian dau gia toi thieu phai tu 1 gio tro len");
+        }
         String sql = "INSERT INTO auctions (item_id, start_price_cents, current_price_cents, min_increment_cents, start_at, end_at, status) " +
                 "VALUES (?, ?, ?, ?, ?, ?, 'OPEN')";
         try {
