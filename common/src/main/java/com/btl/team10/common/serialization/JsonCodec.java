@@ -9,6 +9,7 @@ import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.Objects;
@@ -28,6 +29,14 @@ public final class JsonCodec {
     }
 
     public static <T> T fromJson(String json, Class<T> targetType) {
+        Objects.requireNonNull(targetType, "targetType");
+        if (json == null || json.isBlank()) {
+            throw new JsonParseException("JSON input must not be blank");
+        }
+        return GSON.fromJson(json, targetType);
+    }
+
+    public static <T> T fromJson(String json, Type targetType) {
         Objects.requireNonNull(targetType, "targetType");
         if (json == null || json.isBlank()) {
             throw new JsonParseException("JSON input must not be blank");

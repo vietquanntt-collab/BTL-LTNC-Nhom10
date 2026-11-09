@@ -30,7 +30,7 @@ class RepositoryIntegrationTest {
 
     @Test
     void migrationsSeedAndCoreRepositoriesWorkTogether() throws Exception {
-        Path databaseRoot = Path.of("..", "database").toAbsolutePath().normalize();
+        Path databaseRoot = databaseRoot();
         try (Connection connection = DatabaseConnectionFactory.open("jdbc:sqlite::memory:")) {
             DatabaseInitializer.initialize(connection, databaseRoot, true);
             DatabaseInitializer.initialize(connection, databaseRoot, true);
@@ -104,5 +104,12 @@ class RepositoryIntegrationTest {
                 return result.next();
             }
         }
+    }
+
+    private static Path databaseRoot() {
+        Path fromRepository = Path.of("database");
+        return Files.isDirectory(fromRepository.resolve("migrations"))
+                ? fromRepository.toAbsolutePath().normalize()
+                : Path.of("..", "database").toAbsolutePath().normalize();
     }
 }

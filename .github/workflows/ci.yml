@@ -1,4 +1,4 @@
-name: Nhom 10 - Week 1 CI
+name: Nhom 10 - Week 2 CI
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 jobs:
-  week1:
+  week2:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,13 +18,13 @@ jobs:
           cache: maven
       - name: Make Maven Wrapper executable
         run: chmod +x mvnw
-      - name: Build and test week 1 baseline
-        run: ./mvnw -B -pl common,server,client -am clean verify
+      - name: Build and test week 2
+        run: ./mvnw -B clean verify
       - name: Upload Surefire Test Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: surefire-test-reports
+          name: week2-surefire-test-reports
           path: |
             **/target/surefire-reports/*.xml
             **/target/surefire-reports/*.txt

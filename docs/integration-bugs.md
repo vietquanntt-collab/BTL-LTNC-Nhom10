@@ -6,8 +6,8 @@ Tài liệu ghi chép các sự cố, sai lệch format giao thức TCP, lỗi s
 
 | STT | Mã lỗi / Tính năng | Thành phần | Mô tả chi tiết lỗi | Trạng thái | Người xử lý | Ghi chú / Phương án khắc phục |
 |---|---|---|---|---|---|---|
-| 01 | AUTH_01 | Client <-> Server | `LoginRequest` thiếu validation ký tự đặc biệt ở phía Client trước khi gửi Socket | Closed | TV3 | Đã thêm regex check tại client validation |
-| 02 | AUCTION_01 | Server <-> DB | Tạo Auction mới trả về `ERR_500` do chưa migration xong dữ liệu seed | Open | TV1 / TV2 | Chờ TV1 chạy lại script migration |
+| 01 | AUTH_01 | Client <-> Server | Client phải kiểm tra dữ liệu đăng nhập rỗng trước khi gửi socket | Closed | TV3 | `LoginController` chặn tài khoản hoặc mật khẩu trống và hiển thị lỗi ngay trên màn hình |
+| 02 | AUCTION_01 | Server <-> DB | Tạo Auction mới trả về `ERR_500` do chưa migration xong dữ liệu seed | Closed | TV1 / TV2 | `DatabaseInitializer` chạy migration/seed idempotent trước khi server mở socket; đã có integration test |
 
 ---
 

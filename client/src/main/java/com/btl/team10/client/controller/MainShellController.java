@@ -14,7 +14,7 @@ public class MainShellController {
     public void initialize() {
         NavigationManager.getInstance().setContentArea(mainContentArea);
         // Hiển thị form Login khi vừa mở ứng dụng
-        NavigationManager.getInstance().loadView("/com/btl/team10/client/view/Login.fxml");
+        NavigationManager.getInstance().loadView("/com/btl/team10/client/view/login.fxml");
     }
 
     @FXML

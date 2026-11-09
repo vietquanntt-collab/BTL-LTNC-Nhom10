@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
+import java.util.ArrayList;
 
 public interface AuctionRepository {
     Optional<AuctionDto> findById(long auctionId) throws SQLException;
@@ -17,14 +18,18 @@ public interface AuctionRepository {
 
     long insert(CreateAuctionCommand command) throws SQLException;
 
-    // Default methods tương thích với ClientHandler cũ
     default List<AuctionDto> findActiveAuctions() throws SQLException {
-        return findByStatus(AuctionStatus.OPEN);
+        List<AuctionDto> active = new ArrayList<>(findByStatus(AuctionStatus.OPEN));
+        active.addAll(findByStatus(AuctionStatus.RUNNING));
+        return List.copyOf(active);
     }
 
-    default long createAuction(long itemId, long startPrice, long priceStep, int durationMinutes) throws SQLException {
+    default long createAuction(long itemId, long startPrice, long priceStep, int durationHours) throws SQLException {
         Instant now = Instant.now();
-        Instant endAt = now.plus(durationMinutes, ChronoUnit.MINUTES);
+        if (durationHours < 1) {
+            throw new IllegalArgumentException("durationHours must be at least 1");
+        }
+        Instant endAt = now.plus(durationHours, ChronoUnit.HOURS);
         return insert(new CreateAuctionCommand(itemId, startPrice, priceStep, now, endAt));
     }
 }

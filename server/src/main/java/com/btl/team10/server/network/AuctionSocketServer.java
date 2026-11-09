@@ -11,53 +11,76 @@ import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class AuctionSocketServer {
-
+/** Thread-per-connection TCP server for the week 2 request contract. */
+public final class AuctionSocketServer {
     private final int port;
     private final AuthService authService;
     private final SessionManager sessionManager;
-    private final ItemRepository itemRepo;
-    private final AuctionRepository auctionRepo;
-    private final ExecutorService threadPool = Executors.newCachedThreadPool();
-    private volatile boolean running = true;
+    private final ItemRepository itemRepository;
+    private final AuctionRepository auctionRepository;
+    private final Object databaseLock = new Object();
+    private final ExecutorService threadPool = Executors.newCachedThreadPool(runnable -> {
+        Thread thread = new Thread(runnable, "auction-client");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private volatile boolean running;
     private ServerSocket serverSocket;
 
-    public AuctionSocketServer(
-            int port,
-            AuthService authService,
-            SessionManager sessionManager,
-            ItemRepository itemRepo,
-            AuctionRepository auctionRepo
-    ) {
+    public AuctionSocketServer(int port, AuthService authService, SessionManager sessionManager,
+                               ItemRepository itemRepository, AuctionRepository auctionRepository) {
+        if (port < 0 || port > 65_535) {
+            throw new IllegalArgumentException("port must be between 0 and 65535");
+        }
         this.port = port;
         this.authService = authService;
         this.sessionManager = sessionManager;
-        this.itemRepo = itemRepo;
-        this.auctionRepo = auctionRepo;
+        this.itemRepository = itemRepository;
+        this.auctionRepository = auctionRepository;
     }
 
     public void start() throws IOException {
-        serverSocket = new ServerSocket(port);
-        System.out.println("-> Auction Socket Server dang lang nghe tai cong: " + port);
-
-        while (running) {
-            try {
-                Socket clientSocket = serverSocket.accept();
-                threadPool.submit(new ClientHandler(clientSocket, authService, sessionManager, itemRepo, auctionRepo));
-            } catch (IOException e) {
-                if (!running) break;
-                System.err.println("Loi accept socket: " + e.getMessage());
+        if (running) {
+            throw new IllegalStateException("server is already running");
+        }
+        running = true;
+        try (ServerSocket boundServer = new ServerSocket(port)) {
+            serverSocket = boundServer;
+            System.out.println("Auction socket server listening on port " + boundServer.getLocalPort());
+            while (running) {
+                try {
+                    Socket client = boundServer.accept();
+                    threadPool.submit(new ClientHandler(
+                            client, authService, sessionManager, itemRepository, auctionRepository,
+                            databaseLock));
+                } catch (IOException error) {
+                    if (running) {
+                        throw error;
+                    }
+                }
             }
+        } finally {
+            serverSocket = null;
+            running = false;
         }
     }
 
     public void stop() {
         running = false;
         try {
-            if (serverSocket != null && !serverSocket.isClosed()) {
+            if (serverSocket != null) {
                 serverSocket.close();
             }
-        } catch (IOException ignored) {}
-        threadPool.shutdown();
+        } catch (IOException ignored) {
+            // Closing the accept socket is best effort.
+        } finally {
+            threadPool.shutdownNow();
+        }
+    }
+
+    /** Returns the configured port, or the actual ephemeral port when configured as zero. */
+    public int boundPort() {
+        ServerSocket current = serverSocket;
+        return current == null ? port : current.getLocalPort();
     }
 }

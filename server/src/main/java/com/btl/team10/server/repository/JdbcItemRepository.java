@@ -25,7 +25,7 @@ public final class JdbcItemRepository implements ItemRepository {
     }
 
     @Override
-    public Optional<ItemDto> findById(long itemId) throws SQLException {
+    public synchronized Optional<ItemDto> findById(long itemId) throws SQLException {
         requirePositive(itemId, "itemId");
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT " + ITEM_COLUMNS + " FROM items WHERE item_id = ?")) {
@@ -37,7 +37,7 @@ public final class JdbcItemRepository implements ItemRepository {
     }
 
     @Override
-    public List<ItemDto> findBySeller(long sellerId) throws SQLException {
+    public synchronized List<ItemDto> findBySeller(long sellerId) throws SQLException {
         requirePositive(sellerId, "sellerId");
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT " + ITEM_COLUMNS + " FROM items WHERE seller_id = ? ORDER BY item_id")) {
@@ -53,7 +53,7 @@ public final class JdbcItemRepository implements ItemRepository {
     }
 
     @Override
-    public long insert(CreateItemCommand command) throws SQLException {
+    public synchronized long insert(CreateItemCommand command) throws SQLException {
         if (command == null) {
             throw new ValidationException("command", "must not be null");
         }

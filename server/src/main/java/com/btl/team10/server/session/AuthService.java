@@ -16,17 +16,19 @@ public class AuthService {
     }
 
     public Optional<SessionManager.UserSession> login(String account, String password) throws SQLException {
+        if (account == null || account.isBlank() || password == null || password.isBlank()) {
+            return Optional.empty();
+        }
         var userOpt = userRepository.findByAccount(account);
-        if (userOpt.isEmpty()) {
+        String passwordHash = userRepository.findPasswordHashByAccount(account);
+        if (userOpt.isEmpty() || !PasswordHasher.verify(password, passwordHash)) {
             return Optional.empty();
         }
-
         var user = userOpt.get();
-        // UserDto khong chua mat khau; xac thuc password hop le truoc khi tao session
-        if (password == null || password.isBlank()) {
-            return Optional.empty();
-        }
-
         return Optional.of(sessionManager.createSession(user.userId(), user.account(), user.role().name()));
+    }
+
+    public void logout(String token) {
+        sessionManager.removeSession(token);
     }
 }
