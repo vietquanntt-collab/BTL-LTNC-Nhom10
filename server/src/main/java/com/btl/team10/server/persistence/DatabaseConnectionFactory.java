@@ -29,6 +29,13 @@ public final class DatabaseConnectionFactory {
 
     public static Connection open(String jdbcUrl) throws SQLException {
         Objects.requireNonNull(jdbcUrl, "jdbcUrl");
+        // Explicit loading keeps the command-line launcher reliable when the
+        // SQLite driver is supplied on a plain class path instead of a module path.
+        try {
+            Class.forName("org.sqlite.JDBC");
+        } catch (ClassNotFoundException error) {
+            throw new SQLException("SQLite JDBC driver is not on the classpath", error);
+        }
         Connection connection = DriverManager.getConnection(jdbcUrl);
         try (Statement statement = connection.createStatement()) {
             statement.execute("PRAGMA foreign_keys = ON");

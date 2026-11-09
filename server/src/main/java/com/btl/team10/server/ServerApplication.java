@@ -1,112 +1,67 @@
 package com.btl.team10.server;
 
-import java.sql.Connection;
-import com.btl.team10.server.persistence.DatabaseConnectionFactory;
-import com.btl.team10.server.repository.JdbcUserRepository;
-import com.btl.team10.server.repository.JdbcItemRepository;
-import com.btl.team10.server.repository.JdbcAuctionRepository;
-
-import com.btl.team10.server.config.DatabaseConnection;
 import com.btl.team10.server.network.AuctionSocketServer;
-import com.btl.team10.server.repository.*;
+import com.btl.team10.server.persistence.DatabaseConnectionFactory;
+import com.btl.team10.server.persistence.DatabaseInitializer;
+import com.btl.team10.server.repository.AuctionRepository;
+import com.btl.team10.server.repository.ItemRepository;
+import com.btl.team10.server.repository.JdbcAuctionRepository;
+import com.btl.team10.server.repository.JdbcItemRepository;
+import com.btl.team10.server.repository.JdbcUserRepository;
+import com.btl.team10.server.repository.UserRepository;
 import com.btl.team10.server.session.AuthService;
 import com.btl.team10.server.session.SessionManager;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.Socket;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.Statement;
-import java.util.Arrays;
-import java.util.Comparator;
 
+/** Starts the week 2 server with one initialized SQLite database. */
 public final class ServerApplication {
+    private static final int DEFAULT_PORT = 9999;
 
     private ServerApplication() {
     }
 
-    public static void main(String[] args) throws Exception{
-        System.out.println("Auction server - Week 2 baseline");
+    public static void main(String[] args) throws Exception {
+        Path databaseRoot = resolveDatabaseRoot();
+        Path databaseFile = Path.of(System.getProperty("auction.db.path", "data/auction.db"));
+        boolean seed = Boolean.parseBoolean(System.getProperty("auction.db.seed", "true"));
+        int port = Integer.parseInt(System.getProperty("auction.server.port", String.valueOf(DEFAULT_PORT)));
 
-        try (Connection conn = DatabaseConnection.getConnection()) {
-            if (conn != null && !conn.isClosed()) {
-                System.out.println("-> Ket noi SQLite thanh cong!");
+        System.out.println("Auction server - week 2");
+        System.out.println("Database: " + databaseFile.toAbsolutePath().normalize());
+        System.out.println("Schema: " + databaseRoot.toAbsolutePath().normalize());
 
-                File dir = new File("database/migrations");
-                if (!dir.exists()) {
-                    dir = new File("../database/migrations");
-                }
+        try (Connection connection = DatabaseConnectionFactory.open(databaseFile)) {
+            DatabaseInitializer.initialize(connection, databaseRoot, seed);
 
-                if (dir.exists()) {
-                    File[] files = dir.listFiles((d, name) -> name.endsWith(".sql"));
-                    if (files != null) {
-                        java.util.Arrays.sort(files, java.util.Comparator.comparing(File::getName));
-                        for (File f : files) {
-                            String sql = java.nio.file.Files.readString(f.toPath());
-                            try (Statement stmt = conn.createStatement()) {
-                                stmt.executeUpdate(sql);
-                                System.out.println("-> Da tao bang thanh cong tu file: " + f.getName());
-                            }
-                        }
-                    }
-                }
-                Connection connection = DatabaseConnectionFactory.open("jdbc:sqlite:auction.db");
-                UserRepository userRepo = new JdbcUserRepository(connection);
-                userRepo.createUser("seller1", "hash123", "SELLER");
+            UserRepository userRepository = new JdbcUserRepository(connection);
+            ItemRepository itemRepository = new JdbcItemRepository(connection);
+            AuctionRepository auctionRepository = new JdbcAuctionRepository(connection);
+            SessionManager sessionManager = new SessionManager();
+            AuthService authService = new AuthService(userRepository, sessionManager);
+            AuctionSocketServer server = new AuctionSocketServer(
+                    port, authService, sessionManager, itemRepository, auctionRepository);
 
-                ItemRepository itemRepo = new JdbcItemRepository(connection);
-                AuctionRepository auctionRepo = new JdbcAuctionRepository(connection);
-                SessionManager sessionManager = new SessionManager();
-                AuthService authService = new AuthService(userRepo, sessionManager);
-
-                int port = 9999;
-                AuctionSocketServer server = new AuctionSocketServer(port, authService, sessionManager, itemRepo, auctionRepo);
-
-                // Chay server tren mot thread rieng
-                Thread serverThread = new Thread(() -> {
-                    try {
-                        server.start();
-                    } catch (Exception e) {
-                        System.err.println("Loi server: " + e.getMessage());
-                    }
-                });
-                serverThread.setDaemon(true);
-                serverThread.start();
-
-                // Doi 200ms de server san sang
-                Thread.sleep(200);
-
-                // Gia lap 1 client ket noi vao kiem tra socket baseline
-                try (
-                        Socket client = new Socket("localhost", port);
-                        java.io.BufferedReader in = new java.io.BufferedReader(new java.io.InputStreamReader(client.getInputStream()));
-                        java.io.PrintWriter out = new java.io.PrintWriter(client.getOutputStream(), true)
-                ) {
-                    // Test 1: Dang nhap
-                    out.println("LOGIN|seller1|hash123");
-                    String loginResp = in.readLine();
-                    System.out.println("-> Client nhan tu Socket (LOGIN): " + loginResp);
-
-                    String token = loginResp.split("\\|")[2];
-
-                    // Test 2: Tao Item qua socket
-                    out.println("CREATE_ITEM|" + token + "|Vat pham hiem|CARD|Mo ta vat pham");
-                    System.out.println("-> Client nhan tu Socket (CREATE_ITEM): " + in.readLine());
-
-                    // Test 3: Lay danh sach Auction
-                    out.println("LIST_AUCTIONS");
-                    System.out.println("-> Client nhan tu Socket (LIST_AUCTIONS): " + in.readLine());
-
-                    out.println("QUIT");
-                }
-
-                System.out.println("-> TEST SOCKET BASELINE TUAN 2 HOAN TAT 100%!");
-            }
-        } catch (Exception e) {
-            System.err.println("-> Loi: " + e.getMessage());
+            Runtime.getRuntime().addShutdownHook(new Thread(server::stop, "auction-server-shutdown"));
+            server.start();
         }
+    }
+
+    static Path resolveDatabaseRoot() {
+        String configured = System.getProperty("auction.database.root");
+        if (configured != null && !configured.isBlank()) {
+            return Path.of(configured).toAbsolutePath().normalize();
+        }
+        Path current = Path.of("database");
+        if (Files.isDirectory(current.resolve("migrations"))) {
+            return current;
+        }
+        Path parent = Path.of("..", "database");
+        if (Files.isDirectory(parent.resolve("migrations"))) {
+            return parent;
+        }
+        throw new IllegalStateException("Cannot find database/migrations from the current directory");
     }
 }

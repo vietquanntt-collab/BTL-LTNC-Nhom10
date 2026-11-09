@@ -22,8 +22,8 @@
     <!-- Nhãn hiển thị lỗi Validation -->
     <Label fx:id="errorLabel" textFill="#e74c3c" visible="false" style="-fx-font-weight: bold;"/>
 
-    <TextField fx:id="usernameField" promptText="Tên đăng nhập (Thử: admin)" maxWidth="250" prefHeight="35"/>
-    <PasswordField fx:id="passwordField" promptText="Mật khẩu (Thử: 123456)" maxWidth="250" prefHeight="35"/>
+    <TextField fx:id="usernameField" promptText="Tên đăng nhập (seller hoặc bidder1)" maxWidth="250" prefHeight="35"/>
+    <PasswordField fx:id="passwordField" promptText="Mật khẩu seed" maxWidth="250" prefHeight="35"/>
 
     <Button text="Đăng nhập" onAction="#handleLogin" prefWidth="250" prefHeight="40"
             style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>

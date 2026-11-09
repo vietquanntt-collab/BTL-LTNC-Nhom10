@@ -1,9 +1,21 @@
 package com.btl.team10.server.network;
 
+import com.btl.team10.common.dto.CreateAuctionCommand;
+import com.btl.team10.common.dto.CreateItemCommand;
+import com.btl.team10.common.dto.ItemDto;
+import com.btl.team10.common.model.ItemType;
+import com.btl.team10.common.protocol.ErrorCode;
+import com.btl.team10.common.protocol.RequestEnvelope;
+import com.btl.team10.common.protocol.ResponseEnvelope;
+import com.btl.team10.common.serialization.JsonCodec;
 import com.btl.team10.server.repository.AuctionRepository;
 import com.btl.team10.server.repository.ItemRepository;
 import com.btl.team10.server.session.AuthService;
 import com.btl.team10.server.session.SessionManager;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -11,102 +23,273 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.time.Instant;
+import java.util.Objects;
+import java.util.Locale;
+import java.util.Optional;
 
-public class ClientHandler implements Runnable {
-
+/** Handles one line-delimited connection using the shared JSON contract. */
+public final class ClientHandler implements Runnable {
     private final Socket socket;
     private final AuthService authService;
     private final SessionManager sessionManager;
-    private final ItemRepository itemRepo;
-    private final AuctionRepository auctionRepo;
+    private final ItemRepository itemRepository;
+    private final AuctionRepository auctionRepository;
+    private final Object databaseLock;
 
-    public ClientHandler(
-            Socket socket,
-            AuthService authService,
-            SessionManager sessionManager,
-            ItemRepository itemRepo,
-            AuctionRepository auctionRepo
-    ) {
+    public ClientHandler(Socket socket, AuthService authService, SessionManager sessionManager,
+                         ItemRepository itemRepository, AuctionRepository auctionRepository) {
+        this(socket, authService, sessionManager, itemRepository, auctionRepository, new Object());
+    }
+
+    ClientHandler(Socket socket, AuthService authService, SessionManager sessionManager,
+                  ItemRepository itemRepository, AuctionRepository auctionRepository,
+                  Object databaseLock) {
         this.socket = socket;
         this.authService = authService;
         this.sessionManager = sessionManager;
-        this.itemRepo = itemRepo;
-        this.auctionRepo = auctionRepo;
+        this.itemRepository = itemRepository;
+        this.auctionRepository = auctionRepository;
+        this.databaseLock = Objects.requireNonNull(databaseLock, "databaseLock");
     }
 
     @Override
     public void run() {
-        try (
-                BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
-                PrintWriter writer = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8)
-        ) {
+        try (BufferedReader reader = new BufferedReader(
+                     new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+             PrintWriter writer = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8)) {
             String line;
             while ((line = reader.readLine()) != null) {
-                line = line.trim();
-                if (line.equalsIgnoreCase("QUIT") || line.equalsIgnoreCase("EXIT")) {
-                    writer.println("BYE");
+                if (line.isBlank()) {
+                    continue;
+                }
+                boolean quit = isQuit(line.trim());
+                String response;
+                synchronized (databaseLock) {
+                    response = line.trim().startsWith("{")
+                            ? handleJson(line.trim()) : handlePipe(line.trim());
+                }
+                writer.println(response);
+                if (quit) {
                     break;
                 }
-
-                String response = handleCommand(line);
-                writer.println(response);
             }
-        } catch (Exception e) {
-            System.err.println("ClientHandler loi ket noi: " + e.getMessage());
+        } catch (Exception error) {
+            System.err.println("Client connection failed: " + error.getMessage());
         } finally {
             try {
                 socket.close();
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                // Socket is already being closed.
+            }
         }
     }
 
-    private String handleCommand(String line) {
-        String[] parts = line.split("\\|", -1);
-        String action = parts[0].toUpperCase();
+    private String handleJson(String line) {
+        RequestEnvelope request;
+        try {
+            request = JsonCodec.fromJson(line, RequestEnvelope.class);
+            JsonElement payloadElement = JsonParser.parseString(request.payloadJson());
+            if (!payloadElement.isJsonObject()) {
+                return failure(request, ErrorCode.INVALID_REQUEST, "payload must be an object");
+            }
+            JsonObject payload = payloadElement.getAsJsonObject();
+            return switch (request.action().toUpperCase(Locale.ROOT)) {
+                case "LOGIN" -> login(request, payload);
+                case "LOGOUT" -> logout(request);
+                case "LIST_AUCTIONS" -> listAuctions(request);
+                case "CREATE_ITEM" -> createItem(request, payload);
+                case "CREATE_AUCTION" -> createAuction(request, payload);
+                default -> failure(request, ErrorCode.INVALID_REQUEST,
+                        "Unknown action: " + request.action());
+            };
+        } catch (RequestFailure error) {
+            return failureFor(line, error.code, error.getMessage());
+        } catch (JsonParseException | IllegalArgumentException error) {
+            return failureFor(line, ErrorCode.INVALID_REQUEST, "Invalid request");
+        } catch (SQLException error) {
+            return failureFor(line, ErrorCode.INTERNAL_ERROR, "Database error");
+        }
+    }
 
-        try{
+    private String login(RequestEnvelope request, JsonObject payload) throws SQLException {
+        Optional<SessionManager.UserSession> session = authService.login(
+                requiredString(payload, "account"), requiredString(payload, "password"));
+        if (session.isEmpty()) {
+            return failure(request, ErrorCode.AUTHENTICATION_FAILED, "Invalid account or password");
+        }
+        SessionManager.UserSession value = session.get();
+        JsonObject result = new JsonObject();
+        result.addProperty("userId", value.userId());
+        result.addProperty("account", value.account());
+        result.addProperty("role", value.role());
+        return success(request, value.token(), result.toString());
+    }
+
+    private String logout(RequestEnvelope request) {
+        authService.logout(request.sessionId());
+        return success(request, null, "{}");
+    }
+
+    private String listAuctions(RequestEnvelope request) throws SQLException {
+        requireSession(request, null);
+        return success(request, request.sessionId(), JsonCodec.toJson(auctionRepository.findActiveAuctions()));
+    }
+
+    private String createItem(RequestEnvelope request, JsonObject payload) throws SQLException {
+        SessionManager.UserSession session = requireSession(request, "SELLER");
+        CreateItemCommand command = new CreateItemCommand(
+                session.userId(), requiredString(payload, "name"), optionalString(payload, "description"),
+                ItemType.valueOf(requiredString(payload, "itemType").toUpperCase(Locale.ROOT)),
+                optionalString(payload, "imageBase64"));
+        JsonObject result = new JsonObject();
+        result.addProperty("itemId", itemRepository.insert(command));
+        return success(request, request.sessionId(), result.toString());
+    }
+
+    private String createAuction(RequestEnvelope request, JsonObject payload) throws SQLException {
+        SessionManager.UserSession session = requireSession(request, "SELLER");
+        long itemId = requiredLong(payload, "itemId");
+        ItemDto item = itemRepository.findById(itemId).orElseThrow(
+                () -> new RequestFailure(ErrorCode.NOT_FOUND, "Item does not exist"));
+        if (item.sellerId() != session.userId()) {
+            return failure(request, ErrorCode.FORBIDDEN, "Seller does not own this item");
+        }
+        long startPrice = requiredLong(payload, "startPriceCents");
+        long minimumIncrement = requiredLong(payload, "minIncrementCents");
+        long durationHours = requiredLong(payload, "durationHours");
+        if (durationHours < 1 || durationHours > 720) {
+            return failure(request, ErrorCode.VALIDATION_ERROR,
+                    "durationHours must be between 1 and 720");
+        }
+        Instant startAt = Instant.now();
+        long auctionId = auctionRepository.insert(new CreateAuctionCommand(
+                itemId, startPrice, minimumIncrement, startAt, startAt.plusSeconds(durationHours * 3600)));
+        JsonObject result = new JsonObject();
+        result.addProperty("auctionId", auctionId);
+        return success(request, request.sessionId(), result.toString());
+    }
+
+    private SessionManager.UserSession requireSession(RequestEnvelope request, String role) {
+        SessionManager.UserSession session = sessionManager.getSession(request.sessionId()).orElseThrow(
+                () -> new RequestFailure(ErrorCode.AUTHENTICATION_FAILED, "Login is required"));
+        if (role != null && !role.equalsIgnoreCase(session.role())) {
+            throw new RequestFailure(ErrorCode.FORBIDDEN, "Role " + role + " is required");
+        }
+        return session;
+    }
+
+    private String handlePipe(String line) {
+        String[] parts = line.split("\\|", -1);
+        String action = parts.length == 0 ? "" : parts[0].toUpperCase(Locale.ROOT);
+        try {
             return switch (action) {
+                case "QUIT", "EXIT" -> "BYE";
                 case "LOGIN" -> {
-                    if (parts.length < 3) yield "ERROR|Thieu thong tin LOGIN (dung LOGIN|account|password)";
-                    var sessionOpt = authService.login(parts[1], parts[2]);
-                    yield sessionOpt.map(s -> "SUCCESS|LOGIN|" + s.token() + "|" + s.account() + "|" + s.role())
-                            .orElse("ERROR|Sai tai khoan hoac mat khau");
+                    if (parts.length != 3) yield "ERROR|LOGIN requires account and password";
+                    Optional<SessionManager.UserSession> session = authService.login(parts[1], parts[2]);
+                    yield session.map(value -> "SUCCESS|LOGIN|" + value.token() + "|"
+                                    + value.account() + "|" + value.role())
+                            .orElse("ERROR|Invalid account or password");
                 }
                 case "CREATE_ITEM" -> {
-                    if (parts.length < 5) yield "ERROR|Thieu tham so CREATE_ITEM (dung CREATE_ITEM|token|name|itemType|desc)";
-                    String token = parts[1];
-                    if (!sessionManager.hasRole(token, "SELLER")) yield "ERROR|Tu choi: Yeu cau quyen SELLER";
-
-                    var session = sessionManager.getSession(token).get();
-                    long itemId = itemRepo.createItem(session.userId(), parts[2], parts[4], parts[3], null);
+                    if (parts.length != 5) yield "ERROR|CREATE_ITEM requires token, name, itemType and description";
+                    SessionManager.UserSession session = requirePipeSession(parts[1], "SELLER");
+                    long itemId = itemRepository.insert(new CreateItemCommand(
+                            session.userId(), parts[2], parts[4],
+                            ItemType.valueOf(parts[3].toUpperCase(Locale.ROOT)), null));
                     yield "SUCCESS|CREATE_ITEM|" + itemId;
                 }
                 case "CREATE_AUCTION" -> {
-                    if (parts.length < 6) yield "ERROR|Thieu tham so CREATE_AUCTION (dung CREATE_AUCTION|token|itemId|startPrice|minInc|hours)";
-                    String token = parts[1];
-                    if (!sessionManager.hasRole(token, "SELLER")) yield "ERROR|Tu choi: Yeu cau quyen SELLER";
-
-                    try {
-                        long itemId = Long.parseLong(parts[2]);
-                        long startPrice = Long.parseLong(parts[3]);
-                        long minInc = Long.parseLong(parts[4]);
-                        int hours = Integer.parseInt(parts[5]);
-
-                        var auctionOpt = auctionRepo.createAuction(itemId, startPrice, minInc, hours);
-                        long auctionId = auctionRepo.createAuction(itemId, startPrice, minInc, hours);
-                        yield "SUCCESS|CREATE_AUCTION|" + auctionId;
-                    } catch (NumberFormatException e) {
-                        yield "ERROR|Sai dinh dang so";
-                    }
+                    if (parts.length != 6) yield "ERROR|CREATE_AUCTION requires token, itemId, startPrice, minIncrement and durationHours";
+                    SessionManager.UserSession session = requirePipeSession(parts[1], "SELLER");
+                    long itemId = Long.parseLong(parts[2]);
+                    ItemDto item = itemRepository.findById(itemId).orElseThrow(
+                            () -> new IllegalArgumentException("Item does not exist"));
+                    if (item.sellerId() != session.userId()) yield "ERROR|Seller does not own this item";
+                    long startPrice = Long.parseLong(parts[3]);
+                    long minimumIncrement = Long.parseLong(parts[4]);
+                    long durationHours = Long.parseLong(parts[5]);
+                    if (durationHours < 1 || durationHours > 720) yield "ERROR|Invalid durationHours";
+                    Instant startAt = Instant.now();
+                    long auctionId = auctionRepository.insert(new CreateAuctionCommand(
+                            itemId, startPrice, minimumIncrement, startAt,
+                            startAt.plusSeconds(durationHours * 3600)));
+                    yield "SUCCESS|CREATE_AUCTION|" + auctionId;
                 }
-                case "LIST_AUCTIONS" -> {
-                    var active = auctionRepo.findActiveAuctions();
-                    yield "SUCCESS|LIST_AUCTIONS|COUNT=" + active.size();
-                }
-                default -> "ERROR|Hanh dong khong hop le: " + action;
+                case "LIST_AUCTIONS" -> "SUCCESS|LIST_AUCTIONS|COUNT="
+                        + auctionRepository.findActiveAuctions().size();
+                default -> "ERROR|Unknown action: " + action;
             };
-        } catch (SQLException e) {
-            return "ERROR|Loi co so du lieu: " + e.getMessage();
+        } catch (RequestFailure error) {
+            return "ERROR|" + error.getMessage();
+        } catch (SQLException | IllegalArgumentException error) {
+            return "ERROR|" + error.getMessage();
+        }
+    }
+
+    private SessionManager.UserSession requirePipeSession(String token, String role) {
+        SessionManager.UserSession session = sessionManager.getSession(token).orElseThrow(
+                () -> new RequestFailure(ErrorCode.AUTHENTICATION_FAILED, "Login is required"));
+        if (!session.role().equalsIgnoreCase(role)) {
+            throw new RequestFailure(ErrorCode.FORBIDDEN, "Role " + role + " is required");
+        }
+        return session;
+    }
+
+    private static String requiredString(JsonObject payload, String key) {
+        String value = optionalString(payload, key);
+        if (value == null || value.isBlank()) {
+            throw new RequestFailure(ErrorCode.VALIDATION_ERROR, key + " must not be blank");
+        }
+        return value.trim();
+    }
+
+    private static String optionalString(JsonObject payload, String key) {
+        JsonElement value = payload.get(key);
+        return value == null || value.isJsonNull() ? null : value.getAsString();
+    }
+
+    private static long requiredLong(JsonObject payload, String key) {
+        try {
+            return payload.get(key).getAsLong();
+        } catch (RuntimeException error) {
+            throw new RequestFailure(ErrorCode.VALIDATION_ERROR, key + " must be a number");
+        }
+    }
+
+    private static String success(RequestEnvelope request, String sessionId, String payload) {
+        return JsonCodec.toJson(ResponseEnvelope.success(
+                request.requestId(), request.action(), sessionId, payload));
+    }
+
+    private static String failure(RequestEnvelope request, ErrorCode code, String message) {
+        return JsonCodec.toJson(new ResponseEnvelope(
+                "v1", request.requestId(), request.action(), false, code, message,
+                request.sessionId(), "{}"));
+    }
+
+    private static String failureFor(String line, ErrorCode code, String message) {
+        try {
+            RequestEnvelope request = JsonCodec.fromJson(line, RequestEnvelope.class);
+            return failure(request, code, message);
+        } catch (RuntimeException ignored) {
+            return "{\"protocolVersion\":\"v1\",\"requestId\":\"unknown\","
+                    + "\"action\":\"INVALID\",\"ok\":false,\"errorCode\":\""
+                    + code + "\",\"message\":\"Invalid request\",\"sessionId\":null,\"payloadJson\":\"{}\"}";
+        }
+    }
+
+    private static boolean isQuit(String line) {
+        return line.equalsIgnoreCase("QUIT") || line.equalsIgnoreCase("EXIT");
+    }
+
+    private static final class RequestFailure extends RuntimeException {
+        private final ErrorCode code;
+
+        private RequestFailure(ErrorCode code, String message) {
+            super(message);
+            this.code = code;
         }
     }
 }

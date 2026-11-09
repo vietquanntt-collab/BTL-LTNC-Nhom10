@@ -27,7 +27,7 @@ public final class JdbcAuctionRepository implements AuctionRepository {
     }
 
     @Override
-    public Optional<AuctionDto> findById(long auctionId) throws SQLException {
+    public synchronized Optional<AuctionDto> findById(long auctionId) throws SQLException {
         requirePositive(auctionId, "auctionId");
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT " + AUCTION_COLUMNS + " FROM auctions WHERE auction_id = ?")) {
@@ -39,7 +39,7 @@ public final class JdbcAuctionRepository implements AuctionRepository {
     }
 
     @Override
-    public List<AuctionDto> findByStatus(AuctionStatus status) throws SQLException {
+    public synchronized List<AuctionDto> findByStatus(AuctionStatus status) throws SQLException {
         if (status == null) {
             throw new ValidationException("status", "must not be null");
         }
@@ -57,7 +57,7 @@ public final class JdbcAuctionRepository implements AuctionRepository {
     }
 
     @Override
-    public long insert(CreateAuctionCommand command) throws SQLException {
+    public synchronized long insert(CreateAuctionCommand command) throws SQLException {
         if (command == null) {
             throw new ValidationException("command", "must not be null");
         }

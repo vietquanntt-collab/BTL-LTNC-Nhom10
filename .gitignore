@@ -16,6 +16,7 @@ target/
 *.sqlite3
 .env
 config/local.properties
+.javafx-cache/
 
 # OS
 Thumbs.db

@@ -24,7 +24,7 @@ public final class JdbcUserRepository implements UserRepository {
     }
 
     @Override
-    public Optional<UserDto> findById(long userId) throws SQLException {
+    public synchronized Optional<UserDto> findById(long userId) throws SQLException {
         requirePositive(userId, "userId");
         String sql = "SELECT " + USER_COLUMNS
                 + " FROM users JOIN wallets ON wallets.user_id = users.user_id"
@@ -38,7 +38,7 @@ public final class JdbcUserRepository implements UserRepository {
     }
 
     @Override
-    public Optional<UserDto> findByAccount(String account) throws SQLException {
+    public synchronized Optional<UserDto> findByAccount(String account) throws SQLException {
         requireNonBlank(account, "account");
         String sql = "SELECT " + USER_COLUMNS
                 + " FROM users JOIN wallets ON wallets.user_id = users.user_id"
@@ -52,7 +52,19 @@ public final class JdbcUserRepository implements UserRepository {
     }
 
     @Override
-    public long insert(String account, String passwordHash, Role role) throws SQLException {
+    public synchronized String findPasswordHashByAccount(String account) throws SQLException {
+        requireNonBlank(account, "account");
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT password_hash FROM users WHERE account = ? COLLATE NOCASE")) {
+            statement.setString(1, account.trim());
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next() ? result.getString("password_hash") : null;
+            }
+        }
+    }
+
+    @Override
+    public synchronized long insert(String account, String passwordHash, Role role) throws SQLException {
         requireNonBlank(account, "account");
         requireNonBlank(passwordHash, "passwordHash");
         if (role == null) {

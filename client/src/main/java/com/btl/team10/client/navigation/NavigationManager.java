@@ -46,13 +46,24 @@ public class NavigationManager {
 
     // Load một View bất kỳ vào Shell
     public void loadView(String fxmlPath) {
+        loadView(fxmlPath, null);
+    }
+
+    /** Loads a view and returns its controller when the caller needs to update it. */
+    public <T> T loadView(String fxmlPath, Class<T> controllerType) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
             Node node = loader.load();
+            Object controller = loader.getController();
             contentArea.getChildren().setAll(node);
+            if (controllerType == null) {
+                return null;
+            }
+            return controllerType.cast(controller);
         } catch (IOException e) {
             switchState(UIState.ERROR);
             e.printStackTrace();
+            return null;
         }
     }
 }

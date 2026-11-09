@@ -3,7 +3,7 @@
 ## Transport
 
 - TCP, UTF-8, one JSON object per line.
-- Default server port: `9090` (configurable via `SERVER_PORT`).
+- Default server port: `9999` (configurable via `auction.server.port`).
 - Client must tolerate reconnect and duplicate response; server must use `requestId` for idempotency.
 - Timestamps are ISO-8601 UTC, for example `2026-10-22T12:30:00Z`.
 - Money fields end in `Cents` and are signed 64-bit integer values.
@@ -17,10 +17,10 @@
 | `LOGOUT` | empty | authenticated |
 | `LIST_AUCTIONS` | optional `status`, `page`, `pageSize` | authenticated |
 | `GET_AUCTION` | `auctionId` | authenticated |
-| `CREATE_ITEM` | `name`, `description`, `type`, `imageBase64?` | Seller |
+| `CREATE_ITEM` | `name`, `description`, `itemType`, `imageBase64?` | Seller |
 | `UPDATE_ITEM` | `itemId`, changed fields | owning Seller/Admin |
 | `DELETE_ITEM` | `itemId` | owning Seller/Admin |
-| `CREATE_AUCTION` | `itemId`, `startPriceCents`, `minIncrementCents`, `startAt`, `endAt` | owning Seller |
+| `CREATE_AUCTION` | `itemId`, `startPriceCents`, `minIncrementCents`, `durationHours` | owning Seller |
 | `PLACE_BID` | `auctionId`, `amountCents` | Bidder/Seller allowed by policy |
 | `SET_AUTO_BID` | `auctionId`, `maxAmountCents`, `incrementCents` | authenticated bidder |
 | `CANCEL_AUCTION` | `auctionId` | Admin/policy owner |
