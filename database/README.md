@@ -4,13 +4,15 @@ SQLite là đường chạy mặc định của repository đích. Chạy migrat
 
 1. `migrations/V001__core_schema.sql`
 2. `migrations/V002__advanced_schema.sql`
-3. `seed/V001__demo_seed.sql`
+3. `migrations/V003__bid_history.sql`
+4. `seed/V001__demo_seed.sql`
 
 Ví dụ với SQLite CLI:
 
 ```bash
 sqlite3 data/auction.db < database/migrations/V001__core_schema.sql
 sqlite3 data/auction.db < database/migrations/V002__advanced_schema.sql
+sqlite3 data/auction.db < database/migrations/V003__bid_history.sql
 sqlite3 data/auction.db < database/seed/V001__demo_seed.sql
 ```
 
@@ -21,6 +23,10 @@ PRAGMA foreign_keys = ON;
 ```
 
 Các migration có thể chạy lại an toàn nhờ `CREATE TABLE IF NOT EXISTS`, nhưng seed demo nên chạy một lần trên DB sạch. Không commit file `*.db`; thư mục `data/` chỉ là runtime.
+
+`V003__bid_history.sql` bổ sung lịch sử các bid đã được chấp nhận theo phiên bản
+optimistic của auction. Server tự chạy migration theo thứ tự tên file, vì vậy
+không cần chạy thủ công khi dùng `DatabaseInitializer`.
 
 ## Tài khoản demo local
 

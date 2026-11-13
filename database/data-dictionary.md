@@ -9,6 +9,7 @@
 | `items` | `item_id`, `seller_id`, `item_type` | Item belongs to a seller. Type is `CARD`, `FIGURE` or `POSTER`. |
 | `auctions` | `auction_id`, `item_id`, `status`, `version` | One auction per item. `end_at > start_at`. `current_price_cents >= start_price_cents`. |
 | `bids` | `bid_id`, `auction_id`, `bidder_id`, `client_request_id` | Every bid belongs to one auction and bidder. Request id is unique for a bidder retry on an auction. |
+| `bid_history` | `history_id`, `bid_id`, `auction_id`, `auction_version` | Append-only audit row for each accepted bid version. One history row belongs to one bid; version is unique and ordered within an auction. |
 
 ## Advanced and audit tables
 
@@ -37,3 +38,11 @@ No code may place a bid unless the auction is `RUNNING`. No code may settle an a
 3. Negative money and `frozen_cents > balance_cents` are rejected.
 4. A duplicate `(auction_id, bidder_id, client_request_id)` is rejected or returns the saved receipt.
 5. A second settlement for one auction does not change balances.
+
+## Week 3 bid write contract
+
+`JdbcBidRepository.placeBid` reads the auction version, checks `RUNNING` and
+minimum increment, conditionally updates `current_price_cents` and `version`,
+inserts the bid, and appends `bid_history` in one transaction. A stale version
+returns a conflict and a repeated `(auction_id, bidder_id, client_request_id)`
+returns the original result without inserting a second bid.

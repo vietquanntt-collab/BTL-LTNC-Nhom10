@@ -24,3 +24,24 @@ VALUES (
   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+2 hours'),
   'RUNNING'
 );
+
+-- Two deterministic bidder records make the week 3 history/concurrency demo
+-- reproducible. The first bid is already outbid by the second one.
+INSERT OR IGNORE INTO bids(
+  bid_id, auction_id, bidder_id, amount_cents, bid_time, status, client_request_id
+)
+VALUES
+  (1, 1, 3, 105000, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-4 minutes'), 'OUTBID', 'seed-bidder1-1'),
+  (2, 1, 4, 110000, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 minutes'), 'ACTIVE', 'seed-bidder2-1');
+
+UPDATE auctions
+SET current_price_cents = 110000, version = 2
+WHERE auction_id = 1 AND version = 0;
+
+INSERT OR IGNORE INTO bid_history(
+  history_id, bid_id, auction_id, bidder_id, amount_cents, bid_time, status,
+  client_request_id, auction_version
+)
+VALUES
+  (1, 1, 1, 3, 105000, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-4 minutes'), 'ACTIVE', 'seed-bidder1-1', 1),
+  (2, 2, 1, 4, 110000, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 minutes'), 'ACTIVE', 'seed-bidder2-1', 2);
