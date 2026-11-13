@@ -7,7 +7,7 @@
 - `common/`: DTO, enum, envelope protocol, JSON codec và contract tests.
 - `server/`: SQLite persistence/repository, authentication/session, TCP socket server và integration tests.
 - `client/`: JavaFX login, network adapter và màn hình danh sách auction.
-- `database/`: migration, seed và data dictionary SQLite.
+- `database/`: migration, seed và data dictionary SQLite (gồm lịch sử bid của tuần 3).
 - `docs/`: ADR, protocol contract, hướng dẫn tuần 1/2 và nhật ký tích hợp.
 - `.github/workflows/`: CI chạy `clean verify` bằng JDK 21.
 
@@ -119,7 +119,9 @@ Nếu không dùng script, hãy giữ nguyên nguyên tắc: build qua reactor t
 5. Bidder/Seller đã đăng nhập đọc danh sách auction `OPEN` và `RUNNING`.
 6. Client JavaFX nối server thật, có loading/error state và màn hình danh sách auction.
 
-Bid, realtime event, Auto-Bid, Anti-Snipe và settlement thuộc các tuần sau.
+Bid data layer và lịch sử bid của TV1 tuần 3 đã có trong branch feature tuần 3;
+service đặt bid qua socket, realtime event, Auto-Bid, Anti-Snipe và settlement
+thuộc các branch tiếp theo.
 
 ## Git workflow
 
