@@ -35,11 +35,17 @@ class RepositoryIntegrationTest {
             DatabaseInitializer.initialize(connection, databaseRoot, true);
             DatabaseInitializer.initialize(connection, databaseRoot, true);
 
-            assertEquals(2, count(connection, "schema_migrations"));
+            assertEquals(3, count(connection, "schema_migrations"));
             assertEquals(4, count(connection, "users"));
             assertEquals(4, count(connection, "wallets"));
             assertEquals(1, count(connection, "items"));
             assertEquals(1, count(connection, "auctions"));
+            assertEquals(2, count(connection, "bids"));
+            assertEquals(2, count(connection, "bid_history"));
+            assertEquals(110_000, scalarLong(connection,
+                    "SELECT current_price_cents FROM auctions WHERE auction_id = 1"));
+            assertEquals(2, scalarLong(connection,
+                    "SELECT version FROM auctions WHERE auction_id = 1"));
 
             JdbcUserRepository users = new JdbcUserRepository(connection);
             assertTrue(users.findByAccount("SELLER").isPresent(), "account lookup should be case insensitive");
@@ -85,6 +91,14 @@ class RepositoryIntegrationTest {
              ResultSet result = statement.executeQuery()) {
             result.next();
             return result.getInt(1);
+        }
+    }
+
+    private static long scalarLong(Connection connection, String sql) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet result = statement.executeQuery()) {
+            result.next();
+            return result.getLong(1);
         }
     }
 
