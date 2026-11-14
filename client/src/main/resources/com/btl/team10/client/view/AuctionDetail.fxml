@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.LineChart?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.btl.team10.client.controller.AuctionDetailController"
+            style="-fx-background-color: #f5f6fa;">
+
+    <!-- Header điều hướng & trạng thái phiên -->
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="12" style="-fx-background-color: #2c3e50;">
+            <padding><Insets top="14" right="20" bottom="14" left="20"/></padding>
+            <Button text="← Danh sách" onAction="#handleBack"
+                    style="-fx-background-color: #34495e; -fx-text-fill: white; -fx-cursor: hand;"/>
+            <Label fx:id="auctionTitleLabel" text="Phiên đấu giá #--"
+                   style="-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label fx:id="statusBadgeLabel" text="RUNNING"
+                   style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 4 10; -fx-background-radius: 4; -fx-font-weight: bold;"/>
+        </HBox>
+    </top>
+
+    <!-- Nội dung chính -->
+    <center>
+        <ScrollPane fitToWidth="true" style="-fx-background-color: transparent;">
+            <VBox spacing="16">
+                <padding><Insets top="18" right="20" bottom="20" left="20"/></padding>
+
+                <!-- Banner thông báo Realtime / Outbid / Lỗi / Reconnect -->
+                <Label fx:id="alertBannerLabel" visible="false" managed="false" wrapText="true" maxWidth="Infinity"
+                       style="-fx-padding: 10 14; -fx-background-radius: 6; -fx-font-weight: bold;"/>
+
+                <!-- Khối 1: Thông tin vật phẩm + Giá + Countdown + Đặt giá -->
+                <HBox spacing="16">
+                    <!-- Thẻ thông tin vật phẩm & giá -->
+                    <VBox spacing="8" HBox.hgrow="ALWAYS"
+                          style="-fx-background-color: white; -fx-padding: 16; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
+                        <Label fx:id="itemNameLabel" text="Đang tải thông tin vật phẩm..."
+                               style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+                        <Label fx:id="itemDescLabel" text="" wrapText="true" style="-fx-text-fill: #636e72;"/>
+                        <HBox spacing="20">
+                            <VBox spacing="2">
+                                <Label text="GIÁ HIỆN TẠI" style="-fx-font-size: 11px; -fx-text-fill: #7f8c8d;"/>
+                                <Label fx:id="currentPriceLabel" text="0 cents"
+                                       style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #e67e22;"/>
+                            </VBox>
+                            <VBox spacing="2">
+                                <Label text="BƯỚC GIÁ TỐI THIỂU" style="-fx-font-size: 11px; -fx-text-fill: #7f8c8d;"/>
+                                <Label fx:id="minIncrementLabel" text="+0 cents"
+                                       style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+                            </VBox>
+                            <VBox spacing="2">
+                                <Label text="GIÁ ĐẶT HỢP LỆ TỐI THIỂU" style="-fx-font-size: 11px; -fx-text-fill: #7f8c8d;"/>
+                                <Label fx:id="minNextBidLabel" text="0 cents"
+                                       style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #27ae60;"/>
+                            </VBox>
+                        </HBox>
+                    </VBox>
+
+                    <!-- Thẻ Countdown & Form Đặt giá -->
+                    <VBox spacing="10" prefWidth="310"
+                          style="-fx-background-color: white; -fx-padding: 16; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
+                        <Label text="THỜI GIAN CÒN LẠI" style="-fx-font-size: 11px; -fx-text-fill: #7f8c8d;"/>
+                        <Label fx:id="countdownLabel" text="--:--:--"
+                               style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #2980b9;"/>
+
+                        <HBox spacing="6">
+                            <TextField fx:id="bidAmountField" promptText="Nhập số tiền (cents)" HBox.hgrow="ALWAYS" prefHeight="34"/>
+                            <Button fx:id="quickFillButton" text="Giá tối thiểu" onAction="#handleFillMinBid" prefHeight="34"
+                                    style="-fx-background-color: #ecf0f1; -fx-cursor: hand;"/>
+                        </HBox>
+
+                        <Button fx:id="placeBidButton" text="Đặt giá ngay" onAction="#handlePlaceBid"
+                                maxWidth="Infinity" prefHeight="38"
+                                style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                    </VBox>
+                </HBox>
+
+                <!-- Khối 2: Biểu đồ biến động giá & Bảng lịch sử đặt giá -->
+                <HBox spacing="16" prefHeight="300">
+                    <VBox spacing="6" HBox.hgrow="ALWAYS"
+                          style="-fx-background-color: white; -fx-padding: 12; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
+                        <Label text="Biểu đồ biến động giá (Realtime)" style="-fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+                        <LineChart fx:id="bidHistoryChart" animated="false" legendVisible="false" VBox.vgrow="ALWAYS">
+                            <xAxis>
+                                <CategoryAxis fx:id="chartTimeAxis" label="Thời gian"/>
+                            </xAxis>
+                            <yAxis>
+                                <NumberAxis fx:id="chartPriceAxis" label="Giá (cents)" forceZeroInRange="false"/>
+                            </yAxis>
+                        </LineChart>
+                    </VBox>
+
+                    <VBox spacing="6" prefWidth="390"
+                          style="-fx-background-color: white; -fx-padding: 12; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
+                        <Label text="Lịch sử lượt đặt giá" style="-fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+                        <TableView fx:id="bidHistoryTable" VBox.vgrow="ALWAYS">
+                            <columns>
+                                <TableColumn fx:id="bidderCol" text="Bidder ID" prefWidth="75"/>
+                                <TableColumn fx:id="amountCol" text="Số tiền (cents)" prefWidth="115"/>
+                                <TableColumn fx:id="timeCol" text="Thời gian" prefWidth="95"/>
+                                <TableColumn fx:id="statusCol" text="Trạng thái" prefWidth="85"/>
+                            </columns>
+                        </TableView>
+                    </VBox>
+                </HBox>
+            </VBox>
+        </ScrollPane>
+    </center>
+</BorderPane>

@@ -19,9 +19,13 @@
     <center>
         <VBox spacing="12">
             <padding><Insets top="22" right="22" bottom="22" left="22"/></padding>
-            <ListView fx:id="auctionListView" prefHeight="420"/>
-            <HBox alignment="CENTER_RIGHT">
-                <Button text="Tải lại" onAction="#reload" prefWidth="100"/>
+            <Label text="Nhấn đúp vào một phiên hoặc chọn rồi bấm 'Xem chi tiết' để tham gia đặt giá:"
+                   style="-fx-text-fill: #636e72; -fx-font-size: 13px;"/>
+            <ListView fx:id="auctionListView" prefHeight="400"/>
+            <HBox alignment="CENTER_RIGHT" spacing="10">
+                <Button text="Tải lại" onAction="#reload" prefWidth="100" prefHeight="34"/>
+                <Button text="Xem chi tiết &amp; Đặt giá" onAction="#openSelectedAuction" prefWidth="180" prefHeight="34"
+                        style="-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
             </HBox>
         </VBox>
     </center>
