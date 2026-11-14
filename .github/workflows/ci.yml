@@ -1,4 +1,4 @@
-name: Nhom 10 - Week 2 CI
+name: Nhom 10 - CI
 
 on:
   push:
