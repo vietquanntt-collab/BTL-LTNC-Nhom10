@@ -1,5 +1,6 @@
 package com.btl.team10.server.network;
 
+import com.btl.team10.server.bidding.PlaceBidService;
 import com.btl.team10.server.repository.AuctionRepository;
 import com.btl.team10.server.repository.ItemRepository;
 import com.btl.team10.server.session.AuthService;
@@ -8,6 +9,7 @@ import com.btl.team10.server.session.SessionManager;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -18,6 +20,8 @@ public final class AuctionSocketServer {
     private final SessionManager sessionManager;
     private final ItemRepository itemRepository;
     private final AuctionRepository auctionRepository;
+    private final PlaceBidService placeBidService;
+    private final EventPublisher eventPublisher;
     private final Object databaseLock = new Object();
     private final ExecutorService threadPool = Executors.newCachedThreadPool(runnable -> {
         Thread thread = new Thread(runnable, "auction-client");
@@ -29,6 +33,12 @@ public final class AuctionSocketServer {
 
     public AuctionSocketServer(int port, AuthService authService, SessionManager sessionManager,
                                ItemRepository itemRepository, AuctionRepository auctionRepository) {
+        this(port, authService, sessionManager, itemRepository, auctionRepository, null, new EventPublisher());
+    }
+
+    public AuctionSocketServer(int port, AuthService authService, SessionManager sessionManager,
+                               ItemRepository itemRepository, AuctionRepository auctionRepository,
+                               PlaceBidService placeBidService, EventPublisher eventPublisher) {
         if (port < 0 || port > 65_535) {
             throw new IllegalArgumentException("port must be between 0 and 65535");
         }
@@ -37,6 +47,8 @@ public final class AuctionSocketServer {
         this.sessionManager = sessionManager;
         this.itemRepository = itemRepository;
         this.auctionRepository = auctionRepository;
+        this.placeBidService = placeBidService;
+        this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
     }
 
     public void start() throws IOException {
@@ -82,5 +94,8 @@ public final class AuctionSocketServer {
     public int boundPort() {
         ServerSocket current = serverSocket;
         return current == null ? port : current.getLocalPort();
+    }
+    public Object databaseLock(){
+        return databaseLock;
     }
 }
