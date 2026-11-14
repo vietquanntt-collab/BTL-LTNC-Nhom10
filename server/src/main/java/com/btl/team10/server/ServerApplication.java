@@ -1,5 +1,8 @@
 package com.btl.team10.server;
 
+import com.btl.team10.server.bidding.AuctionExpirationScheduler;
+import com.btl.team10.server.bidding.PlaceBidService;
+import com.btl.team10.server.network.EventPublisher;
 import com.btl.team10.server.network.AuctionSocketServer;
 import com.btl.team10.server.persistence.DatabaseConnectionFactory;
 import com.btl.team10.server.persistence.DatabaseInitializer;
@@ -29,7 +32,7 @@ public final class ServerApplication {
         boolean seed = Boolean.parseBoolean(System.getProperty("auction.db.seed", "true"));
         int port = Integer.parseInt(System.getProperty("auction.server.port", String.valueOf(DEFAULT_PORT)));
 
-        System.out.println("Auction server - week 2");
+        System.out.println("Auction server - week 3");
         System.out.println("Database: " + databaseFile.toAbsolutePath().normalize());
         System.out.println("Schema: " + databaseRoot.toAbsolutePath().normalize());
 
@@ -41,10 +44,18 @@ public final class ServerApplication {
             AuctionRepository auctionRepository = new JdbcAuctionRepository(connection);
             SessionManager sessionManager = new SessionManager();
             AuthService authService = new AuthService(userRepository, sessionManager);
+            EventPublisher eventPublisher = new EventPublisher();
+            PlaceBidService placeBidService = new PlaceBidService(connection, eventPublisher);
             AuctionSocketServer server = new AuctionSocketServer(
-                    port, authService, sessionManager, itemRepository, auctionRepository);
+                    port, authService, sessionManager, itemRepository, auctionRepository, placeBidService, eventPublisher);
+            AuctionExpirationScheduler scheduler = new AuctionExpirationScheduler(connection, eventPublisher, server.databaseLock());
 
-            Runtime.getRuntime().addShutdownHook(new Thread(server::stop, "auction-server-shutdown"));
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                scheduler.stop();
+                server.stop();
+            }, "auction-server-shutdown"));
+
+            scheduler.start();
             server.start();
         }
     }
