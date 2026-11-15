@@ -1,14 +1,14 @@
 # Nhóm 10 - Online Auction System
 
-Đây là bản tích hợp hai tuần đầu của hệ thống đấu giá trực tuyến. Bản này hoàn thiện luồng Seller tạo item/auction, Bidder đọc danh sách auction qua TCP socket và JavaFX client dùng network thật.
+Đây là bản tích hợp ba tuần đầu của hệ thống đấu giá trực tuyến. Bản này hoàn thiện luồng Seller tạo item/auction, Bidder xem chi tiết và đặt giá, lịch sử bid, optimistic locking, idempotency, realtime event và JavaFX client dùng network thật.
 
 ## Cấu trúc repository
 
 - `common/`: DTO, enum, envelope protocol, JSON codec và contract tests.
 - `server/`: SQLite persistence/repository, authentication/session, TCP socket server và integration tests.
 - `client/`: JavaFX login, network adapter và màn hình danh sách auction.
-- `database/`: migration, seed và data dictionary SQLite (gồm lịch sử bid của tuần 3).
-- `docs/`: ADR, protocol contract, hướng dẫn tuần 1/2 và nhật ký tích hợp.
+- `database/`: migration, seed và data dictionary SQLite, gồm lịch sử bid của tuần 3.
+- `docs/`: ADR, protocol contract, hướng dẫn các tuần và báo cáo nghiệm thu.
 - `.github/workflows/`: CI chạy `clean verify` bằng JDK 21.
 
 ## Công nghệ
@@ -48,7 +48,7 @@ java -version
 `java -version` cần là JDK 21. Nếu Windows có nhiều JDK, đặt `JAVA_HOME` tới thư mục JDK 21 rồi mở lại terminal:
 
 ```powershell
-$env:JAVA_HOME = 'C:\Program Files\Eclipse Adoptium\jdk-21.0.13.9-hotspot'
+$env:JAVA_HOME = '<duong-dan-toi-JDK-21>'
 ```
 
 Nếu PowerShell chặn script `.ps1`, chỉ áp dụng cho terminal hiện tại:
@@ -72,6 +72,11 @@ Script trên chạy `verify`, biên dịch cả `common`, `server`, `client` và
 ```
 
 Nếu OneDrive đang giữ file trong `target`, dùng lệnh mặc định không có `-Clean`. Không commit `target/`, `*.class` hoặc database runtime.
+
+Kết quả kiểm tra baseline `develop` tuần 3: `validate` và `verify` đã chạy PASS
+với JDK 21; 15 test ở `common` và 27 test ở `server` đều không có failure.
+Chi tiết phạm vi, commit nguồn và các giới hạn còn lại nằm trong
+`docs/week-3-check-report.md`.
 
 ## Chạy server
 
@@ -110,7 +115,7 @@ Client đăng nhập qua TCP JSON, sau đó tải danh sách auction từ server
 
 Nếu không dùng script, hãy giữ nguyên nguyên tắc: build qua reactor trước, sau đó chạy JavaFX với native JAR trên module path. Không dùng `javafx:run` dạng rút gọn ở root vì Maven có thể không nhận plugin prefix.
 
-## Luồng đã hoàn thiện trong hai tuần đầu
+## Luồng đã hoàn thiện trong ba tuần đầu
 
 1. Migration và seed SQLite chạy idempotent từ database rỗng.
 2. Login kiểm tra password hash và tạo session role.
@@ -118,10 +123,13 @@ Nếu không dùng script, hãy giữ nguyên nguyên tắc: build qua reactor t
 4. Seller chỉ tạo auction cho item thuộc tài khoản của mình.
 5. Bidder/Seller đã đăng nhập đọc danh sách auction `OPEN` và `RUNNING`.
 6. Client JavaFX nối server thật, có loading/error state và màn hình danh sách auction.
+7. Auction detail hiển thị giá hiện tại, minimum bid, countdown, bid history và chart.
+8. Place bid dùng transaction, minimum increment, kiểm tra thời gian mở/đóng, optimistic version, request idempotency, wallet locking và audit event.
+9. Realtime `BID_ACCEPTED`, `OUTBID`, `BID_REJECTED` và `AUCTION_FINISHED` có sequence theo auction; client có chống double-submit và reconnect.
 
-Bid data layer và lịch sử bid của TV1 tuần 3 đã có trong branch feature tuần 3;
-service đặt bid qua socket, realtime event, Auto-Bid, Anti-Snipe và settlement
-thuộc các branch tiếp theo.
+Auto-Bid, Anti-Snipe và settlement đầy đủ thuộc tuần 4; không xem các chức năng đó là tiêu chí nghiệm thu tuần 3.
+Các chức năng bắt buộc còn lại như đăng ký tài khoản và CRUD sửa/xóa item cần
+được bổ sung ở các branch tiếp theo trước khi nghiệm thu cuối kỳ.
 
 ## Git workflow
 
@@ -147,3 +155,4 @@ git push -u origin HEAD
 Không chạy lại `git switch -c` nếu branch đã tồn tại. Khi cập nhật một branch đã push, dùng `git add -A`, `git commit` và `git push` như bình thường. Nếu branch hiện tại là `feature/week2-check-fixes`, lệnh push tương ứng là `git push -u origin feature/week2-check-fixes`.
 
 Sau đó mở Pull Request từ branch feature vào `develop`. Chỉ merge khi CI xanh và một thành viên khác đã review. Không đưa `target/`, `data/auction.db`, file `.class`, JAR hoặc cấu hình mật khẩu lên GitHub.
+

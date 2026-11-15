@@ -2,9 +2,10 @@
 
 ## Phạm vi
 
-TV1 triển khai lớp common/database/repository cho đấu giá thật. Branch này
-không triển khai `PlaceBidService`, socket dispatcher, realtime event hoặc UI.
-Các thành phần đó nhận contract này từ các branch của TV2, TV3 và TV4.
+TV1 triển khai lớp common/database/repository cho đấu giá thật. Bản tích hợp
+tuần 3 cũng nối các contract này vào socket, service đặt giá và JavaFX detail
+để kiểm tra đường chạy end-to-end. Auto-Bid, Anti-Snipe và settlement đầy đủ
+được để cho tuần 4.
 
 ## Contract
 
@@ -54,3 +55,11 @@ Test mới trong `server/src/test/.../BidRepositoryIntegrationTest.java` bao ph�
 - bid ACTIVE trước đó chuyển thành OUTBID;
 - minimum increment và stale version;
 - auction đã đóng không nhận bid.
+
+Các kiểm tra tích hợp của tuần 3 còn bao gồm:
+
+- `ConcurrencyBidTest`: nhiều client cùng version, retry tăng version tuần tự và
+  request trùng không tạo bản ghi thừa.
+- `BidRealtimeEventTest`: `BID_ACCEPTED`, `OUTBID`, `BID_REJECTED`,
+  `AUCTION_FINISHED` và thứ tự event qua socket.
+- `BidAuditLogTest`: audit record có `requestId`, `auctionId` và `userId`.

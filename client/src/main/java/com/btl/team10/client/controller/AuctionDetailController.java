@@ -234,11 +234,16 @@ public final class AuctionDetailController {
         if (currentAuction == null || event.auctionId() != currentAuction.auctionId()) {
             return;
         }
-        // Bỏ qua sự kiện cũ hoặc trùng lặp theo protocol v1
-        if (event.sequence() <= lastSequence) {
-            return;
+        // BID_REJECTED is a user-scoped notification. It does not advance the
+        // persisted auction event sequence, so it must never move the cursor.
+        // Otherwise a rejection before the first accepted bid (both sequence 1)
+        // could make the next BID_ACCEPTED event look stale.
+        if (event.eventType() != com.btl.team10.common.protocol.EventType.BID_REJECTED) {
+            if (event.sequence() <= lastSequence) {
+                return;
+            }
+            lastSequence = event.sequence();
         }
-        lastSequence = event.sequence();
 
         Platform.runLater(() -> {
             JsonObject payload = parsePayload(event.payloadJson());
@@ -339,6 +344,18 @@ public final class AuctionDetailController {
         boolean exists = bidRows.stream().anyMatch(b -> b.bidId() == bid.bidId());
         if (exists) {
             return;
+        }
+        // The server keeps only the current leader as ACTIVE. Mirror that
+        // transition in the live table before appending the new accepted bid.
+        for (int index = 0; index < bidRows.size(); index++) {
+            BidDto previous = bidRows.get(index);
+            if (previous.status() == BidStatus.ACTIVE
+                    && previous.auctionId() == bid.auctionId()) {
+                bidRows.set(index, new BidDto(
+                        previous.bidId(), previous.auctionId(), previous.bidderId(),
+                        previous.amountCents(), previous.bidTime(), BidStatus.OUTBID,
+                        previous.clientRequestId()));
+            }
         }
         bidRows.add(bid);
         priceSeries.getData().add(new XYChart.Data<>(TIME_FMT.format(bid.bidTime()), bid.amountCents()));

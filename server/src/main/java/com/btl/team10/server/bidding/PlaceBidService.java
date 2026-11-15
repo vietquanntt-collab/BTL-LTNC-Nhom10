@@ -33,7 +33,7 @@ public final class PlaceBidService {
 
     public ResponseEnvelope placeBid(String requestId, String sessionId, long bidderId, long auctionId, long amountCents) throws SQLException {
         if (requestId == null || requestId.isBlank() || auctionId <= 0 || amountCents <= 0) {
-            return ResponseEnvelope.failure(requestId, "PLACE_BID", ErrorCode.VALIDATION_ERROR, "Invalid bid parameters");
+            return reject(requestId, auctionId, bidderId, ErrorCode.VALIDATION_ERROR, "Invalid bid parameters");
         }
 
         ReentrantLock lock = auctionLocks.computeIfAbsent(auctionId, k -> new ReentrantLock());
@@ -50,20 +50,24 @@ public final class PlaceBidService {
                 AuctionState auction = loadAuction(auctionId);
                 if (auction == null) {
                     connection.rollback();
-                    return ResponseEnvelope.failure(requestId, "PLACE_BID", ErrorCode.NOT_FOUND, "Auction not found");
+                    return reject(requestId, auctionId, bidderId, ErrorCode.NOT_FOUND, "Auction not found");
                 }
                 if (!"OPEN".equals(auction.status) && !"RUNNING".equals(auction.status)) {
                     connection.rollback();
-                    return ResponseEnvelope.failure(requestId, "PLACE_BID", ErrorCode.AUCTION_NOT_OPEN, "Auction is not open");
+                    return reject(requestId, auctionId, bidderId, ErrorCode.AUCTION_NOT_OPEN, "Auction is not open");
                 }
                 Instant now = Instant.now();
+                if (Instant.parse(auction.startAt).isAfter(now)) {
+                    connection.rollback();
+                    return reject(requestId, auctionId, bidderId, ErrorCode.AUCTION_NOT_OPEN, "Auction has not started");
+                }
                 if (!Instant.parse(auction.endAt).isAfter(now)) {
                     connection.rollback();
-                    return ResponseEnvelope.failure(requestId, "PLACE_BID", ErrorCode.AUCTION_NOT_OPEN, "Auction has ended");
+                    return reject(requestId, auctionId, bidderId, ErrorCode.AUCTION_NOT_OPEN, "Auction has ended");
                 }
                 if (auction.sellerId == bidderId) {
                     connection.rollback();
-                    return ResponseEnvelope.failure(requestId, "PLACE_BID", ErrorCode.FORBIDDEN, "Seller cannot bid on own auction");
+                    return reject(requestId, auctionId, bidderId, ErrorCode.FORBIDDEN, "Seller cannot bid on own auction");
                 }
 
                 long minRequired = auction.winnerId == null
@@ -71,13 +75,14 @@ public final class PlaceBidService {
                         : auction.currentPriceCents + auction.minIncrementCents;
                 if (amountCents < minRequired) {
                     connection.rollback();
-                    return ResponseEnvelope.failure(requestId, "PLACE_BID", ErrorCode.BID_TOO_LOW, "Bid amount is below minimum required: " + minRequired);
+                    return reject(requestId, auctionId, bidderId, ErrorCode.BID_TOO_LOW,
+                            "Bid amount is below minimum required: " + minRequired);
                 }
 
                 WalletState bidderWallet = loadWallet(bidderId);
                 if (bidderWallet == null) {
                     connection.rollback();
-                    return ResponseEnvelope.failure(requestId, "PLACE_BID", ErrorCode.NOT_FOUND, "Wallet not found");
+                    return reject(requestId, auctionId, bidderId, ErrorCode.NOT_FOUND, "Wallet not found");
                 }
                 long currentlyFrozenForThisAuction = (auction.winnerId != null && auction.winnerId == bidderId)
                         ? auction.currentPriceCents
@@ -85,35 +90,37 @@ public final class PlaceBidService {
                 long available = bidderWallet.balanceCents - bidderWallet.frozenCents + currentlyFrozenForThisAuction;
                 if (available < amountCents) {
                     connection.rollback();
-                    return ResponseEnvelope.failure(requestId, "PLACE_BID", ErrorCode.INSUFFICIENT_BALANCE, "Insufficient balance");
+                    return reject(requestId, auctionId, bidderId, ErrorCode.INSUFFICIENT_BALANCE, "Insufficient balance");
                 }
 
                 int updatedAuction = updateAuctionOptimistic(auctionId, amountCents, bidderId, auction.version);
                 if (updatedAuction == 0) {
                     connection.rollback();
-                    return ResponseEnvelope.failure(requestId, "PLACE_BID", ErrorCode.CONFLICT, "Concurrent bid conflict");
+                    return reject(requestId, auctionId, bidderId, ErrorCode.CONFLICT, "Concurrent bid conflict");
                 }
 
                 markPreviousBidsOutbid(auctionId);
                 String nowIso = now.toString();
                 long bidId = insertBid(auctionId, bidderId, amountCents, nowIso, requestId);
+                insertBidHistory(bidId, auctionId, bidderId, amountCents, nowIso, requestId, auction.version + 1L);
 
                 if (auction.winnerId != null && auction.winnerId == bidderId) {
                     long delta = amountCents - auction.currentPriceCents;
                     if (!adjustFrozen(bidderId, delta, bidderWallet.version)) {
                         connection.rollback();
-                        return ResponseEnvelope.failure(requestId, "PLACE_BID", ErrorCode.CONFLICT, "Wallet update conflict");
+                        return reject(requestId, auctionId, bidderId, ErrorCode.CONFLICT, "Wallet update conflict");
                     }
                 } else {
                     if (!adjustFrozen(bidderId, amountCents, bidderWallet.version)) {
                         connection.rollback();
-                        return ResponseEnvelope.failure(requestId, "PLACE_BID", ErrorCode.CONFLICT, "Wallet update conflict");
+                        return reject(requestId, auctionId, bidderId, ErrorCode.CONFLICT, "Wallet update conflict");
                     }
                     if (auction.winnerId != null) {
                         WalletState prevWallet = loadWallet(auction.winnerId);
                         if (prevWallet == null || !adjustFrozen(auction.winnerId, -auction.currentPriceCents, prevWallet.version)) {
                             connection.rollback();
-                            return ResponseEnvelope.failure(requestId, "PLACE_BID", ErrorCode.CONFLICT, "Previous bidder wallet conflict");
+                            return reject(requestId, auctionId, bidderId, ErrorCode.CONFLICT,
+                                    "Previous bidder wallet conflict");
                         }
                     }
                 }
@@ -124,22 +131,48 @@ public final class PlaceBidService {
                 eventPayload.addProperty("auctionId", auctionId);
                 eventPayload.addProperty("bidderId", bidderId);
                 eventPayload.addProperty("amountCents", amountCents);
+                eventPayload.addProperty("currentPriceCents", amountCents);
+                eventPayload.addProperty("auctionVersion", auction.version + 1L);
+                eventPayload.addProperty("clientRequestId", requestId);
+                eventPayload.addProperty("status", BidStatus.ACTIVE.name());
                 eventPayload.addProperty("bidTime", nowIso);
                 insertEvent(auctionId, seq, EventType.BID_ACCEPTED.name(), eventPayload.toString(), nowIso);
 
                 BidDto bidDto = new BidDto(bidId, auctionId, bidderId, amountCents, now, BidStatus.ACTIVE, requestId);
-                ResponseEnvelope response = ResponseEnvelope.success(requestId, "PLACE_BID", sessionId, JsonCodec.toJson(bidDto));
+                JsonObject responsePayload = new JsonObject();
+                responsePayload.addProperty("auctionId", auctionId);
+                responsePayload.addProperty("bidId", bidId);
+                responsePayload.addProperty("bidderId", bidderId);
+                responsePayload.addProperty("amountCents", amountCents);
+                responsePayload.addProperty("currentPriceCents", amountCents);
+                responsePayload.addProperty("auctionVersion", auction.version + 1L);
+                responsePayload.addProperty("bidTime", nowIso);
+                responsePayload.addProperty("status", BidStatus.ACTIVE.name());
+                responsePayload.addProperty("clientRequestId", requestId);
+                ResponseEnvelope response = ResponseEnvelope.success(requestId, "PLACE_BID", sessionId, responsePayload.toString());
                 saveReceipt(requestId, "PLACE_BID", JsonCodec.toJson(response), nowIso);
+
+                long outbidSequence = -1L;
+                JsonObject outbidPayload = null;
+                if (auction.winnerId != null && auction.winnerId != bidderId) {
+                    outbidSequence = nextSequence(auctionId);
+                    outbidPayload = new JsonObject();
+                    outbidPayload.addProperty("auctionId", auctionId);
+                    outbidPayload.addProperty("newPriceCents", amountCents);
+                    outbidPayload.addProperty("currentPriceCents", amountCents);
+                    outbidPayload.addProperty("newLeaderId", bidderId);
+                    outbidPayload.addProperty("auctionVersion", auction.version + 1L);
+                    outbidPayload.addProperty("bidId", bidId);
+                    outbidPayload.addProperty("clientRequestId", requestId);
+                    insertEvent(auctionId, outbidSequence, EventType.OUTBID.name(), outbidPayload.toString(), nowIso);
+                }
 
                 connection.commit();
 
                 eventPublisher.publishToAll(EventType.BID_ACCEPTED, auctionId, seq, eventPayload.toString());
-                if (auction.winnerId != null && auction.winnerId != bidderId) {
-                    JsonObject outbidPayload = new JsonObject();
-                    outbidPayload.addProperty("auctionId", auctionId);
-                    outbidPayload.addProperty("newPriceCents", amountCents);
-                    outbidPayload.addProperty("newLeaderId", bidderId);
-                    eventPublisher.publishToUser(auction.winnerId, EventType.OUTBID, auctionId, seq, outbidPayload.toString());
+                if (outbidSequence > 0 && outbidPayload != null) {
+                    eventPublisher.publishToUser(auction.winnerId, EventType.OUTBID,
+                            auctionId, outbidSequence, outbidPayload.toString());
                 }
 
                 return response;
@@ -177,6 +210,36 @@ public final class PlaceBidService {
         }
     }
 
+    private ResponseEnvelope reject(String requestId, long auctionId, long bidderId,
+                                    ErrorCode errorCode, String message) {
+        ResponseEnvelope response = ResponseEnvelope.failure(requestId, "PLACE_BID", errorCode, message);
+        if (auctionId > 0 && bidderId > 0) {
+            try {
+                JsonObject payload = new JsonObject();
+                payload.addProperty("requestId", requestId);
+                payload.addProperty("auctionId", auctionId);
+                payload.addProperty("userId", bidderId);
+                payload.addProperty("errorCode", errorCode.name());
+                payload.addProperty("reason", message);
+                eventPublisher.publishToUser(bidderId, EventType.BID_REJECTED,
+                        auctionId, currentSequence(auctionId), payload.toString());
+            } catch (SQLException ignored) {
+                // The response still carries the rejection when the audit sequence cannot be read.
+            }
+        }
+        return response;
+    }
+
+    private long currentSequence(long auctionId) throws SQLException {
+        String sql = "SELECT COALESCE(MAX(sequence), 1) FROM auction_events WHERE auction_id = ?";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setLong(1, auctionId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Math.max(1L, rs.getLong(1)) : 1L;
+            }
+        }
+    }
+
     private String findReceipt(String requestId) throws SQLException {
         String sql = "SELECT response_json FROM request_receipts WHERE request_id = ?";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -199,7 +262,7 @@ public final class PlaceBidService {
     }
 
     private AuctionState loadAuction(long auctionId) throws SQLException {
-        String sql = "SELECT a.start_price_cents, a.current_price_cents, a.min_increment_cents, a.end_at, a.status, a.version, a.winner_id, i.seller_id "
+        String sql = "SELECT a.start_price_cents, a.current_price_cents, a.min_increment_cents, a.start_at, a.end_at, a.status, a.version, a.winner_id, i.seller_id "
                 + "FROM auctions a JOIN items i ON a.item_id = i.item_id WHERE a.auction_id = ?";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setLong(1, auctionId);
@@ -213,6 +276,7 @@ public final class PlaceBidService {
                         rs.getLong("start_price_cents"),
                         rs.getLong("current_price_cents"),
                         rs.getLong("min_increment_cents"),
+                        rs.getString("start_at"),
                         rs.getString("end_at"),
                         rs.getString("status"),
                         rs.getInt("version"),
@@ -275,6 +339,22 @@ public final class PlaceBidService {
         }
     }
 
+    private void insertBidHistory(long bidId, long auctionId, long bidderId, long amountCents,
+                                  String bidTime, String requestId, long auctionVersion) throws SQLException {
+        String sql = "INSERT INTO bid_history (bid_id, auction_id, bidder_id, amount_cents, bid_time, status, "
+                + "client_request_id, auction_version) VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?)";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setLong(1, bidId);
+            ps.setLong(2, auctionId);
+            ps.setLong(3, bidderId);
+            ps.setLong(4, amountCents);
+            ps.setString(5, bidTime);
+            ps.setString(6, requestId);
+            ps.setLong(7, auctionVersion);
+            ps.executeUpdate();
+        }
+    }
+
     private boolean adjustFrozen(long userId, long deltaCents, int expectedVersion) throws SQLException {
         String sql = "UPDATE wallets SET frozen_cents = frozen_cents + ?, version = version + 1 "
                 + "WHERE user_id = ? AND version = ? AND frozen_cents + ? >= 0 AND frozen_cents + ? <= balance_cents";
@@ -314,6 +394,7 @@ public final class PlaceBidService {
             long startPriceCents,
             long currentPriceCents,
             long minIncrementCents,
+            String startAt,
             String endAt,
             String status,
             int version,

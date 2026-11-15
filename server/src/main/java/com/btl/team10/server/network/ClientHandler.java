@@ -25,6 +25,8 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Objects;
 import java.util.Locale;
 import java.util.Optional;
@@ -39,7 +41,9 @@ public final class ClientHandler implements Runnable {
     private final Object databaseLock;
     private final PlaceBidService placeBidService;
     private final EventPublisher eventPublisher;
+    private final Deque<String> deferredEvents = new ArrayDeque<>();
     private EventPublisher.ClientChannel channel;
+    private boolean handlingRequest;
 
     public ClientHandler(Socket socket, AuthService authService, SessionManager sessionManager,
                          ItemRepository itemRepository, AuctionRepository auctionRepository) {
@@ -73,7 +77,11 @@ public final class ClientHandler implements Runnable {
             if (eventPublisher != null) {
                 this.channel = eventPublisher.register(eventLine -> {
                     synchronized (writer) {
-                        writer.println(eventLine);
+                        if (handlingRequest) {
+                            deferredEvents.addLast(eventLine);
+                        } else {
+                            writer.println(eventLine);
+                        }
                     }
                 });
             }
@@ -84,12 +92,23 @@ public final class ClientHandler implements Runnable {
                 }
                 boolean quit = isQuit(line.trim());
                 String response;
-                synchronized (databaseLock) {
-                    response = line.trim().startsWith("{")
-                            ? handleJson(line.trim()) : handlePipe(line.trim());
+                synchronized (writer) {
+                    handlingRequest = true;
+                }
+                try {
+                    synchronized (databaseLock) {
+                        response = line.trim().startsWith("{")
+                                ? handleJson(line.trim()) : handlePipe(line.trim());
+                    }
+                } catch (RuntimeException error) {
+                    response = "ERROR|" + (error.getMessage() == null ? "Request failed" : error.getMessage());
                 }
                 synchronized (writer) {
                     writer.println(response);
+                    handlingRequest = false;
+                    while (!deferredEvents.isEmpty()) {
+                        writer.println(deferredEvents.removeFirst());
+                    }
                 }
                 if (quit) {
                     break;
@@ -122,6 +141,7 @@ public final class ClientHandler implements Runnable {
                 case "LOGIN" -> login(request, payload);
                 case "LOGOUT" -> logout(request);
                 case "LIST_AUCTIONS" -> listAuctions(request);
+                case "GET_AUCTION" -> getAuction(request, payload);
                 case "CREATE_ITEM" -> createItem(request, payload);
                 case "CREATE_AUCTION" -> createAuction(request, payload);
                 case "PLACE_BID" -> placeBid(request, payload);
@@ -168,6 +188,25 @@ public final class ClientHandler implements Runnable {
         return success(request, request.sessionId(), JsonCodec.toJson(auctionRepository.findActiveAuctions()));
     }
 
+    private String getAuction(RequestEnvelope request, JsonObject payload) throws SQLException {
+        requireSession(request, null);
+        long auctionId = requiredLong(payload, "auctionId");
+        var auction = auctionRepository.findById(auctionId).orElseThrow(
+                () -> new RequestFailure(ErrorCode.NOT_FOUND, "Auction does not exist"));
+        var item = itemRepository.findById(auction.itemId()).orElseThrow(
+                () -> new RequestFailure(ErrorCode.NOT_FOUND, "Auction item does not exist"));
+        JsonObject result = new JsonObject();
+        result.add("auction", JsonParser.parseString(JsonCodec.toJson(auction)));
+        result.add("item", JsonParser.parseString(JsonCodec.toJson(item)));
+        if (placeBidService != null) {
+            result.add("bids", JsonParser.parseString(JsonCodec.toJson(
+                    placeBidService.listBidsByAuction(auctionId))));
+        } else {
+            result.add("bids", new com.google.gson.JsonArray());
+        }
+        return success(request, request.sessionId(), result.toString());
+    }
+
     private String createItem(RequestEnvelope request, JsonObject payload) throws SQLException {
         SessionManager.UserSession session = requireSession(request, "SELLER");
         CreateItemCommand command = new CreateItemCommand(
@@ -208,8 +247,12 @@ public final class ClientHandler implements Runnable {
         SessionManager.UserSession session = requireSession(request, "BIDDER");
         long auctionId = requiredLong(payload, "auctionId");
         long amountCents = requiredLong(payload, "amountCents");
+        String clientRequestId = optionalString(payload, "clientRequestId");
+        if (clientRequestId == null || clientRequestId.isBlank()) {
+            clientRequestId = request.requestId();
+        }
         ResponseEnvelope response = placeBidService.placeBid(
-                request.requestId(), request.sessionId(), session.userId(), auctionId, amountCents);
+                clientRequestId, request.sessionId(), session.userId(), auctionId, amountCents);
         return JsonCodec.toJson(response);
     }
 
@@ -225,6 +268,10 @@ public final class ClientHandler implements Runnable {
     private SessionManager.UserSession requireSession(RequestEnvelope request, String role) {
         SessionManager.UserSession session = sessionManager.getSession(request.sessionId()).orElseThrow(
                 () -> new RequestFailure(ErrorCode.AUTHENTICATION_FAILED, "Login is required"));
+        if (channel != null) {
+            // A reconnect creates a new channel. Rebind it on the first authenticated request.
+            channel.bindUser(session.userId());
+        }
         if (role != null && !role.equalsIgnoreCase(session.role())) {
             throw new RequestFailure(ErrorCode.FORBIDDEN, "Role " + role + " is required");
         }

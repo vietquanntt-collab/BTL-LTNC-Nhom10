@@ -4,6 +4,7 @@ target/
 *.jar
 *.log
 # The Maven Wrapper JAR is intentionally tracked in .mvn/wrapper so a clean clone can build.
+!.mvn/wrapper/maven-wrapper.jar
 
 # IDE
 .idea/

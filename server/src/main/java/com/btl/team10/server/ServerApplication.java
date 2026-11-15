@@ -19,7 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 
-/** Starts the week 2 server with one initialized SQLite database. */
+/** Starts the week 3 server with one initialized SQLite database. */
 public final class ServerApplication {
     private static final int DEFAULT_PORT = 9999;
 
