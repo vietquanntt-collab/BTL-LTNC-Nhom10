@@ -25,7 +25,7 @@ Biên bản này chỉ đánh giá baseline tích hợp tuần 1 trên nhánh `f
 | Contract runtime harness | PASS | Enum, request identity, response success, event sequence |
 | SQLite migration + seed in-memory | PASS | Chạy lặp migration/seed; 9 bảng, 4 user, 1 item, 1 auction |
 | Conflict marker và file rác | PASS | Không còn marker hoặc fixture thử nghiệm ngoài hệ thống |
-| JUnit qua Maven `verify` trong môi trường kiểm tra | BLOCKED BY ENVIRONMENT | Cache JAR JUnit tại `C:\Users\HP\.m2` trả `AccessDeniedException` khi javac đóng file |
+| JUnit qua Maven `verify` trong môi trường kiểm tra | BLOCKED BY ENVIRONMENT | Cache JAR JUnit tại `Maven local repository` trả `AccessDeniedException` khi javac đóng file |
 
 ## Phạm vi chưa đánh giá
 

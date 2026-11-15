@@ -13,7 +13,7 @@ import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Thread-per-connection TCP server for the week 2 request contract. */
+/** Thread-per-connection TCP server for the shared request and realtime event contract. */
 public final class AuctionSocketServer {
     private final int port;
     private final AuthService authService;
@@ -64,7 +64,7 @@ public final class AuctionSocketServer {
                     Socket client = boundServer.accept();
                     threadPool.submit(new ClientHandler(
                             client, authService, sessionManager, itemRepository, auctionRepository,
-                            databaseLock));
+                            databaseLock, placeBidService, eventPublisher));
                 } catch (IOException error) {
                     if (running) {
                         throw error;

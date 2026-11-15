@@ -32,7 +32,9 @@
                 <version>3.13.0</version>
                 <configuration>
                     <release>${maven.compiler.release}</release>
-                    <fork>true</fork>
+                    <!-- Keep javac in the Maven process so local Windows/OneDrive
+                         builds do not leave a forked compiler holding dependency JARs. -->
+                    <fork>false</fork>
                     <useModulePath>false</useModulePath>
                 </configuration>
             </plugin>

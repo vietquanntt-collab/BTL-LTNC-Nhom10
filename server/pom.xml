@@ -10,7 +10,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>auction-server</artifactId>
-    <name>Auction server skeleton</name>
+    <name>Auction server</name>
 
     <dependencies>
         <dependency>

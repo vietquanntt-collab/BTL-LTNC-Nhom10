@@ -1,4 +1,8 @@
-# Socket Communication Protocol - Week 2 Baseline
+# Socket Communication Protocol - Compatibility Baseline
+
+Tài liệu này mô tả protocol pipe cũ được giữ lại để tương thích với baseline
+tuần 2. Luồng chính của bản tuần 3 dùng JSON protocol v1; contract đầy đủ nằm
+trong `docs/contracts/protocol-v1.md`.
 
 ## 1. Overview
 Giao thức trao đổi dữ liệu dạng Plain Text ngăn cách bởi ký tự `|` (Pipe delimiter), kết thúc bằng ký tự xuống dòng `\n`. Mã hóa: UTF-8.

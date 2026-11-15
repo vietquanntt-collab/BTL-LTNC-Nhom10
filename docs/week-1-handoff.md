@@ -47,7 +47,7 @@ sqlite3 :memory: ".read database/migrations/V001__core_schema.sql" ".read databa
 - Biên dịch `common`, `server`, `client` bằng Java 21: PASS.
 - Migration/seed SQLite in-memory, chạy lặp migration và seed: PASS; có 9 bảng đích, 4 user demo, 1 item và 1 auction demo.
 - Không còn conflict marker, file thử nghiệm rác, file build hoặc database runtime được theo dõi trong Git.
-- Contract test JUnit cần chạy lại trên máy thành viên bằng terminal VS Code bình thường. Môi trường kiểm tra tự động bị `AccessDeniedException` khi javac đóng JAR `junit-jupiter-engine` trong cache `C:\Users\HP\.m2`; đây là giới hạn môi trường, chưa kết luận test logic hỏng.
+- Contract test JUnit cần chạy lại trên máy thành viên bằng terminal VS Code bình thường. Môi trường kiểm tra tự động bị `AccessDeniedException` khi javac đóng JAR `junit-jupiter-engine` trong cache `Maven local repository`; đây là giới hạn môi trường, chưa kết luận test logic hỏng.
 
 ## Phạm vi tuần 2
 

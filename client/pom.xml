@@ -10,7 +10,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>auction-client</artifactId>
-    <name>Auction JavaFX client shell</name>
+    <name>Auction JavaFX client</name>
 
     <properties>
         <javafx.version>21.0.5</javafx.version>
