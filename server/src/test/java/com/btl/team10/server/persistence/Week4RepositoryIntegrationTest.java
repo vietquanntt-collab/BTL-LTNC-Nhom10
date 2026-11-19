@@ -136,6 +136,39 @@ class Week4RepositoryIntegrationTest {
         }
     }
 
+    @Test
+    void settlementAcceptsWinnerAlreadyMarkedByExpirationScheduler() throws Exception {
+        try (Connection connection = openDatabase()) {
+            Fixture fixture = createFixture(connection);
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "UPDATE auctions SET status = 'FINISHED', winner_id = ?, current_price_cents = ?"
+                            + " WHERE auction_id = ?")) {
+                statement.setLong(1, fixture.bidderId());
+                statement.setLong(2, 3_000);
+                statement.setLong(3, fixture.auctionId());
+                statement.executeUpdate();
+            }
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "INSERT INTO bids(auction_id, bidder_id, amount_cents, bid_time, status, client_request_id)"
+                            + " VALUES (?, ?, ?, ?, 'WINNER', ?)")) {
+                statement.setLong(1, fixture.auctionId());
+                statement.setLong(2, fixture.bidderId());
+                statement.setLong(3, 3_000);
+                statement.setString(4, Instant.now().toString());
+                statement.setString(5, "week4-scheduler-winner");
+                statement.executeUpdate();
+            }
+
+            SettlementWriteResult result = new JdbcSettlementRepository(connection).settle(
+                    new SettleAuctionCommand(
+                            fixture.auctionId(), fixture.sellerId(), fixture.bidderId(), 3_000,
+                            "settle-scheduler-winner"));
+            assertTrue(result.created());
+            assertEquals(1, count(connection, "bids WHERE auction_id = " + fixture.auctionId()
+                    + " AND status = 'WINNER'"));
+        }
+    }
+
     private static Connection openDatabase() throws Exception {
         Connection connection = DatabaseConnectionFactory.open("jdbc:sqlite::memory:");
         DatabaseInitializer.initialize(connection, databaseRoot(), false);

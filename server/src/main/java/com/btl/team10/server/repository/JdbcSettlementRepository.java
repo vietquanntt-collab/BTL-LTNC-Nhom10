@@ -153,15 +153,30 @@ public final class JdbcSettlementRepository implements SettlementRepository {
     }
 
     private void markWinningBid(SettleAuctionCommand command) throws SQLException {
-        String sql = "UPDATE bids SET status = 'WINNER' WHERE auction_id = ? AND bidder_id = ?"
-                + " AND amount_cents = ? AND status = 'ACTIVE'";
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+        String countSql = "SELECT COUNT(*) FROM bids WHERE auction_id = ? AND bidder_id = ?"
+                + " AND amount_cents = ? AND status IN ('ACTIVE', 'WINNER')";
+        try (PreparedStatement statement = connection.prepareStatement(countSql)) {
             statement.setLong(1, command.auctionId());
             statement.setLong(2, command.winnerId());
             statement.setLong(3, command.winningAmountCents());
-            int updated = statement.executeUpdate();
-            if (updated != 1) {
-                throw new SQLException("Expected exactly one active winning bid, found " + updated);
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    throw new SQLException("Expected exactly one winning bid, found 0");
+                }
+                int count = result.getInt(1);
+                if (count != 1) {
+                    throw new SQLException("Expected exactly one winning bid, found " + count);
+                }
+            }
+        }
+        String updateSql = "UPDATE bids SET status = 'WINNER' WHERE auction_id = ? AND bidder_id = ?"
+                + " AND amount_cents = ? AND status = 'ACTIVE'";
+        try (PreparedStatement statement = connection.prepareStatement(updateSql)) {
+            statement.setLong(1, command.auctionId());
+            statement.setLong(2, command.winnerId());
+            statement.setLong(3, command.winningAmountCents());
+            if (statement.executeUpdate() > 1) {
+                throw new SQLException("More than one active winning bid exists");
             }
         }
     }
