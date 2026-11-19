@@ -113,7 +113,7 @@ public final class JdbcSettlementRepository implements SettlementRepository {
     }
 
     private void validateFinishedAuction(SettleAuctionCommand command) throws SQLException {
-        String sql = "SELECT a.status, a.winner_id, i.seller_id"
+        String sql = "SELECT a.status, a.winner_id, a.current_price_cents, i.seller_id"
                 + " FROM auctions a JOIN items i ON i.item_id = a.item_id"
                 + " WHERE a.auction_id = ?";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -129,6 +129,9 @@ public final class JdbcSettlementRepository implements SettlementRepository {
                 Long auctionWinner = result.wasNull() ? null : rawWinner;
                 if (!Objects.equals(auctionWinner, command.winnerId())) {
                     throw new SQLException("Settlement winner does not match the auction winner");
+                }
+                if (result.getLong("current_price_cents") != command.winningAmountCents()) {
+                    throw new SQLException("Settlement amount does not match the auction price");
                 }
                 if (result.getLong("seller_id") != command.sellerId()) {
                     throw new SQLException("Settlement seller does not own the auction item");
@@ -156,8 +159,9 @@ public final class JdbcSettlementRepository implements SettlementRepository {
             statement.setLong(1, command.auctionId());
             statement.setLong(2, command.winnerId());
             statement.setLong(3, command.winningAmountCents());
-            if (statement.executeUpdate() > 1) {
-                throw new SQLException("More than one active winning bid exists");
+            int updated = statement.executeUpdate();
+            if (updated != 1) {
+                throw new SQLException("Expected exactly one active winning bid, found " + updated);
             }
         }
     }

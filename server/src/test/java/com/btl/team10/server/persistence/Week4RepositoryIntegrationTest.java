@@ -109,6 +109,30 @@ class Week4RepositoryIntegrationTest {
             assertEquals(AuctionStatus.PAID,
                     new JdbcAuctionRepository(connection).findById(fixture.auctionId()).orElseThrow().status());
             assertEquals(1, count(connection, "settlements"));
+            assertEquals(1, count(connection,
+                    "bids WHERE auction_id = " + fixture.auctionId() + " AND status = 'WINNER'"));
+        }
+    }
+
+    @Test
+    void settlementRejectsAmountThatDoesNotMatchFinalAuctionPrice() throws Exception {
+        try (Connection connection = openDatabase()) {
+            Fixture fixture = createFixture(connection);
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "UPDATE auctions SET status = 'FINISHED', winner_id = ?, current_price_cents = ?"
+                            + " WHERE auction_id = ?")) {
+                statement.setLong(1, fixture.bidderId());
+                statement.setLong(2, 3_000);
+                statement.setLong(3, fixture.auctionId());
+                statement.executeUpdate();
+            }
+
+            var settlements = new JdbcSettlementRepository(connection);
+            var error = org.junit.jupiter.api.Assertions.assertThrows(Exception.class,
+                    () -> settlements.settle(new SettleAuctionCommand(
+                            fixture.auctionId(), fixture.sellerId(), fixture.bidderId(), 2_900, "settle-bad")));
+            assertTrue(error.getMessage().contains("amount"));
+            assertEquals(0, count(connection, "settlements"));
         }
     }
 
