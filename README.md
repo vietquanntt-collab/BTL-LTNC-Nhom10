@@ -1,6 +1,6 @@
 # Nhóm 10 - Online Auction System
 
-Đây là bản tích hợp ba tuần đầu của hệ thống đấu giá trực tuyến. Bản này hoàn thiện luồng Seller tạo item/auction, Bidder xem chi tiết và đặt giá, lịch sử bid, optimistic locking, idempotency, realtime event và JavaFX client dùng network thật.
+Đây là bản tích hợp tuần 3 và nền dữ liệu tuần 4 của hệ thống đấu giá trực tuyến. Bản này hoàn thiện luồng Seller tạo item/auction, Bidder xem chi tiết và đặt giá, lịch sử bid, optimistic locking, idempotency, realtime event và JavaFX client dùng network thật; TV1 đã bổ sung contract/repository cho Auto-Bid, wallet và settlement idempotent.
 
 ## Cấu trúc repository
 
@@ -130,6 +130,10 @@ Nếu không dùng script, hãy giữ nguyên nguyên tắc: build qua reactor t
 Auto-Bid, Anti-Snipe và settlement đầy đủ thuộc tuần 4; không xem các chức năng đó là tiêu chí nghiệm thu tuần 3.
 Các chức năng bắt buộc còn lại như đăng ký tài khoản và CRUD sửa/xóa item cần
 được bổ sung ở các branch tiếp theo trước khi nghiệm thu cuối kỳ.
+
+Nền dữ liệu TV1 tuần 4 được mô tả trong `docs/week-4-tv1-data-layer.md`.
+Chính sách Auto-Bid, Anti-Snipe, scheduler và chuyển tiền settlement do các
+branch service/UX tiếp theo tích hợp qua repository boundary.
 
 ## Git workflow
 
