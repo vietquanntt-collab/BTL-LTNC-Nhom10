@@ -16,7 +16,7 @@
 | Table | Key columns | Meaning and invariants |
 |---|---|---|
 | `auto_bid_rules` | `(auction_id, bidder_id)` | At most one active rule per bidder/auction; max and increment are positive. |
-| `settlements` | `auction_id` UNIQUE | At most one settlement per auction. This is the idempotency guard for winner/payment. |
+| `settlements` | `auction_id` UNIQUE, `request_id` UNIQUE | At most one settlement per auction/request. This is the idempotency guard for winner/payment. |
 | `auction_events` | `(auction_id, sequence)` UNIQUE | Event sequence is monotonic inside one auction; client uses it to ignore stale events. |
 | `request_receipts` | `request_id` PRIMARY KEY | Stores the response for a retried request so side effects are not repeated. |
 
