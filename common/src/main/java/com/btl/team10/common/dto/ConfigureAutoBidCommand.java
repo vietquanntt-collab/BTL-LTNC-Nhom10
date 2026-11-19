@@ -14,6 +14,9 @@ public record ConfigureAutoBidCommand(
         requirePositive(bidderId, "bidderId");
         requirePositive(maxAmountCents, "maxAmountCents");
         requirePositive(incrementCents, "incrementCents");
+        if (incrementCents > maxAmountCents) {
+            throw new ValidationException("incrementCents", "must not exceed maxAmountCents");
+        }
     }
 
     private static void requirePositive(long value, String field) {

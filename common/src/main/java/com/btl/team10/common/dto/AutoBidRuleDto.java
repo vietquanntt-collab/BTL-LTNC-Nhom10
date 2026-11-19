@@ -20,6 +20,9 @@ public record AutoBidRuleDto(
         requirePositive(bidderId, "bidderId");
         requirePositive(maxAmountCents, "maxAmountCents");
         requirePositive(incrementCents, "incrementCents");
+        if (incrementCents > maxAmountCents) {
+            throw new ValidationException("incrementCents", "must not exceed maxAmountCents");
+        }
         if (registeredAt == null) {
             throw new ValidationException("registeredAt", "must not be null");
         }

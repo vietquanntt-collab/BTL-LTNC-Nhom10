@@ -18,6 +18,8 @@ class Week4ContractTest {
                 () -> new ConfigureAutoBidCommand(1, 2, 0, 100));
         assertThrows(IllegalArgumentException.class,
                 () -> new ConfigureAutoBidCommand(1, 2, 100, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new ConfigureAutoBidCommand(1, 2, 100, 101));
     }
 
     @Test
