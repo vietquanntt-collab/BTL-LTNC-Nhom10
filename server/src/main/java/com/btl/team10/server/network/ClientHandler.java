@@ -26,8 +26,6 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.time.Instant;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -43,9 +41,7 @@ public final class ClientHandler implements Runnable {
     private final PlaceBidService placeBidService;
     private final SettlementService settlementService;
     private final EventPublisher eventPublisher;
-    private final Deque<String> deferredEvents = new ArrayDeque<>();
-    private EventPublisher.ClientChannel channel;
-    private boolean handlingRequest;
+    private SocketClientObserver clientObserver;
 
     public ClientHandler(Socket socket, AuthService authService, SessionManager sessionManager,
                          ItemRepository itemRepository, AuctionRepository auctionRepository) {
@@ -86,15 +82,8 @@ public final class ClientHandler implements Runnable {
                 new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
              PrintWriter writer = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8)) {
             if (eventPublisher != null) {
-                this.channel = eventPublisher.register(eventLine -> {
-                    synchronized (writer) {
-                        if (handlingRequest) {
-                            deferredEvents.addLast(eventLine);
-                        } else {
-                            writer.println(eventLine);
-                        }
-                    }
-                });
+                this.clientObserver = new SocketClientObserver(writer);
+                eventPublisher.subscribe(clientObserver);
             }
             String line;
             while ((line = reader.readLine()) != null) {
@@ -103,8 +92,8 @@ public final class ClientHandler implements Runnable {
                 }
                 boolean quit = isQuit(line.trim());
                 String response;
-                synchronized (writer) {
-                    handlingRequest = true;
+                if (clientObserver != null) {
+                    clientObserver.beginRequest();
                 }
                 try {
                     synchronized (databaseLock) {
@@ -114,11 +103,11 @@ public final class ClientHandler implements Runnable {
                 } catch (RuntimeException error) {
                     response = "ERROR|" + (error.getMessage() == null ? "Request failed" : error.getMessage());
                 }
-                synchronized (writer) {
-                    writer.println(response);
-                    handlingRequest = false;
-                    while (!deferredEvents.isEmpty()) {
-                        writer.println(deferredEvents.removeFirst());
+                if (clientObserver != null) {
+                    clientObserver.finishRequestAndFlush(response);
+                } else {
+                    synchronized (writer) {
+                        writer.println(response);
                     }
                 }
                 if (quit) {
@@ -128,8 +117,8 @@ public final class ClientHandler implements Runnable {
         } catch (Exception error) {
             System.err.println("Client connection failed: " + error.getMessage());
         } finally {
-            if (eventPublisher != null && channel != null) {
-                eventPublisher.unregister(channel);
+            if (eventPublisher != null && clientObserver != null) {
+                eventPublisher.unsubscribe(clientObserver);
             }
             try {
                 socket.close();
@@ -179,8 +168,8 @@ public final class ClientHandler implements Runnable {
             return failure(request, ErrorCode.AUTHENTICATION_FAILED, "Invalid account or password");
         }
         SessionManager.UserSession value = session.get();
-        if (channel != null) {
-            channel.bindUser(value.userId());
+        if (clientObserver != null) {
+            clientObserver.bindUser(value.userId());
         }
         JsonObject result = new JsonObject();
         result.addProperty("userId", value.userId());
@@ -191,8 +180,8 @@ public final class ClientHandler implements Runnable {
 
     private String logout(RequestEnvelope request) {
         authService.logout(request.sessionId());
-        if (channel != null) {
-            channel.bindUser(null);
+        if (clientObserver != null) {
+            clientObserver.bindUser(null);
         }
         return success(request, null, "{}");
     }
@@ -333,9 +322,8 @@ public final class ClientHandler implements Runnable {
     private SessionManager.UserSession requireSession(RequestEnvelope request, String role) {
         SessionManager.UserSession session = sessionManager.getSession(request.sessionId()).orElseThrow(
                 () -> new RequestFailure(ErrorCode.AUTHENTICATION_FAILED, "Login is required"));
-        if (channel != null) {
-            // A reconnect creates a new channel. Rebind it on the first authenticated request.
-            channel.bindUser(session.userId());
+        if (clientObserver != null) {
+            clientObserver.bindUser(session.userId());
         }
         if (role != null && !role.equalsIgnoreCase(session.role())) {
             throw new RequestFailure(ErrorCode.FORBIDDEN, "Role " + role + " is required");

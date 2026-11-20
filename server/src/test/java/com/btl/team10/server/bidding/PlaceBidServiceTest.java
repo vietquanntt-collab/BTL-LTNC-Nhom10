@@ -3,6 +3,7 @@ package com.btl.team10.server.bidding;
 import com.btl.team10.common.dto.SettlementWriteResult;
 import com.btl.team10.common.protocol.ErrorCode;
 import com.btl.team10.common.protocol.ResponseEnvelope;
+import com.btl.team10.common.serialization.JsonCodec;
 import com.btl.team10.server.network.EventPublisher;
 import com.btl.team10.server.persistence.DatabaseConnectionFactory;
 import com.btl.team10.server.persistence.DatabaseInitializer;
@@ -68,8 +69,11 @@ class PlaceBidServiceTest {
     @Test
     void placeBid_validAndOutbid_updatesPriceWalletsAndBroadcasts() throws Exception {
         List<String> bidder1Events = new ArrayList<>();
-        var ch1 = eventPublisher.register(bidder1Events::add);
-        ch1.bindUser(2L);
+        eventPublisher.subscribe((envelope, targetUserId) -> {
+            if (targetUserId == null || targetUserId == 2L) {
+                bidder1Events.add(JsonCodec.toJson(envelope));
+            }
+        });
 
         ResponseEnvelope r1 = placeBidService.placeBid("req-1", "s1", 2L, 100L, 100_000L);
         assertTrue(r1.ok());
@@ -110,9 +114,17 @@ class PlaceBidServiceTest {
     @Test
     void autoBid_proxyBiddingAndTieBreak_countersAutomatically() throws Exception {
         List<String> broadcastEvents = new ArrayList<>();
-        eventPublisher.register(broadcastEvents::add);
+        eventPublisher.subscribe((envelope, targetUserId) -> {
+            if (targetUserId == null) {
+                broadcastEvents.add(JsonCodec.toJson(envelope));
+            }
+        });
         List<String> bidder1Events = new ArrayList<>();
-        eventPublisher.register(bidder1Events::add).bindUser(2L);
+        eventPublisher.subscribe((envelope, targetUserId) -> {
+            if (targetUserId == null || targetUserId == 2L) {
+                bidder1Events.add(JsonCodec.toJson(envelope));
+            }
+        });
 
         // Bidder 1 sets auto-bid up to 200,000 with increment 10,000 -> immediately bids startPrice 100,000
         ResponseEnvelope rule1 = placeBidService.configureAutoBid(
@@ -152,7 +164,11 @@ class PlaceBidServiceTest {
                 new AntiSnipePolicy(30L, 20L, 2));
 
         List<String> broadcastEvents = new ArrayList<>();
-        eventPublisher.register(broadcastEvents::add);
+        eventPublisher.subscribe((envelope, targetUserId) -> {
+            if (targetUserId == null) {
+                broadcastEvents.add(JsonCodec.toJson(envelope));
+            }
+        });
 
         Instant nearEnd = Instant.now().plusSeconds(10);
         try (PreparedStatement ps = connection.prepareStatement("UPDATE auctions SET end_at = ? WHERE auction_id = 100")) {
@@ -188,7 +204,11 @@ class PlaceBidServiceTest {
         }
 
         List<String> broadcastEvents = new ArrayList<>();
-        eventPublisher.register(broadcastEvents::add);
+        eventPublisher.subscribe((envelope, targetUserId) -> {
+            if (targetUserId == null) {
+                broadcastEvents.add(JsonCodec.toJson(envelope));
+            }
+        });
 
         AuctionExpirationScheduler scheduler = new AuctionExpirationScheduler(
                 connection, eventPublisher, new Object(), settlementService);
