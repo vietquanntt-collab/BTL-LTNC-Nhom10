@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class Week4RepositoryIntegrationTest {
+class AutoBidSettlementRepositoryIntegrationTest {
 
     @Test
     void autoBidUpsertKeepsOneActiveRulePerBidder() throws Exception {
@@ -93,7 +93,7 @@ class Week4RepositoryIntegrationTest {
                 statement.setLong(2, fixture.bidderId());
                 statement.setLong(3, 3_000);
                 statement.setString(4, Instant.now().toString());
-                statement.setString(5, "week4-winning-bid");
+                statement.setString(5, "winning-bid-fixture");
                 statement.executeUpdate();
             }
 
@@ -155,7 +155,7 @@ class Week4RepositoryIntegrationTest {
                 statement.setLong(2, fixture.bidderId());
                 statement.setLong(3, 3_000);
                 statement.setString(4, Instant.now().toString());
-                statement.setString(5, "week4-scheduler-winner");
+                statement.setString(5, "scheduler-winning-bid-fixture");
                 statement.executeUpdate();
             }
 
@@ -177,10 +177,10 @@ class Week4RepositoryIntegrationTest {
 
     private static Fixture createFixture(Connection connection) throws Exception {
         JdbcUserRepository users = new JdbcUserRepository(connection);
-        long sellerId = users.insert("week4-seller", "hash-seller", Role.SELLER);
-        long bidderId = users.insert("week4-bidder", "hash-bidder", Role.BIDDER);
+        long sellerId = users.insert("settlement-seller", "hash-seller", Role.SELLER);
+        long bidderId = users.insert("settlement-bidder", "hash-bidder", Role.BIDDER);
         long itemId = new JdbcItemRepository(connection).insert(new CreateItemCommand(
-                sellerId, "Week 4 item", "Auto-bid fixture", ItemType.CARD, null));
+                sellerId, "Settlement fixture item", "Auto-bid fixture", ItemType.CARD, null));
         Instant start = Instant.now().minusSeconds(60);
         long auctionId = new JdbcAuctionRepository(connection).insert(new CreateAuctionCommand(
                 itemId, 1_000, 100, start, start.plusSeconds(3_600)));

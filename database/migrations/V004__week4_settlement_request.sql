@@ -1,4 +1,4 @@
--- Week 4: persist the idempotency key used by settlement retries.
+-- Settlement idempotency: persist the request key used by settlement retries.
 PRAGMA foreign_keys = ON;
 
 ALTER TABLE settlements ADD COLUMN request_id TEXT;

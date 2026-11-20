@@ -1,14 +1,14 @@
 # Nhóm 10 - Online Auction System
 
-Đây là bản tích hợp tuần 3 và nền dữ liệu tuần 4 của hệ thống đấu giá trực tuyến. Bản này hoàn thiện luồng Seller tạo item/auction, Bidder xem chi tiết và đặt giá, lịch sử bid, optimistic locking, idempotency, realtime event và JavaFX client dùng network thật; TV1 đã bổ sung contract/repository cho Auto-Bid, wallet và settlement idempotent.
+Đây là repository của hệ thống đấu giá trực tuyến, gồm luồng đấu giá realtime đã tích hợp và lớp dữ liệu cho Auto-Bid, wallet và settlement idempotent. TV1 đã khóa contract dùng chung, migration và repository boundary để TV2, TV3 và TV4 tiếp tục tích hợp chính sách nghiệp vụ, giao diện và kiểm thử end-to-end.
 
 ## Cấu trúc repository
 
 - `common/`: DTO, enum, envelope protocol, JSON codec và contract tests.
 - `server/`: SQLite persistence/repository, authentication/session, TCP socket server và integration tests.
 - `client/`: JavaFX login, network adapter và màn hình danh sách auction.
-- `database/`: migration, seed và data dictionary SQLite, gồm lịch sử bid của tuần 3.
-- `docs/`: ADR, protocol contract, hướng dẫn các tuần và báo cáo nghiệm thu.
+- `database/`: migration, seed và data dictionary SQLite cho user, auction, bid, Auto-Bid, wallet và settlement.
+- `docs/`: ADR, protocol contract, tài liệu bàn giao và báo cáo kiểm tra theo từng mốc.
 - `.github/workflows/`: CI chạy `clean verify` bằng JDK 21.
 
 ## Công nghệ
@@ -35,7 +35,7 @@ git fetch origin
 git switch develop
 git pull --ff-only origin develop
 # Tạo branch riêng cho nhiệm vụ, ví dụ:
-git switch -c feature/week2-tv1-data-layer
+git switch -c feature/<ten-nhiem-vu>
 ```
 
 Nếu branch nhiệm vụ đã tồn tại trên GitHub, dùng `git switch --track origin/<ten-branch>` thay cho lệnh `git switch -c`. Không làm việc trực tiếp trên `main` hoặc `develop`. Kiểm tra Java và Maven Wrapper trước khi build:
@@ -73,10 +73,9 @@ Script trên chạy `verify`, biên dịch cả `common`, `server`, `client` và
 
 Nếu OneDrive đang giữ file trong `target`, dùng lệnh mặc định không có `-Clean`. Không commit `target/`, `*.class` hoặc database runtime.
 
-Kết quả kiểm tra baseline `develop` tuần 3: `validate` và `verify` đã chạy PASS
-với JDK 21; 15 test ở `common` và 27 test ở `server` đều không có failure.
-Chi tiết phạm vi, commit nguồn và các giới hạn còn lại nằm trong
-`docs/week-3-check-report.md`.
+Kiểm tra hiện tại với JDK 21: `verify` chạy PASS; `common` có 18 test,
+`server` có 32 test, còn `client` biên dịch và đóng gói JAR thành công. Báo cáo
+kiểm tra các mốc trước đó được giữ trong `docs/` để truy nguyên lịch sử tích hợp.
 
 ## Chạy server
 
@@ -115,9 +114,10 @@ Client đăng nhập qua TCP JSON, sau đó tải danh sách auction từ server
 
 Nếu không dùng script, hãy giữ nguyên nguyên tắc: build qua reactor trước, sau đó chạy JavaFX với native JAR trên module path. Không dùng `javafx:run` dạng rút gọn ở root vì Maven có thể không nhận plugin prefix.
 
-## Luồng đã hoàn thiện trong ba tuần đầu
+## Chức năng hiện có
 
-1. Migration và seed SQLite chạy idempotent từ database rỗng.
+1. Migration và seed SQLite cho schema đấu giá, bid history và settlement request
+   idempotency; ứng dụng tự kiểm soát thứ tự migration bằng `schema_migrations`.
 2. Login kiểm tra password hash và tạo session role.
 3. Seller tạo item; chỉ Seller được tạo item.
 4. Seller chỉ tạo auction cho item thuộc tài khoản của mình.
@@ -126,14 +126,22 @@ Nếu không dùng script, hãy giữ nguyên nguyên tắc: build qua reactor t
 7. Auction detail hiển thị giá hiện tại, minimum bid, countdown, bid history và chart.
 8. Place bid dùng transaction, minimum increment, kiểm tra thời gian mở/đóng, optimistic version, request idempotency, wallet locking và audit event.
 9. Realtime `BID_ACCEPTED`, `OUTBID`, `BID_REJECTED` và `AUCTION_FINISHED` có sequence theo auction; client có chống double-submit và reconnect.
+10. TV1 cung cấp `AutoBidRuleRepository`, `WalletRepository` và
+    `SettlementRepository`, cùng DTO validation và integration test cho upsert
+    rule, optimistic wallet update, winner marking và settlement retry.
 
-Auto-Bid, Anti-Snipe và settlement đầy đủ thuộc tuần 4; không xem các chức năng đó là tiêu chí nghiệm thu tuần 3.
-Các chức năng bắt buộc còn lại như đăng ký tài khoản và CRUD sửa/xóa item cần
-được bổ sung ở các branch tiếp theo trước khi nghiệm thu cuối kỳ.
+## Phần đang chờ tích hợp
 
-Nền dữ liệu TV1 tuần 4 được mô tả trong `docs/week-4-tv1-data-layer.md`.
-Chính sách Auto-Bid, Anti-Snipe, scheduler và chuyển tiền settlement do các
-branch service/UX tiếp theo tích hợp qua repository boundary.
+- TV2 tích hợp chính sách Auto-Bid, Anti-Snipe, scheduler, frozen balance và
+  chuyển tiền settlement qua repository boundary.
+- TV3 nối trạng thái Auto-Bid, auction extended/closed/winner và balance vào
+  JavaFX client.
+- TV4 bổ sung Observer/event flow, policy test, end-to-end test và demo script.
+- Nhóm tiếp tục hoàn thiện `REGISTER`, CRUD sửa/xóa item và các tiêu chí release
+  cuối kỳ.
+
+Chi tiết contract, invariant và cách TV2/TV3/TV4 tiếp nhận lớp dữ liệu nằm trong
+`docs/auto-bid-settlement-data-layer.md`.
 
 ## Git workflow
 
@@ -152,11 +160,11 @@ git switch -c feature/<ten-nhiem-vu>
 git status
 git add -A
 git diff --cached --check
-git commit -m "fix: make local run reproducible"
+git commit -m "feat: describe the completed function"
 git push -u origin HEAD
 ```
 
-Không chạy lại `git switch -c` nếu branch đã tồn tại. Khi cập nhật một branch đã push, dùng `git add -A`, `git commit` và `git push` như bình thường. Nếu branch hiện tại là `feature/week2-check-fixes`, lệnh push tương ứng là `git push -u origin feature/week2-check-fixes`.
+Không chạy lại `git switch -c` nếu branch đã tồn tại. Khi cập nhật một branch đã push, dùng `git add -A`, `git commit` và `git push` như bình thường.
 
 Sau đó mở Pull Request từ branch feature vào `develop`. Chỉ merge khi CI xanh và một thành viên khác đã review. Không đưa `target/`, `data/auction.db`, file `.class`, JAR hoặc cấu hình mật khẩu lên GitHub.
 

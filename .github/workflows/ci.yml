@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 jobs:
-  week3:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,13 +18,13 @@ jobs:
           cache: maven
       - name: Make Maven Wrapper executable
         run: chmod +x mvnw
-      - name: Build and test week 3
+      - name: Build and test
         run: ./mvnw -B clean verify
       - name: Upload Surefire Test Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: week3-surefire-test-reports
+          name: surefire-test-reports
           path: |
             **/target/surefire-reports/*.xml
             **/target/surefire-reports/*.txt

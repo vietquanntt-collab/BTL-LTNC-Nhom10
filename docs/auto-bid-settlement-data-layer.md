@@ -1,8 +1,8 @@
-# Tuần 4 – TV1: Auto-Bid và settlement data layer
+# Auto-Bid và settlement: lớp dữ liệu
 
 ## Phạm vi đã hoàn thành
 
-TV1 khóa contract dùng chung và lớp dữ liệu cho các chức năng tuần 4. Server
+TV1 khóa contract dùng chung và lớp dữ liệu cho Auto-Bid và settlement. Server
 phía nghiệp vụ có thể dùng các interface này mà không truy cập SQL trực tiếp:
 
 - `ConfigureAutoBidCommand` và `AutoBidRuleDto` biểu diễn một rule theo cặp
@@ -17,7 +17,7 @@ phía nghiệp vụ có thể dùng các interface này mà không truy cập SQ
 ## Schema và invariant
 
 `V002__advanced_schema.sql` đã có bảng `auto_bid_rules`, `settlements`,
-`auction_events` và `request_receipts`. `V004__week4_settlement_request.sql`
+`auction_events` và `request_receipts`. Migration `V004__week4_settlement_request.sql`
 bổ sung `settlements.request_id` và unique index theo request. Các row settlement
 cũ được gán khóa `legacy-settlement-<id>` khi database được nâng cấp; validation
 request rỗng nằm trong DTO/repository để tương thích với SQL runner tối giản.
@@ -33,7 +33,7 @@ Các invariant mà repository kiểm tra:
    retry cùng auction trả lại record cũ với `created=false`.
 
 Việc trừ frozen balance, cộng tiền seller và chính sách Auto-Bid/Anti-Snipe
-được giữ ở service tuần 4 của TV2; repository này cung cấp transaction boundary
+được giữ ở service của TV2; repository này cung cấp transaction boundary
 và optimistic primitives để service thực hiện các bước đó nguyên tử.
 
 ## Kiểm tra
@@ -44,7 +44,7 @@ và optimistic primitives để service thực hiện các bước đó nguyên 
 
 Các test mới bao phủ validation contract, upsert/deactivate Auto-Bid, optimistic
 wallet update, settlement idempotency, winner marking và reject settlement có
-giá cuối không khớp. Baseline sau tích hợp: 18 test ở `common`, 31 test ở
+giá cuối không khớp. Baseline sau tích hợp: 18 test ở `common`, 32 test ở
 `server`, không failure.
 
 ## Handoff cho TV2/TV3/TV4
@@ -54,5 +54,5 @@ giá cuối không khớp. Baseline sau tích hợp: 18 test ở `common`, 31 te
   trong transaction của service.
 - TV3 dùng các field cents/Instant từ DTO, không tự quyết định winner hoặc
   settlement.
-- TV4 có thể dùng `Week4RepositoryIntegrationTest` làm fixture cho test policy,
+- TV4 có thể dùng `AutoBidSettlementRepositoryIntegrationTest` làm fixture cho test policy,
   scheduler và event order.
