@@ -2,7 +2,6 @@ package com.btl.team10.server.session;
 
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
-import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -34,10 +33,7 @@ public final class PasswordHasher {
             return false;
         }
         if (!encodedHash.startsWith("pbkdf2_sha256$")) {
-            // Compatibility for old local demo rows. New rows always use PBKDF2.
-            return MessageDigest.isEqual(
-                    password.getBytes(StandardCharsets.UTF_8),
-                    encodedHash.getBytes(StandardCharsets.UTF_8));
+            return false;
         }
         try {
             String[] parts = encodedHash.split("\\$", -1);

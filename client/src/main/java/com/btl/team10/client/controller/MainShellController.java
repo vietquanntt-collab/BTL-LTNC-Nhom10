@@ -67,11 +67,11 @@ public class MainShellController {
         userRoleBadge.setStyle("-fx-background-color: " + badgeColor
                 + "; -fx-text-fill: white; -fx-padding: 2 8; -fx-background-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold;");
 
-        boolean isSellerOrAdmin = "SELLER".equals(role) || "ADMIN".equals(role);
+        boolean isSeller = "SELLER".equals(role);
         boolean isAdmin = "ADMIN".equals(role);
 
-        navSellerBtn.setVisible(isSellerOrAdmin);
-        navSellerBtn.setManaged(isSellerOrAdmin);
+        navSellerBtn.setVisible(isSeller);
+        navSellerBtn.setManaged(isSeller);
         navAdminBtn.setVisible(isAdmin);
         navAdminBtn.setManaged(isAdmin);
 

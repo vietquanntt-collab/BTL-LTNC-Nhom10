@@ -18,13 +18,15 @@
 | `LIST_AUCTIONS` | optional `status`, `page`, `pageSize` | authenticated |
 | `GET_AUCTION` | `auctionId` | authenticated |
 | `CREATE_ITEM` | `name`, `description`, `itemType`, `imageBase64?` | Seller |
+| `LIST_ITEMS` | empty | Seller |
 | `UPDATE_ITEM` | `itemId`, changed fields | owning Seller/Admin |
 | `DELETE_ITEM` | `itemId` | owning Seller/Admin |
 | `CREATE_AUCTION` | `itemId`, `startPriceCents`, `minIncrementCents`, `durationHours` | owning Seller |
-| `PLACE_BID` | `auctionId`, `amountCents` | Bidder/Seller allowed by policy |
+| `PLACE_BID` | `auctionId`, `amountCents`, `clientRequestId?` | Bidder |
 | `SET_AUTO_BID` | `auctionId`, `maxAmountCents`, `incrementCents` | authenticated bidder |
-| `CANCEL_AUCTION` | `auctionId` | Admin/policy owner |
-| `ADMIN_LIST_USERS` | page/filter | Admin |
+| `CANCEL_AUCTION` | `auctionId` | owning Seller/Admin |
+| `SETTLE_AUCTION` | `auctionId`, `clientRequestId?` | owning Seller/Admin |
+| `ADMIN_LIST_USERS` | `role?`, `account?`, `page?`, `pageSize?` | Admin |
 
 ## Response envelope example
 
@@ -49,7 +51,7 @@
 
 ## Event types
 
-`BID_ACCEPTED`, `OUTBID`, `BID_REJECTED`, `AUCTION_EXTENDED`, `AUCTION_FINISHED`, `AUCTION_SETTLED`, `BALANCE_CHANGED`, `ERROR`.
+`BID_ACCEPTED`, `OUTBID`, `BID_REJECTED`, `AUCTION_EXTENDED`, `AUCTION_FINISHED`, `AUCTION_SETTLED`, `AUCTION_CANCELLED`, `BALANCE_CHANGED`, `ERROR`.
 
 Every auction event includes `eventId`, `auctionId`, `sequence`, `occurredAt` and a payload. Clients ignore a sequence less than or equal to the last applied sequence for that auction.
 
@@ -59,4 +61,4 @@ Every auction event includes `eventId`, `auctionId`, `sequence`, `occurredAt` an
 
 ## Compatibility rule
 
-Field names and enum values in v1 are stable for the current five-week milestone. Any breaking change requires `v2`, an ADR update and an adapter period; do not silently change a shared DTO.
+`AUCTION_CANCELLED` is emitted only after the cancellation transaction commits; a targeted `BALANCE_CHANGED` follows when frozen funds are returned. Field names and enum values in v1 are stable for the current five-week milestone. Any breaking change requires `v2`, an ADR update and an adapter period; do not silently change a shared DTO.

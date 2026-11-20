@@ -204,6 +204,10 @@ public final class AuctionDetailController {
         }
         long myUserId = NetworkClient.getInstance().userId();
         if (isAuctionEnded(currentAuction)) {
+            if (currentAuction.status() == AuctionStatus.CANCELLED) {
+                setLeadBadge("PHIÊN ĐÃ BỊ HỦY", "#7f8c8d");
+                return;
+            }
             Long winnerId = currentAuction.winnerId();
             if (winnerId != null && winnerId == myUserId) {
                 setLeadBadge("BẠN ĐÃ THẮNG PHIÊN NÀY", "#27ae60");
@@ -450,6 +454,17 @@ public final class AuctionDetailController {
                     startCountdown();
                     showBanner("Anti-Snipe: Phiên đấu giá vừa được gia hạn thêm thời gian (lần #" + nextExtensions + ")!", "#8e44ad");
                 }
+                case AUCTION_CANCELLED -> {
+                    currentAuction = new AuctionDto(
+                            currentAuction.auctionId(), currentAuction.itemId(), currentAuction.startPriceCents(),
+                            currentAuction.currentPriceCents(), currentAuction.minIncrementCents(),
+                            currentAuction.startAt(), currentAuction.endAt(), AuctionStatus.CANCELLED,
+                            currentAuction.version() + 1, currentAuction.extensionCount(),
+                            null, event.occurredAt(), currentAuction.createdAt());
+                    applyAuctionState(currentAuction, null);
+                    stopCountdown();
+                    showBanner("Phiên đấu giá đã bị hủy. Tiền đóng băng đã được giải phóng.", "#7f8c8d");
+                }
                 case AUCTION_FINISHED, AUCTION_SETTLED -> {
                     Long winnerId = payload.has("winnerId") && !payload.get("winnerId").isJsonNull()
                             ? payload.get("winnerId").getAsLong() : currentAuction.winnerId();
@@ -566,6 +581,7 @@ public final class AuctionDetailController {
     }
 
     private void setBidControlsEnabled(boolean enabled) {
+        enabled = enabled && "BIDDER".equalsIgnoreCase(NetworkClient.getInstance().role());
         bidAmountField.setDisable(!enabled);
         quickFillButton.setDisable(!enabled);
         placeBidButton.setDisable(!enabled);

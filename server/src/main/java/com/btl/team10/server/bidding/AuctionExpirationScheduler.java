@@ -69,6 +69,15 @@ public final class AuctionExpirationScheduler {
     }
 
     public void closeExpiredAuctions() throws SQLException {
+        synchronized (databaseLock) {
+            closeAndSettleAuctions();
+        }
+    }
+
+    private void closeAndSettleAuctions() throws SQLException {
+        if (!connection.getAutoCommit()) {
+            throw new IllegalStateException("Scheduler requires an independent transaction");
+        }
         Instant now = Instant.now();
         String nowIso = now.toString();
         List<ExpiredAuction> expiredList = new ArrayList<>();
@@ -91,26 +100,23 @@ public final class AuctionExpirationScheduler {
             }
         }
 
-        if (expiredList.isEmpty()) {
-            return;
-        }
-
-        boolean prevAutoCommit = connection.getAutoCommit();
-        connection.setAutoCommit(false);
-        try {
-            for (ExpiredAuction item : expiredList) {
+        for (ExpiredAuction item : expiredList) {
+            connection.setAutoCommit(false);
+            long seq;
+            JsonObject payload = new JsonObject();
+            try {
                 try (PreparedStatement updateAuction = connection.prepareStatement(
                         "UPDATE auctions SET status = 'FINISHED', closed_at = ?, version = version + 1 "
                                 + "WHERE auction_id = ? AND status IN ('OPEN', 'RUNNING')")) {
                     updateAuction.setString(1, nowIso);
                     updateAuction.setLong(2, item.auctionId);
                     if (updateAuction.executeUpdate() == 0) {
+                        connection.rollback();
                         continue;
                     }
                 }
 
-                long seq = nextSequence(item.auctionId);
-                JsonObject payload = new JsonObject();
+                seq = nextSequence(item.auctionId);
                 payload.addProperty("auctionId", item.auctionId);
                 payload.addProperty("finalPriceCents", item.finalPriceCents);
                 if (item.winnerId != null) {
@@ -129,16 +135,39 @@ public final class AuctionExpirationScheduler {
                 }
 
                 connection.commit();
-                eventPublisher.publishToAll(EventType.AUCTION_FINISHED, item.auctionId, seq, payload.toString());
-
-                // Idempotent settlement immediately after auction transitions to FINISHED
-                settlementService.settleFinishedAuction(item.auctionId, "scheduler-settle-" + item.auctionId);
+            } catch (SQLException | RuntimeException error) {
+                connection.rollback();
+                throw error;
+            } finally {
+                connection.setAutoCommit(true);
             }
-        } catch (SQLException e) {
-            connection.rollback();
-            throw e;
-        } finally {
-            connection.setAutoCommit(prevAutoCommit);
+            eventPublisher.publishToAll(EventType.AUCTION_FINISHED, item.auctionId, seq, payload.toString());
+        }
+
+        // Retry FINISHED rows left by a crash or a failed transfer on a previous tick.
+        // Each transfer owns its transaction; no payment event can escape an uncommitted write.
+        List<Long> pending = new ArrayList<>();
+        try (PreparedStatement select = connection.prepareStatement(
+                "SELECT auction_id FROM auctions WHERE status = 'FINISHED' ORDER BY auction_id");
+             ResultSet rows = select.executeQuery()) {
+            while (rows.next()) {
+                pending.add(rows.getLong(1));
+            }
+        }
+        SQLException failure = null;
+        for (long auctionId : pending) {
+            try {
+                settlementService.settleFinishedAuction(auctionId, "scheduler-settle-" + auctionId);
+            } catch (SQLException error) {
+                if (failure == null) {
+                    failure = error;
+                } else {
+                    failure.addSuppressed(error);
+                }
+            }
+        }
+        if (failure != null) {
+            throw failure;
         }
     }
 
