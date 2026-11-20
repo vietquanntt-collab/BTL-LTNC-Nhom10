@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -86,6 +87,27 @@ class RepositoryIntegrationTest {
         }
     }
 
+    @Test
+    void finalSchemaExposesExpectedConstraintsAndIndexes() throws Exception {
+        try (Connection connection = DatabaseConnectionFactory.open("jdbc:sqlite::memory:")) {
+            DatabaseInitializer.initialize(connection, databaseRoot(), false);
+            assertEquals(4, count(connection, "schema_migrations"));
+
+            assertTrue(indexHasColumn(connection, "users", "account"));
+            assertTrue(indexHasColumn(connection, "auctions", "item_id"));
+            assertTrue(indexHasColumn(connection, "bids", "client_request_id"));
+            assertTrue(indexHasColumn(connection, "bid_history", "auction_version"));
+            assertTrue(namedIndexExists(connection, "settlements", "idx_settlements_request_id"));
+            assertTrue(indexHasColumn(connection, "auction_events", "sequence"));
+            assertEquals(1, pragmaForeignKeys(connection));
+
+            assertThrows(SQLException.class, () -> execute(connection,
+                    "INSERT INTO users(account, password_hash, role) VALUES ('x', 'h', 'NOPE')"));
+            assertThrows(SQLException.class, () -> execute(connection,
+                    "INSERT INTO wallets(user_id, balance_cents, frozen_cents) VALUES (999, 1, 0)"));
+        }
+    }
+
     private static int count(Connection connection, String table) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement("SELECT COUNT(*) FROM " + table);
              ResultSet result = statement.executeQuery()) {
@@ -117,6 +139,51 @@ class RepositoryIntegrationTest {
             try (ResultSet result = statement.executeQuery()) {
                 return result.next();
             }
+        }
+    }
+
+    private static boolean indexHasColumn(Connection connection, String tableName, String columnName)
+            throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT name, [unique] AS is_unique FROM pragma_index_list(?)")) {
+            statement.setString(1, tableName);
+            try (ResultSet result = statement.executeQuery()) {
+                while (result.next()) {
+                    if (result.getInt("is_unique") != 1) {
+                        continue;
+                    }
+                    String indexName = result.getString("name");
+                    try (PreparedStatement columns = connection.prepareStatement(
+                            "SELECT 1 FROM pragma_index_info(?) WHERE name = ?")) {
+                        columns.setString(1, indexName);
+                        columns.setString(2, columnName);
+                        try (ResultSet match = columns.executeQuery()) {
+                            if (match.next()) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
+        }
+    }
+
+    private static boolean namedIndexExists(Connection connection, String tableName, String indexName)
+            throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT 1 FROM pragma_index_list(?) WHERE name = ?")) {
+            statement.setString(1, tableName);
+            statement.setString(2, indexName);
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
+        }
+    }
+
+    private static void execute(Connection connection, String sql) throws SQLException {
+        try (var statement = connection.createStatement()) {
+            statement.execute(sql);
         }
     }
 
