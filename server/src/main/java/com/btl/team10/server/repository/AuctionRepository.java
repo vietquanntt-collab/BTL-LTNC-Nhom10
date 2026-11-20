@@ -16,6 +16,14 @@ public interface AuctionRepository {
 
     List<AuctionDto> findByStatus(AuctionStatus status) throws SQLException;
 
+    default List<AuctionDto> findAllAuctions() throws SQLException {
+        List<AuctionDto> all = new ArrayList<>();
+        for (AuctionStatus status : AuctionStatus.values()) {
+            all.addAll(findByStatus(status));
+        }
+        return List.copyOf(all);
+    }
+
     long insert(CreateAuctionCommand command) throws SQLException;
 
     default List<AuctionDto> findActiveAuctions() throws SQLException {

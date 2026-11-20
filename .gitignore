@@ -19,6 +19,13 @@ target/
 config/local.properties
 .javafx-cache/
 
+# Keep the runtime database directory in a clean clone; database files stay ignored.
+!data/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+!data/.gitkeep
+
 # OS
 Thumbs.db
 Desktop.ini

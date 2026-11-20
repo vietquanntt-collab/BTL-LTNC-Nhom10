@@ -13,6 +13,11 @@ public interface ItemRepository {
 
     List<ItemDto> findBySeller(long sellerId) throws SQLException;
 
+    boolean update(long itemId, long sellerId, String name, String description, ItemType itemType)
+            throws SQLException;
+
+    boolean delete(long itemId, long sellerId) throws SQLException;
+
     long insert(CreateItemCommand command) throws SQLException;
 
     // Default method tương thích với ClientHandler cũ

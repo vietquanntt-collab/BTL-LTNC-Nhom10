@@ -1,170 +1,109 @@
-# Nhóm 10 - Online Auction System
+# Nhóm 10 – Online Auction System
 
-Đây là repository của hệ thống đấu giá trực tuyến, gồm luồng đấu giá realtime đã tích hợp và lớp dữ liệu cho Auto-Bid, wallet và settlement idempotent. TV1 đã khóa contract dùng chung, migration và repository boundary để TV2, TV3 và TV4 tiếp tục tích hợp chính sách nghiệp vụ, giao diện và kiểm thử end-to-end.
+Bản tích hợp bốn tuần đầu gồm TCP/JSON server, JavaFX client và SQLite local. Nhóm đã có đăng ký/đăng nhập, phân quyền, Seller CRUD item, mở/hủy auction, đấu giá realtime, Auto-Bid, Anti-Snipe, scheduler, settlement và dashboard Admin.
 
-## Cấu trúc repository
+Bản rà soát lấy nền từ develop, commit ba745b80db4b922375df0d0306fbe3004bb85a08. Thay đổi bàn giao được để chưa commit để người nhận tự review, tạo nhánh và push.
 
-- `common/`: DTO, enum, envelope protocol, JSON codec và contract tests.
-- `server/`: SQLite persistence/repository, authentication/session, TCP socket server và integration tests.
-- `client/`: JavaFX login, network adapter và màn hình danh sách auction.
-- `database/`: migration, seed và data dictionary SQLite cho user, auction, bid, Auto-Bid, wallet và settlement.
-- `docs/`: ADR, protocol contract, tài liệu bàn giao và báo cáo kiểm tra theo từng mốc.
-- `.github/workflows/`: CI chạy `clean verify` bằng JDK 21.
+## Chạy trên Windows
 
-## Công nghệ
+Cài **JDK 21** và Git. Maven Wrapper và JavaFX dependency đã có trong project; lần chạy đầu cần Internet để tải dependency.
 
-- Java 21 và Maven Wrapper.
-- SQLite local, tiền lưu bằng integer cents.
-- TCP, mỗi request/response JSON là một dòng UTF-8; protocol pipe cũ vẫn được giữ để tương thích.
-- JUnit 5 cho contract, persistence và socket smoke test.
-- JavaFX 21 cho client.
+Mở PowerShell tại thư mục chứa README:
 
-## Cài đặt trước khi chạy
+    java -version
+    .\scripts\build.ps1
 
-- JDK 21 (kiểm tra bằng `java -version`).
-- Git.
-- Không cần cài Maven riêng vì repository đã có Maven Wrapper (`mvnw.cmd`).
-- Không cần tải JavaFX thủ công; Maven sẽ tải đúng JavaFX 21 cho Windows.
+Nếu máy có nhiều JDK, đặt JDK 21 cho terminal hiện tại:
 
-Sau khi clone repository, mở PowerShell tại thư mục project:
+    $env:JAVA_HOME = '<thu-muc-JDK-21>'
 
-```powershell
-git clone https://github.com/vietquanntt-collab/BTL-LTNC-Nhom10.git
-cd BTL-LTNC-Nhom10
-git fetch origin
-git switch develop
-git pull --ff-only origin develop
-# Tạo branch riêng cho nhiệm vụ, ví dụ:
-git switch -c feature/<ten-nhiem-vu>
-```
+Nếu PowerShell chặn script:
 
-Nếu branch nhiệm vụ đã tồn tại trên GitHub, dùng `git switch --track origin/<ten-branch>` thay cho lệnh `git switch -c`. Không làm việc trực tiếp trên `main` hoặc `develop`. Kiểm tra Java và Maven Wrapper trước khi build:
+    Set-ExecutionPolicy -Scope Process Bypass
 
-```powershell
-java -version
-.\mvnw.cmd -version
-```
+Terminal 1 – server:
 
-`java -version` cần là JDK 21. Nếu Windows có nhiều JDK, đặt `JAVA_HOME` tới thư mục JDK 21 rồi mở lại terminal:
+    .\scripts\run-server.ps1
 
-```powershell
-$env:JAVA_HOME = '<duong-dan-toi-JDK-21>'
-```
+Terminal 2 – client:
 
-Nếu PowerShell chặn script `.ps1`, chỉ áp dụng cho terminal hiện tại:
+    .\scripts\run-client.ps1
 
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-```
+Server mặc định dùng cổng 9999, tự migrate/seed database ở data/auction.db. Muốn dữ liệu demo mới:
 
-## Kiểm tra toàn bộ project
+    .\scripts\run-server.ps1 -Port 10000 -DatabasePath data\demo-new.db
+    .\scripts\run-client.ps1 -HostName 127.0.0.1 -Port 10000
 
-Từ thư mục repository, chạy script đã được chuẩn hóa:
+| Account | Password | Role | Tổng số dư demo |
+|---|---|---|---:|
+| admin | admin123 | ADMIN | 0 |
+| seller | seller123 | SELLER | 0 |
+| bidder1 | bidder123 | BIDDER | 2.000.000 cents |
+| bidder2 | bidder123 | BIDDER | 2.000.000 cents |
 
-```powershell
-.\scripts\build.ps1
-```
+Bidder2 đang dẫn đầu phiên seed với 110.000 cents đóng băng; khả dụng ban đầu là 1.890.000 cents. Tài khoản đăng ký mới có role BIDDER và ví bằng 0.
 
-Script trên chạy `verify`, biên dịch cả `common`, `server`, `client` và toàn bộ test. Nếu muốn dọn `target` trước khi build, sau khi đã đóng các tiến trình Java/Maven:
+## Kiểm thử
 
-```powershell
-.\scripts\build.ps1 -Clean
-```
+    .\scripts\build.ps1
 
-Nếu OneDrive đang giữ file trong `target`, dùng lệnh mặc định không có `-Clean`. Không commit `target/`, `*.class` hoặc database runtime.
+Có thể dọn output rồi build sau khi đóng tiến trình Java/Maven:
 
-Kiểm tra hiện tại với JDK 21: `verify` chạy PASS; `common` có 18 test,
-`server` có 32 test, còn `client` biên dịch và đóng gói JAR thành công. Báo cáo
-kiểm tra các mốc trước đó được giữ trong `docs/` để truy nguyên lịch sử tích hợp.
+    .\scripts\build.ps1 -Clean
 
-## Chạy server
+Chạy riêng bảy test socket quản lý:
 
-Mở terminal thứ nhất tại thư mục repository:
+    .\mvnw.cmd -B -pl common,server -am test "-Dtest=ManagementSocketIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=false"
 
-```powershell
-.\scripts\run-server.ps1
-```
+Kết quả kiểm tra và phạm vi đã sửa được ghi ở [báo cáo tuần 4](docs/week-4-check-report.md).
 
-Script tự biên dịch server, tìm các JAR SQLite, Gson và SLF4J trong Maven local repository rồi khởi động `ServerApplication`. Server mặc định nghe tại `127.0.0.1:9999`, tạo database ở `data/auction.db`, chạy migration và seed demo.
+## Luồng test cho cả nhóm
 
-Có thể đổi cổng hoặc tắt seed:
+1. Đăng nhập seller, tạo item, sửa rồi xóa một item chưa mở auction.
+2. Tạo item khác, mở auction: giá 100000, bước 5000, thời lượng 1 giờ.
+3. Hai client đăng nhập bidder1/bidder2, đặt giá và quan sát realtime, lịch sử, biểu đồ và số dư ví.
+4. Cấu hình Auto-Bid; client còn lại đặt giá để kiểm tra không vượt giá trần.
+5. Admin xem users, lọc auction và hủy phiên đang mở. Bidder nhận CANCELLED và được giải phóng tiền.
+6. Bộ test tự động kiểm tra Anti-Snipe, scheduler, no-winner, retry settlement và event order.
 
-```powershell
-.\scripts\run-server.ps1 -Port 10000
-.\scripts\run-server.ps1 -Seed $false
-```
+Kịch bản chi tiết: [hướng dẫn chạy và demo](docs/local-testing.md).
 
-Tài khoản seed nằm trong `database/README.md`; mật khẩu demo được lưu dưới dạng PBKDF2-HMAC-SHA256.
+## Contract và chính sách
 
-## Chạy JavaFX client
+- REGISTER tạo BIDDER; client không tự chọn role.
+- LOGIN trả userId, role, balanceCents, frozenCents và session.
+- LIST_AUCTIONS không có status giữ tương thích OPEN/RUNNING; status ALL trả cả FINISHED/PAID/CANCELLED.
+- Seller chỉ quản lý item/auction của mình; Admin xem users và hủy auction.
+- Hủy phiên giải phóng đúng frozen balance, vô hiệu hóa Auto-Bid và phát event sau commit.
+- Hết giờ chuyển FINISHED rồi PAID. Settlement retry không chuyển tiền lần hai.
+- Event có sequence từng auction; response được trả trước event phát sinh từ request đó.
 
-Giữ server đang chạy, mở terminal thứ hai tại thư mục repository:
+Chi tiết ở [protocol v1](docs/contracts/protocol-v1.md).
 
-```powershell
-.\scripts\run-client.ps1
-```
+## Tự tạo nhánh, commit và push
 
-Script biên dịch client qua reactor rồi chạy `ClientApp` trực tiếp với JavaFX native JAR trên module path. Cách này tránh lỗi `No plugin found for prefix 'javafx'` và không cần cài module root vào Maven local repository.
+Folder BTL-week4-check là repository độc lập có lịch sử nhóm. Mở terminal tại folder này:
 
-Client đăng nhập qua TCP JSON, sau đó tải danh sách auction từ server. Có thể đổi host và cổng:
+    git status
+    git switch -c feature/week4-check
+    .\scripts\build.ps1
+    git diff --check
+    git add -A
+    git diff --cached --stat
+    git diff --cached --check
+    git commit -m "fix: complete week four integration and handoff"
+    git push -u origin feature/week4-check
 
-```powershell
-.\scripts\run-client.ps1 -HostName 127.0.0.1 -Port 9999
-```
+Nếu muốn chia commit theo chức năng, xem [hướng dẫn commit](docs/handoff-week4.md). Mọi thay đổi được để unstaged; không có commit hoặc push tự động trong bản bàn giao.
 
-Nếu không dùng script, hãy giữ nguyên nguyên tắc: build qua reactor trước, sau đó chạy JavaFX với native JAR trên module path. Không dùng `javafx:run` dạng rút gọn ở root vì Maven có thể không nhận plugin prefix.
+Sau khi push, mở Pull Request từ feature/week4-check vào develop, chờ CI và review của các owner.
 
-## Chức năng hiện có
+## Tài liệu bàn giao
 
-1. Migration và seed SQLite cho schema đấu giá, bid history và settlement request
-   idempotency; ứng dụng tự kiểm soát thứ tự migration bằng `schema_migrations`.
-2. Login kiểm tra password hash và tạo session role.
-3. Seller tạo item; chỉ Seller được tạo item.
-4. Seller chỉ tạo auction cho item thuộc tài khoản của mình.
-5. Bidder/Seller đã đăng nhập đọc danh sách auction `OPEN` và `RUNNING`.
-6. Client JavaFX nối server thật, có loading/error state và màn hình danh sách auction.
-7. Auction detail hiển thị giá hiện tại, minimum bid, countdown, bid history và chart.
-8. Place bid dùng transaction, minimum increment, kiểm tra thời gian mở/đóng, optimistic version, request idempotency, wallet locking và audit event.
-9. Realtime `BID_ACCEPTED`, `OUTBID`, `BID_REJECTED` và `AUCTION_FINISHED` có sequence theo auction; client có chống double-submit và reconnect.
-10. TV1 cung cấp `AutoBidRuleRepository`, `WalletRepository` và
-    `SettlementRepository`, cùng DTO validation và integration test cho upsert
-    rule, optimistic wallet update, winner marking và settlement retry.
+- [Báo cáo kiểm tra bốn tuần](docs/week-4-check-report.md).
+- [Checklist và hướng dẫn commit](docs/handoff-week4.md).
+- [Hướng dẫn chạy và demo](docs/local-testing.md).
+- [Protocol](docs/contracts/protocol-v1.md), [database](database/README.md), [nguồn và điều chỉnh](docs/source-map.md).
 
-## Phần đang chờ tích hợp
-
-- TV2 tích hợp chính sách Auto-Bid, Anti-Snipe, scheduler, frozen balance và
-  chuyển tiền settlement qua repository boundary.
-- TV3 nối trạng thái Auto-Bid, auction extended/closed/winner và balance vào
-  JavaFX client.
-- TV4 bổ sung Observer/event flow, policy test, end-to-end test và demo script.
-- Nhóm tiếp tục hoàn thiện `REGISTER`, CRUD sửa/xóa item và các tiêu chí release
-  cuối kỳ.
-
-Chi tiết contract, invariant và cách TV2/TV3/TV4 tiếp nhận lớp dữ liệu nằm trong
-`docs/auto-bid-settlement-data-layer.md`.
-
-## Git workflow
-
-```text
-feature/* -> develop -> main
-```
-
-Mỗi thành viên tạo feature branch, chạy kiểm tra, mở Pull Request vào `develop`; chỉ đưa `develop` lên `main` sau khi nhóm nghiệm thu release.
-
-## Quy trình commit của thành viên
-
-Không commit trực tiếp vào `main` hoặc `develop`. Nếu bắt đầu nhiệm vụ mới, tạo branch feature; nếu đã ở đúng branch thì giữ nguyên branch đó. Sau khi sửa code và chạy `build.ps1`, thực hiện:
-
-```powershell
-git switch -c feature/<ten-nhiem-vu>
-git status
-git add -A
-git diff --cached --check
-git commit -m "feat: describe the completed function"
-git push -u origin HEAD
-```
-
-Không chạy lại `git switch -c` nếu branch đã tồn tại. Khi cập nhật một branch đã push, dùng `git add -A`, `git commit` và `git push` như bình thường.
-
-Sau đó mở Pull Request từ branch feature vào `develop`. Chỉ merge khi CI xanh và một thành viên khác đã review. Không đưa `target/`, `data/auction.db`, file `.class`, JAR hoặc cấu hình mật khẩu lên GitHub.
+Target, JAR, database runtime, JavaFX cache và cấu hình riêng được ignore.
 

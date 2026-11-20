@@ -1,8 +1,11 @@
 package com.btl.team10.server.network;
 
+import com.btl.team10.common.dto.AuctionDto;
 import com.btl.team10.common.dto.CreateAuctionCommand;
 import com.btl.team10.common.dto.CreateItemCommand;
 import com.btl.team10.common.dto.ItemDto;
+import com.btl.team10.common.exception.ValidationException;
+import com.btl.team10.common.model.AuctionStatus;
 import com.btl.team10.common.model.ItemType;
 import com.btl.team10.common.protocol.ErrorCode;
 import com.btl.team10.common.protocol.RequestEnvelope;
@@ -26,6 +29,8 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -101,7 +106,9 @@ public final class ClientHandler implements Runnable {
                                 ? handleJson(line.trim()) : handlePipe(line.trim());
                     }
                 } catch (RuntimeException error) {
-                    response = "ERROR|" + (error.getMessage() == null ? "Request failed" : error.getMessage());
+                    response = line.trim().startsWith("{")
+                            ? failureFor(line, ErrorCode.INTERNAL_ERROR, "Request failed")
+                            : "ERROR|Request failed";
                 }
                 if (clientObserver != null) {
                     clientObserver.finishRequestAndFlush(response);
@@ -132,18 +139,27 @@ public final class ClientHandler implements Runnable {
         RequestEnvelope request;
         try {
             request = JsonCodec.fromJson(line, RequestEnvelope.class);
+            if (!"v1".equals(request.protocolVersion())) {
+                return failure(request, ErrorCode.INVALID_REQUEST, "Unsupported protocol version");
+            }
             JsonElement payloadElement = JsonParser.parseString(request.payloadJson());
             if (!payloadElement.isJsonObject()) {
                 return failure(request, ErrorCode.INVALID_REQUEST, "payload must be an object");
             }
             JsonObject payload = payloadElement.getAsJsonObject();
             return switch (request.action().toUpperCase(Locale.ROOT)) {
+                case "REGISTER" -> register(request, payload);
                 case "LOGIN" -> login(request, payload);
                 case "LOGOUT" -> logout(request);
-                case "LIST_AUCTIONS" -> listAuctions(request);
+                case "LIST_AUCTIONS" -> listAuctions(request, payload);
                 case "GET_AUCTION" -> getAuction(request, payload);
                 case "CREATE_ITEM" -> createItem(request, payload);
+                case "LIST_ITEMS" -> listItems(request);
+                case "UPDATE_ITEM" -> updateItem(request, payload);
+                case "DELETE_ITEM" -> deleteItem(request, payload);
                 case "CREATE_AUCTION" -> createAuction(request, payload);
+                case "CANCEL_AUCTION" -> cancelAuction(request, payload);
+                case "ADMIN_LIST_USERS" -> adminListUsers(request, payload);
                 case "PLACE_BID" -> placeBid(request, payload);
                 case "LIST_BIDS" -> listBids(request, payload);
                 case "SET_AUTO_BID" -> setAutoBid(request, payload);
@@ -154,16 +170,33 @@ public final class ClientHandler implements Runnable {
             };
         } catch (RequestFailure error) {
             return failureFor(line, error.code, error.getMessage());
+        } catch (ValidationException error) {
+            return failureFor(line, error.errorCode(), error.getMessage());
         } catch (JsonParseException | IllegalArgumentException error) {
             return failureFor(line, ErrorCode.INVALID_REQUEST, "Invalid request");
         } catch (SQLException error) {
-            return failureFor(line, ErrorCode.INTERNAL_ERROR, "Database error");
+            return failureFor(line, error.getErrorCode() == 19 ? ErrorCode.CONFLICT : ErrorCode.INTERNAL_ERROR,
+                    error.getErrorCode() == 19 ? "Request conflicts with existing data" : "Database error");
+        }
+    }
+
+    private String register(RequestEnvelope request, JsonObject payload) throws SQLException {
+        try {
+            long userId = authService.registerBidder(
+                    requiredString(payload, "account"), requiredPassword(payload));
+            JsonObject result = new JsonObject();
+            result.addProperty("userId", userId);
+            result.addProperty("role", "BIDDER");
+            return success(request, null, result.toString());
+        } catch (IllegalArgumentException error) {
+            throw new RequestFailure(error.getMessage().contains("already registered")
+                    ? ErrorCode.CONFLICT : ErrorCode.VALIDATION_ERROR, error.getMessage());
         }
     }
 
     private String login(RequestEnvelope request, JsonObject payload) throws SQLException {
         Optional<SessionManager.UserSession> session = authService.login(
-                requiredString(payload, "account"), requiredString(payload, "password"));
+                requiredString(payload, "account"), requiredPassword(payload));
         if (session.isEmpty()) {
             return failure(request, ErrorCode.AUTHENTICATION_FAILED, "Invalid account or password");
         }
@@ -175,10 +208,15 @@ public final class ClientHandler implements Runnable {
         result.addProperty("userId", value.userId());
         result.addProperty("account", value.account());
         result.addProperty("role", value.role());
+        var user = authService.findUser(value.userId()).orElseThrow(
+                () -> new RequestFailure(ErrorCode.NOT_FOUND, "User does not exist"));
+        result.addProperty("balanceCents", user.balanceCents());
+        result.addProperty("frozenCents", user.frozenCents());
         return success(request, value.token(), result.toString());
     }
 
     private String logout(RequestEnvelope request) {
+        requireSession(request, null);
         authService.logout(request.sessionId());
         if (clientObserver != null) {
             clientObserver.bindUser(null);
@@ -186,9 +224,25 @@ public final class ClientHandler implements Runnable {
         return success(request, null, "{}");
     }
 
-    private String listAuctions(RequestEnvelope request) throws SQLException {
+    private String listAuctions(RequestEnvelope request, JsonObject payload) throws SQLException {
         requireSession(request, null);
-        return success(request, request.sessionId(), JsonCodec.toJson(auctionRepository.findActiveAuctions()));
+        String status = optionalString(payload, "status");
+        List<AuctionDto> auctions;
+        if (status == null || status.isBlank()) {
+            auctions = auctionRepository.findActiveAuctions();
+        } else if ("ALL".equalsIgnoreCase(status.trim())) {
+            auctions = auctionRepository.findAllAuctions();
+        } else {
+            try {
+                auctions = auctionRepository.findByStatus(
+                        AuctionStatus.valueOf(status.trim().toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException error) {
+                throw new RequestFailure(ErrorCode.VALIDATION_ERROR, "Unknown auction status");
+            }
+        }
+        auctions = auctions.stream().sorted(
+                Comparator.comparing(AuctionDto::endAt).thenComparingLong(AuctionDto::auctionId)).toList();
+        return success(request, request.sessionId(), JsonCodec.toJson(paginate(auctions, payload)));
     }
 
     private String getAuction(RequestEnvelope request, JsonObject payload) throws SQLException {
@@ -214,16 +268,54 @@ public final class ClientHandler implements Runnable {
         SessionManager.UserSession session = requireSession(request, "SELLER");
         CreateItemCommand command = new CreateItemCommand(
                 session.userId(), requiredString(payload, "name"), optionalString(payload, "description"),
-                ItemType.valueOf(requiredString(payload, "itemType").toUpperCase(Locale.ROOT)),
+                itemType(requiredString(payload, "itemType")),
                 optionalString(payload, "imageBase64"));
         JsonObject result = new JsonObject();
         result.addProperty("itemId", itemRepository.insert(command));
         return success(request, request.sessionId(), result.toString());
     }
 
+    private String listItems(RequestEnvelope request) throws SQLException {
+        var session = requireSession(request, "SELLER");
+        return success(request, request.sessionId(), JsonCodec.toJson(itemRepository.findBySeller(session.userId())));
+    }
+
+    private ItemDto requireOwnedItem(RequestEnvelope request, JsonObject payload) throws SQLException {
+        var session = requireSession(request, null);
+        if (!"SELLER".equals(session.role()) && !"ADMIN".equals(session.role())) {
+            throw new RequestFailure(ErrorCode.FORBIDDEN, "Seller or Admin role is required");
+        }
+        var item = itemRepository.findById(positiveLong(payload, "itemId")).orElseThrow(
+                () -> new RequestFailure(ErrorCode.NOT_FOUND, "Item does not exist"));
+        if (!"ADMIN".equals(session.role()) && item.sellerId() != session.userId()) {
+            throw new RequestFailure(ErrorCode.FORBIDDEN, "Seller does not own this item");
+        }
+        return item;
+    }
+
+    private String updateItem(RequestEnvelope request, JsonObject payload) throws SQLException {
+        var item = requireOwnedItem(request, payload);
+        String name = payload.has("name") ? requiredString(payload, "name") : item.name();
+        String description = payload.has("description") ? optionalString(payload, "description") : item.description();
+        ItemType type = payload.has("itemType")
+                ? itemType(requiredString(payload, "itemType")) : item.itemType();
+        if (!itemRepository.update(item.itemId(), item.sellerId(), name, description, type)) {
+            throw new RequestFailure(ErrorCode.CONFLICT, "Items linked to an auction cannot be edited");
+        }
+        return success(request, request.sessionId(), "{}");
+    }
+
+    private String deleteItem(RequestEnvelope request, JsonObject payload) throws SQLException {
+        var item = requireOwnedItem(request, payload);
+        if (!itemRepository.delete(item.itemId(), item.sellerId())) {
+            throw new RequestFailure(ErrorCode.CONFLICT, "Item could not be deleted");
+        }
+        return success(request, request.sessionId(), "{}");
+    }
+
     private String createAuction(RequestEnvelope request, JsonObject payload) throws SQLException {
         SessionManager.UserSession session = requireSession(request, "SELLER");
-        long itemId = requiredLong(payload, "itemId");
+        long itemId = positiveLong(payload, "itemId");
         ItemDto item = itemRepository.findById(itemId).orElseThrow(
                 () -> new RequestFailure(ErrorCode.NOT_FOUND, "Item does not exist"));
         if (item.sellerId() != session.userId()) {
@@ -242,6 +334,31 @@ public final class ClientHandler implements Runnable {
         JsonObject result = new JsonObject();
         result.addProperty("auctionId", auctionId);
         return success(request, request.sessionId(), result.toString());
+    }
+
+    private String cancelAuction(RequestEnvelope request, JsonObject payload) throws SQLException {
+        var session = requireSession(request, null);
+        if (settlementService == null) {
+            return failure(request, ErrorCode.INTERNAL_ERROR, "Cancellation service unavailable");
+        }
+        return JsonCodec.toJson(settlementService.cancelAuctionRequest(
+                request.requestId(), request.sessionId(), session.userId(), session.role(),
+                positiveLong(payload, "auctionId")));
+    }
+
+    private String adminListUsers(RequestEnvelope request, JsonObject payload) throws SQLException {
+        requireSession(request, "ADMIN");
+        String role = optionalString(payload, "role");
+        if (role != null && !role.isBlank()
+                && !List.of("ADMIN", "BIDDER", "SELLER").contains(role.toUpperCase(Locale.ROOT))) {
+            throw new RequestFailure(ErrorCode.VALIDATION_ERROR, "Unknown user role");
+        }
+        String account = optionalString(payload, "account");
+        var users = authService.listUsers().stream()
+                .filter(user -> role == null || role.isBlank() || user.role().name().equalsIgnoreCase(role))
+                .filter(user -> account == null || user.account().toLowerCase(Locale.ROOT)
+                        .contains(account.toLowerCase(Locale.ROOT))).toList();
+        return success(request, request.sessionId(), JsonCodec.toJson(paginate(users, payload)));
     }
 
     private String placeBid(RequestEnvelope request, JsonObject payload) throws SQLException {
@@ -399,15 +516,61 @@ public final class ClientHandler implements Runnable {
 
     private static String optionalString(JsonObject payload, String key) {
         JsonElement value = payload.get(key);
-        return value == null || value.isJsonNull() ? null : value.getAsString();
+        if (value == null || value.isJsonNull()) {
+            return null;
+        }
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) {
+            throw new RequestFailure(ErrorCode.VALIDATION_ERROR, key + " must be a string");
+        }
+        return value.getAsString();
+    }
+
+    private static String requiredPassword(JsonObject payload) {
+        String password = optionalString(payload, "password");
+        if (password == null || password.isBlank()) {
+            throw new RequestFailure(ErrorCode.VALIDATION_ERROR, "password must not be blank");
+        }
+        return password;
+    }
+
+    private static ItemType itemType(String value) {
+        try {
+            return ItemType.valueOf(value.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException error) {
+            throw new RequestFailure(ErrorCode.VALIDATION_ERROR, "Unknown item type");
+        }
     }
 
     private static long requiredLong(JsonObject payload, String key) {
         try {
-            return payload.get(key).getAsLong();
+            JsonElement value = payload.get(key);
+            if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
+                throw new IllegalArgumentException();
+            }
+            return value.getAsBigDecimal().longValueExact();
         } catch (RuntimeException error) {
             throw new RequestFailure(ErrorCode.VALIDATION_ERROR, key + " must be a number");
         }
+    }
+
+    private static long positiveLong(JsonObject payload, String key) {
+        long value = requiredLong(payload, key);
+        if (value <= 0) {
+            throw new RequestFailure(ErrorCode.VALIDATION_ERROR, key + " must be positive");
+        }
+        return value;
+    }
+
+    private static <T> List<T> paginate(List<T> values, JsonObject payload) {
+        long page = payload.has("page") ? positiveLong(payload, "page") : 1;
+        long size = payload.has("pageSize") ? positiveLong(payload, "pageSize") : Math.max(values.size(), 1);
+        // Compare before multiplying so large pages cannot overflow into a negative index.
+        if (page - 1 > values.size() / size) {
+            return List.of();
+        }
+        int from = (int) Math.min((page - 1) * size, values.size());
+        int to = (int) (from + Math.min(size, values.size() - from));
+        return values.subList(from, to);
     }
 
     private static String success(RequestEnvelope request, String sessionId, String payload) {

@@ -135,7 +135,7 @@ public final class NetworkClient implements AutoCloseable {
 
     public List<AuctionDto> listAuctions(String statusFilter) throws IOException {
         JsonObject payload = new JsonObject();
-        if (statusFilter != null && !statusFilter.isBlank() && !"ALL".equalsIgnoreCase(statusFilter)) {
+        if (statusFilter != null && !statusFilter.isBlank()) {
             payload.addProperty("status", statusFilter);
         }
         ResponseEnvelope response = request("LIST_AUCTIONS", requireSession(), payload, UUID.randomUUID().toString());

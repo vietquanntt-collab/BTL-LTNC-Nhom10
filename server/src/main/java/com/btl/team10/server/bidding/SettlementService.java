@@ -73,6 +73,108 @@ public final class SettlementService {
         return ResponseEnvelope.success(requestId, "SETTLE_AUCTION", sessionId, payload.toString());
     }
 
+    public ResponseEnvelope cancelAuctionRequest(String requestId, String sessionId,
+                                                 long requesterId, String requesterRole,
+                                                 long auctionId) throws SQLException {
+        if (requestId == null || requestId.isBlank() || requesterId <= 0 || auctionId <= 0) {
+            return ResponseEnvelope.failure(requestId, "CANCEL_AUCTION",
+                    ErrorCode.VALIDATION_ERROR, "Invalid cancellation request");
+        }
+        AuctionSettlementTarget target = loadAuctionTarget(auctionId);
+        if (target == null) {
+            return ResponseEnvelope.failure(requestId, "CANCEL_AUCTION",
+                    ErrorCode.NOT_FOUND, "Auction not found");
+        }
+        boolean admin = "ADMIN".equalsIgnoreCase(requesterRole);
+        if (!admin && (!"SELLER".equalsIgnoreCase(requesterRole) || target.sellerId != requesterId)) {
+            return ResponseEnvelope.failure(requestId, "CANCEL_AUCTION",
+                    ErrorCode.FORBIDDEN, "Only the auction seller or admin can cancel it");
+        }
+        if ("CANCELLED".equals(target.status)) {
+            JsonObject payload = new JsonObject();
+            payload.addProperty("auctionId", auctionId);
+            payload.addProperty("status", "CANCELLED");
+            return ResponseEnvelope.failure(requestId, "CANCEL_AUCTION",
+                    ErrorCode.CONFLICT, "Auction is already cancelled");
+        }
+        if (!"OPEN".equals(target.status) && !"RUNNING".equals(target.status)) {
+            return ResponseEnvelope.failure(requestId, "CANCEL_AUCTION",
+                    ErrorCode.CONFLICT, "Only open auctions can be cancelled");
+        }
+
+        boolean managesTransaction = connection.getAutoCommit();
+        if (managesTransaction) {
+            connection.setAutoCommit(false);
+        }
+        try {
+            if (target.winnerId != null && target.currentPriceCents > 0) {
+                WalletDto wallet = walletRepository.findByUserId(target.winnerId)
+                        .orElseThrow(() -> new SQLException("Winner wallet not found"));
+                if (!walletRepository.adjustFrozen(target.winnerId, -target.currentPriceCents, wallet.version())) {
+                    throw new SQLException("Concurrent wallet conflict releasing cancelled auction funds");
+                }
+            }
+            try (PreparedStatement deactivate = connection.prepareStatement(
+                    "UPDATE auto_bid_rules SET active = 0 WHERE auction_id = ?")) {
+                deactivate.setLong(1, auctionId);
+                deactivate.executeUpdate();
+            }
+            try (PreparedStatement update = connection.prepareStatement(
+                    "UPDATE auctions SET status = 'CANCELLED', winner_id = NULL, closed_at = ?, version = version + 1"
+                            + " WHERE auction_id = ? AND status IN ('OPEN', 'RUNNING')")) {
+                update.setString(1, Instant.now().toString());
+                update.setLong(2, auctionId);
+                if (update.executeUpdate() != 1) {
+                    throw new SQLException("Auction changed before cancellation commit");
+                }
+            }
+            try (PreparedStatement updateBids = connection.prepareStatement(
+                    "UPDATE bids SET status = 'REJECTED' WHERE auction_id = ? AND status = 'ACTIVE'")) {
+                updateBids.setLong(1, auctionId);
+                updateBids.executeUpdate();
+            }
+            String nowIso = Instant.now().toString();
+            long sequence = nextSequence(auctionId);
+            JsonObject payload = new JsonObject();
+            payload.addProperty("auctionId", auctionId);
+            payload.addProperty("status", "CANCELLED");
+            payload.addProperty("closedAt", nowIso);
+            if (target.winnerId != null) {
+                payload.addProperty("refundedUserId", target.winnerId);
+                payload.addProperty("refundedAmountCents", target.currentPriceCents);
+            }
+            insertEvent(auctionId, sequence, EventType.AUCTION_CANCELLED.name(), payload.toString(), nowIso);
+            WalletDto refundedWallet = target.winnerId == null ? null
+                    : walletRepository.findByUserId(target.winnerId).orElseThrow();
+            long balanceSequence = 0;
+            JsonObject balancePayload = null;
+            if (refundedWallet != null) {
+                balanceSequence = nextSequence(auctionId);
+                balancePayload = buildBalancePayload(auctionId, refundedWallet);
+                insertEvent(auctionId, balanceSequence, EventType.BALANCE_CHANGED.name(),
+                        balancePayload.toString(), nowIso);
+            }
+            if (managesTransaction) {
+                connection.commit();
+            }
+            eventPublisher.publishToAll(EventType.AUCTION_CANCELLED, auctionId, sequence, payload.toString());
+            if (refundedWallet != null) {
+                eventPublisher.publishToUser(refundedWallet.userId(), EventType.BALANCE_CHANGED,
+                        auctionId, balanceSequence, balancePayload.toString());
+            }
+            return ResponseEnvelope.success(requestId, "CANCEL_AUCTION", sessionId, payload.toString());
+        } catch (SQLException | RuntimeException error) {
+            if (managesTransaction) {
+                connection.rollback();
+            }
+            throw error;
+        } finally {
+            if (managesTransaction) {
+                connection.setAutoCommit(true);
+            }
+        }
+    }
+
     public SettlementWriteResult settleFinishedAuction(long auctionId, String requestId) throws SQLException {
         boolean prevAutoCommit = connection.getAutoCommit();
         if (prevAutoCommit) {
@@ -121,6 +223,11 @@ public final class SettlementService {
             }
 
             SettlementDto settlement = writeResult.settlement();
+            try (PreparedStatement deactivate = connection.prepareStatement(
+                    "UPDATE auto_bid_rules SET active = 0 WHERE auction_id = ?")) {
+                deactivate.setLong(1, auctionId);
+                deactivate.executeUpdate();
+            }
             long settledSeq = nextSequence(auctionId);
             JsonObject settledPayload = new JsonObject();
             settledPayload.addProperty("settlementId", settlement.settlementId());

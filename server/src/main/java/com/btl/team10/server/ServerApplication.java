@@ -27,7 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 
-/** Starts the week 4 server with one initialized SQLite database. */
+/** Starts the auction server with one initialized SQLite database. */
 public final class ServerApplication {
     private static final int DEFAULT_PORT = 9999;
 
@@ -40,7 +40,7 @@ public final class ServerApplication {
         boolean seed = Boolean.parseBoolean(System.getProperty("auction.db.seed", "true"));
         int port = Integer.parseInt(System.getProperty("auction.server.port", String.valueOf(DEFAULT_PORT)));
 
-        System.out.println("Auction server - week 4");
+        System.out.println("Nhóm 10 - Auction server");
         System.out.println("Database: " + databaseFile.toAbsolutePath().normalize());
         System.out.println("Schema: " + databaseRoot.toAbsolutePath().normalize());
 

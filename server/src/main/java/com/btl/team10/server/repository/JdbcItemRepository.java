@@ -3,6 +3,7 @@ package com.btl.team10.server.repository;
 import com.btl.team10.common.dto.CreateItemCommand;
 import com.btl.team10.common.dto.ItemDto;
 import com.btl.team10.common.exception.ValidationException;
+import com.btl.team10.common.model.ItemType;
 import com.btl.team10.server.repository.mapper.ItemRowMapper;
 
 import java.sql.Connection;
@@ -76,6 +77,44 @@ public final class JdbcItemRepository implements ItemRepository {
                 }
                 return keys.getLong(1);
             }
+        }
+    }
+
+    @Override
+    public synchronized boolean update(long itemId, long sellerId, String name,
+                                       String description, ItemType itemType) throws SQLException {
+        requirePositive(itemId, "itemId");
+        requirePositive(sellerId, "sellerId");
+        if (name == null || name.isBlank() || name.trim().length() > 200) {
+            throw new ValidationException("name", "must contain 1 to 200 non-blank characters");
+        }
+        if (itemType == null) {
+            throw new ValidationException("itemType", "must not be null");
+        }
+        try (PreparedStatement statement = connection.prepareStatement(
+                "UPDATE items SET name = ?, description = ?, item_type = ?,"
+                        + " updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
+                        + " WHERE item_id = ? AND seller_id = ?"
+                        + " AND NOT EXISTS (SELECT 1 FROM auctions WHERE auctions.item_id = items.item_id)")) {
+            statement.setString(1, name.trim());
+            statement.setString(2, description == null ? "" : description.trim());
+            statement.setString(3, itemType.name());
+            statement.setLong(4, itemId);
+            statement.setLong(5, sellerId);
+            return statement.executeUpdate() == 1;
+        }
+    }
+
+    @Override
+    public synchronized boolean delete(long itemId, long sellerId) throws SQLException {
+        requirePositive(itemId, "itemId");
+        requirePositive(sellerId, "sellerId");
+        try (PreparedStatement statement = connection.prepareStatement(
+                "DELETE FROM items WHERE item_id = ? AND seller_id = ?"
+                        + " AND NOT EXISTS (SELECT 1 FROM auctions WHERE auctions.item_id = items.item_id)")) {
+            statement.setLong(1, itemId);
+            statement.setLong(2, sellerId);
+            return statement.executeUpdate() == 1;
         }
     }
 

@@ -8,23 +8,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $wrapper = Join-Path $repoRoot 'mvnw.cmd'
 $m2Repository = Join-Path $env:USERPROFILE '.m2\repository'
-
-function Find-MavenJar {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Pattern,
-        [Parameter(Mandatory = $true)]
-        [string]$Description
-    )
-
-    $jar = Get-ChildItem -Path $m2Repository -Recurse -File -Filter $Pattern |
-        Sort-Object FullName |
-        Select-Object -Last 1
-    if ($null -eq $jar) {
-        throw "Không tìm thấy $Description trong Maven local repository: $m2Repository"
-    }
-    return $jar.FullName
-}
+. (Join-Path $PSScriptRoot 'java-env.ps1')
 
 if (-not (Test-Path -LiteralPath $wrapper)) {
     throw "Không tìm thấy Maven Wrapper: $wrapper"
@@ -32,19 +16,22 @@ if (-not (Test-Path -LiteralPath $wrapper)) {
 
 Push-Location $repoRoot
 $previousMavenOpts = $env:MAVEN_OPTS
+$previousJavaHome = $env:JAVA_HOME
 if ($env:USERPROFILE) {
     $env:MAVEN_OPTS = (@($previousMavenOpts, "-Duser.home=$env:USERPROFILE") |
         Where-Object { $_ -and $_.Trim() }) -join ' '
 }
 try {
+    $env:JAVA_HOME = Resolve-Java21Home
+    $javaExecutable = Join-Path $env:JAVA_HOME 'bin\java.exe'
     & $wrapper -B -pl server -am compile
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
 
-    $sqliteJar = Find-MavenJar 'sqlite-jdbc-*.jar' 'SQLite JDBC'
-    $gsonJar = Find-MavenJar 'gson-*.jar' 'Gson'
-    $slf4jJar = Find-MavenJar 'slf4j-api-*.jar' 'SLF4J API'
+    $sqliteJar = Find-DependencyJar $m2Repository 'org\xerial\sqlite-jdbc\3.45.1.0\sqlite-jdbc-3.45.1.0.jar'
+    $gsonJar = Find-DependencyJar $m2Repository 'com\google\code\gson\gson\2.10.1\gson-2.10.1.jar'
+    $slf4jJar = Find-DependencyJar $m2Repository 'org\slf4j\slf4j-api\1.7.36\slf4j-api-1.7.36.jar'
     $classpath = @(
         (Join-Path $repoRoot 'server\target\classes'),
         (Join-Path $repoRoot 'common\target\classes'),
@@ -54,11 +41,16 @@ try {
     ) -join [IO.Path]::PathSeparator
 
     $seedValue = $Seed.ToString().ToLowerInvariant()
-    & java "-Dauction.server.port=$Port" "-Dauction.db.seed=$seedValue" `
+    $databaseDirectory = [IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($DatabasePath))
+    if ($databaseDirectory) {
+        New-Item -ItemType Directory -Path $databaseDirectory -Force | Out-Null
+    }
+    & $javaExecutable "-Dauction.server.port=$Port" "-Dauction.db.seed=$seedValue" `
         "-Dauction.db.path=$DatabasePath" `
         '-cp' $classpath 'com.btl.team10.server.ServerApplication'
     exit $LASTEXITCODE
 } finally {
+    $env:JAVA_HOME = $previousJavaHome
     $env:MAVEN_OPTS = $previousMavenOpts
     Pop-Location
 }

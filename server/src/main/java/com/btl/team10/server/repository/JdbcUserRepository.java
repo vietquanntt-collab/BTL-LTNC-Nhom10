@@ -10,6 +10,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -60,6 +62,21 @@ public final class JdbcUserRepository implements UserRepository {
             try (ResultSet result = statement.executeQuery()) {
                 return result.next() ? result.getString("password_hash") : null;
             }
+        }
+    }
+
+    @Override
+    public synchronized List<UserDto> findAll() throws SQLException {
+        String sql = "SELECT " + USER_COLUMNS
+                + " FROM users JOIN wallets ON wallets.user_id = users.user_id"
+                + " ORDER BY users.user_id";
+        try (PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet result = statement.executeQuery()) {
+            List<UserDto> users = new ArrayList<>();
+            while (result.next()) {
+                users.add(map(result));
+            }
+            return List.copyOf(users);
         }
     }
 

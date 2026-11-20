@@ -130,7 +130,8 @@ public final class JdbcSettlementRepository implements SettlementRepository {
                 if (!Objects.equals(auctionWinner, command.winnerId())) {
                     throw new SQLException("Settlement winner does not match the auction winner");
                 }
-                if (result.getLong("current_price_cents") != command.winningAmountCents()) {
+                long expectedAmount = auctionWinner == null ? 0L : result.getLong("current_price_cents");
+                if (expectedAmount != command.winningAmountCents()) {
                     throw new SQLException("Settlement amount does not match the auction price");
                 }
                 if (result.getLong("seller_id") != command.sellerId()) {
