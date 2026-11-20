@@ -1,78 +1,191 @@
 package com.btl.team10.client.controller;
 
-import com.btl.team10.client.navigation.NavigationManager;
 import com.btl.team10.client.service.NetworkClient;
 import com.btl.team10.common.dto.AuctionDto;
+import com.btl.team10.common.model.AuctionStatus;
 import javafx.application.Platform;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
-import javafx.scene.input.MouseButton;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
+import javafx.scene.control.TableView;
+import javafx.scene.layout.StackPane;
 
-import java.util.Collections;
+import java.io.IOException;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-/** Loads active auctions through the network adapter after login. */
 public final class AuctionListController {
-    @FXML private ListView<String> auctionListView;
-    @FXML private Label statusLabel;
 
-    private List<AuctionDto> currentAuctions = Collections.emptyList();
+    private static final DateTimeFormatter TIME_FMT =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss").withZone(ZoneId.systemDefault());
+
+    @FXML private ComboBox<String> statusFilterBox;
+    @FXML private Button refreshBtn;
+    @FXML private Label statusMessageLabel;
+    @FXML private TableView<AuctionDto> auctionTable;
+    @FXML private TableColumn<AuctionDto, Long> idCol;
+    @FXML private TableColumn<AuctionDto, Long> itemCol;
+    @FXML private TableColumn<AuctionDto, Long> startPriceCol;
+    @FXML private TableColumn<AuctionDto, Long> currentPriceCol;
+    @FXML private TableColumn<AuctionDto, Long> incrementCol;
+    @FXML private TableColumn<AuctionDto, String> statusCol;
+    @FXML private TableColumn<AuctionDto, String> endAtCol;
+    @FXML private Button cancelAuctionBtn;
+    @FXML private Button openDetailBtn;
+
+    private final ObservableList<AuctionDto> rows = FXCollections.observableArrayList();
 
     @FXML
     private void initialize() {
-        auctionListView.setOnMouseClicked(event -> {
-            if (event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 2) {
-                openSelectedAuction();
+        statusFilterBox.setItems(FXCollections.observableArrayList(
+                "ALL", "OPEN", "RUNNING", "FINISHED", "PAID", "CANCELLED"));
+        statusFilterBox.getSelectionModel().select("ALL");
+
+        idCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().auctionId()));
+        itemCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().itemId()));
+        startPriceCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().startPriceCents()));
+        currentPriceCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().currentPriceCents()));
+        incrementCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().minIncrementCents()));
+        statusCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().status().name()));
+        endAtCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(TIME_FMT.format(c.getValue().endAt())));
+
+        auctionTable.setItems(rows);
+
+        String role = NetworkClient.getInstance().role();
+        boolean canCancel = "SELLER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role);
+        cancelAuctionBtn.setVisible(canCancel);
+        cancelAuctionBtn.setManaged(canCancel);
+        cancelAuctionBtn.setDisable(true);
+        openDetailBtn.setDisable(true);
+
+        auctionTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, selected) -> {
+            openDetailBtn.setDisable(selected == null);
+            if (canCancel) {
+                boolean cancellable = selected != null
+                        && (selected.status() == AuctionStatus.OPEN || selected.status() == AuctionStatus.RUNNING);
+                cancelAuctionBtn.setDisable(!cancellable);
             }
         });
-        loadAuctionsAsync();
+
+        auctionTable.setRowFactory(tv -> {
+            TableRow<AuctionDto> row = new TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (event.getClickCount() == 2 && !row.isEmpty()) {
+                    openAuctionDetail(row.getItem());
+                }
+            });
+            return row;
+        });
+
+        loadAuctions();
     }
 
     @FXML
-    private void reload() {
-        loadAuctionsAsync();
+    private void onFilterChanged() {
+        loadAuctions();
     }
 
     @FXML
-    private void openSelectedAuction() {
-        int index = auctionListView.getSelectionModel().getSelectedIndex();
-        if (index < 0 || index >= currentAuctions.size()) {
-            statusLabel.setText("Vui lòng chọn một phiên đấu giá trong danh sách.");
+    private void onRefresh() {
+        loadAuctions();
+    }
+
+    @FXML
+    private void onOpenDetail() {
+        AuctionDto selected = auctionTable.getSelectionModel().getSelectedItem();
+        if (selected != null) {
+            openAuctionDetail(selected);
+        }
+    }
+
+    @FXML
+    private void onCancelAuction() {
+        AuctionDto selected = auctionTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
             return;
         }
-        AuctionDto selected = currentAuctions.get(index);
-        AuctionDetailController detailController = NavigationManager.getInstance()
-                .loadView("/com/btl/team10/client/view/AuctionDetail.fxml", AuctionDetailController.class);
-        if (detailController != null) {
-            detailController.initAuction(selected);
-        }
-    }
-
-    private void loadAuctionsAsync() {
-        statusLabel.setText("Đang tải danh sách đấu giá...");
-        Thread thread = new Thread(this::loadAuctions, "auction-list-loader");
+        cancelAuctionBtn.setDisable(true);
+        Thread thread = new Thread(() -> {
+            try {
+                NetworkClient.getInstance().cancelAuction(selected.auctionId());
+                Platform.runLater(() -> {
+                    showBanner("Đã hủy phiên đấu giá #" + selected.auctionId() + ".", "#27ae60");
+                    loadAuctions();
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    showBanner("Không thể hủy phiên: " + e.getMessage(), "#e74c3c");
+                    cancelAuctionBtn.setDisable(false);
+                });
+            }
+        }, "auction-cancel");
         thread.setDaemon(true);
         thread.start();
     }
 
-    private void loadAuctions() {
+    private void openAuctionDetail(AuctionDto selected) {
         try {
-            List<AuctionDto> auctions = NetworkClient.getInstance().listAuctions();
-            List<String> rows = auctions.stream()
-                    .map(auction -> "#" + auction.auctionId() + " | Vật phẩm #" + auction.itemId()
-                            + " | Giá hiện tại: " + auction.currentPriceCents() + " cents"
-                            + " | Bước giá: +" + auction.minIncrementCents()
-                            + " | Trạng thái: " + auction.status())
-                    .toList();
-            Platform.runLater(() -> {
-                this.currentAuctions = auctions;
-                auctionListView.setItems(FXCollections.observableArrayList(rows));
-                statusLabel.setText(rows.isEmpty() ? "Chưa có phiên đấu giá đang mở." : "Đã tải " + rows.size() + " phiên.");
-            });
-        } catch (Exception error) {
-            Platform.runLater(() -> statusLabel.setText("Không tải được dữ liệu: " + error.getMessage()));
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/btl/team10/client/view/AuctionDetail.fxml"));
+            Parent detailView = loader.load();
+            AuctionDetailController controller = loader.getController();
+            if (controller != null) {
+                controller.initAuction(selected);
+            }
+            if (auctionTable.getScene() != null
+                    && auctionTable.getScene().lookup("#mainContentArea") instanceof StackPane contentArea) {
+                contentArea.getChildren().setAll(detailView);
+            }
+        } catch (IOException e) {
+            showBanner("Không thể mở chi tiết phiên đấu giá: " + e.getMessage(), "#e74c3c");
         }
+    }
+
+    private void loadAuctions() {
+        String filter = statusFilterBox.getValue();
+        refreshBtn.setDisable(true);
+        Thread loader = new Thread(() -> {
+            try {
+                List<AuctionDto> auctions = NetworkClient.getInstance().listAuctions(filter);
+                Platform.runLater(() -> {
+                    refreshBtn.setDisable(false);
+                    rows.setAll(auctions);
+                    if (auctions.isEmpty()) {
+                        showBanner("Chưa có phiên đấu giá nào khớp bộ lọc hiện tại.", "#7f8c8d");
+                    } else {
+                        hideBanner();
+                    }
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    refreshBtn.setDisable(false);
+                    showBanner("Lỗi tải danh sách phiên: " + e.getMessage(), "#e74c3c");
+                });
+            }
+        }, "auction-list-loader");
+        loader.setDaemon(true);
+        loader.start();
+    }
+
+    private void showBanner(String text, String color) {
+        statusMessageLabel.setText(text);
+        statusMessageLabel.setStyle("-fx-background-color: " + color
+                + "; -fx-text-fill: white; -fx-padding: 10 14; -fx-background-radius: 6; -fx-font-weight: bold;");
+        statusMessageLabel.setVisible(true);
+        statusMessageLabel.setManaged(true);
+    }
+
+    private void hideBanner() {
+        statusMessageLabel.setVisible(false);
+        statusMessageLabel.setManaged(false);
     }
 }

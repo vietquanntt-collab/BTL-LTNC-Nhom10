@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.btl.team10.client.controller.AdminDashboardController"
+            style="-fx-background-color: #f5f6fa;">
+
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="12" style="-fx-background-color: #2c3e50;">
+            <padding><Insets top="14" right="20" bottom="14" left="20"/></padding>
+            <Label text="QUẢN TRỊ HỆ THỐNG (ADMIN)"
+                   style="-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="refreshAllBtn" text="Làm mới dữ liệu" onAction="#onRefreshAll"
+                    style="-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
+        </HBox>
+    </top>
+
+    <center>
+        <ScrollPane fitToWidth="true" style="-fx-background-color: transparent;">
+            <VBox spacing="16">
+                <padding><Insets top="16" right="20" bottom="20" left="20"/></padding>
+
+                <Label fx:id="adminFeedbackLabel" visible="false" managed="false" wrapText="true" maxWidth="Infinity"
+                       style="-fx-padding: 10 14; -fx-background-radius: 6; -fx-font-weight: bold;"/>
+
+                <!-- Bảng 1: Danh sách tài khoản người dùng -->
+                <VBox spacing="8"
+                      style="-fx-background-color: white; -fx-padding: 14; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
+                    <Label text="1. DANH SÁCH NGƯỜI DÙNG HỆ THỐNG (ADMIN_LIST_USERS)"
+                           style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+                    <TableView fx:id="userTable" prefHeight="230">
+                        <columns>
+                            <TableColumn fx:id="userIdCol" text="User ID" prefWidth="80"/>
+                            <TableColumn fx:id="accountCol" text="Tài khoản" prefWidth="150"/>
+                            <TableColumn fx:id="roleCol" text="Vai trò" prefWidth="100"/>
+                            <TableColumn fx:id="balanceCol" text="Tổng số dư (cents)" prefWidth="150"/>
+                            <TableColumn fx:id="frozenCol" text="Đang đóng băng" prefWidth="140"/>
+                            <TableColumn fx:id="availableCol" text="Khả dụng" prefWidth="140"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+
+                <!-- Bảng 2: Giám sát & Hủy phiên đấu giá -->
+                <VBox spacing="8"
+                      style="-fx-background-color: white; -fx-padding: 14; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
+                    <HBox alignment="CENTER_LEFT" spacing="10">
+                        <Label text="2. GIÁM SÁT PHIÊN ĐẤU GIÁ"
+                               style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" HBox.hgrow="ALWAYS"/>
+                        <Button fx:id="cancelAuctionBtn" text="Hủy phiên đã chọn" onAction="#onCancelSelectedAuction"
+                                disable="true"
+                                style="-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                    </HBox>
+                    <TableView fx:id="auctionTable" prefHeight="240">
+                        <columns>
+                            <TableColumn fx:id="auctionIdCol" text="ID Phiên" prefWidth="85"/>
+                            <TableColumn fx:id="auctionItemIdCol" text="ID Vật phẩm" prefWidth="100"/>
+                            <TableColumn fx:id="auctionPriceCol" text="Giá hiện tại (cents)" prefWidth="150"/>
+                            <TableColumn fx:id="auctionStatusCol" text="Trạng thái" prefWidth="115"/>
+                            <TableColumn fx:id="auctionExtCol" text="Gia hạn Anti-Snipe" prefWidth="135"/>
+                            <TableColumn fx:id="auctionWinnerCol" text="Người thắng (ID)" prefWidth="135"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+            </VBox>
+        </ScrollPane>
+    </center>
+</BorderPane>
