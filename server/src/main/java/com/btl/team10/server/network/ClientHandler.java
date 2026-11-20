@@ -9,6 +9,7 @@ import com.btl.team10.common.protocol.RequestEnvelope;
 import com.btl.team10.common.protocol.ResponseEnvelope;
 import com.btl.team10.common.serialization.JsonCodec;
 import com.btl.team10.server.bidding.PlaceBidService;
+import com.btl.team10.server.bidding.SettlementService;
 import com.btl.team10.server.repository.AuctionRepository;
 import com.btl.team10.server.repository.ItemRepository;
 import com.btl.team10.server.session.AuthService;
@@ -27,8 +28,8 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.Objects;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 /** Handles one line-delimited connection using the shared JSON contract. */
@@ -40,6 +41,7 @@ public final class ClientHandler implements Runnable {
     private final AuctionRepository auctionRepository;
     private final Object databaseLock;
     private final PlaceBidService placeBidService;
+    private final SettlementService settlementService;
     private final EventPublisher eventPublisher;
     private final Deque<String> deferredEvents = new ArrayDeque<>();
     private EventPublisher.ClientChannel channel;
@@ -47,18 +49,26 @@ public final class ClientHandler implements Runnable {
 
     public ClientHandler(Socket socket, AuthService authService, SessionManager sessionManager,
                          ItemRepository itemRepository, AuctionRepository auctionRepository) {
-        this(socket, authService, sessionManager, itemRepository, auctionRepository, new Object(), null, null);
+        this(socket, authService, sessionManager, itemRepository, auctionRepository, new Object(), null, null, null);
     }
 
     ClientHandler(Socket socket, AuthService authService, SessionManager sessionManager,
                   ItemRepository itemRepository, AuctionRepository auctionRepository,
                   Object databaseLock) {
-        this(socket, authService, sessionManager, itemRepository, auctionRepository, databaseLock, null, null);
+        this(socket, authService, sessionManager, itemRepository, auctionRepository, databaseLock, null, null, null);
     }
 
     public ClientHandler(Socket socket, AuthService authService, SessionManager sessionManager,
                          ItemRepository itemRepository, AuctionRepository auctionRepository,
                          Object databaseLock, PlaceBidService placeBidService, EventPublisher eventPublisher) {
+        this(socket, authService, sessionManager, itemRepository, auctionRepository,
+                databaseLock, placeBidService, null, eventPublisher);
+    }
+
+    public ClientHandler(Socket socket, AuthService authService, SessionManager sessionManager,
+                         ItemRepository itemRepository, AuctionRepository auctionRepository,
+                         Object databaseLock, PlaceBidService placeBidService,
+                         SettlementService settlementService, EventPublisher eventPublisher) {
         this.socket = socket;
         this.authService = authService;
         this.sessionManager = sessionManager;
@@ -66,13 +76,14 @@ public final class ClientHandler implements Runnable {
         this.auctionRepository = auctionRepository;
         this.databaseLock = Objects.requireNonNull(databaseLock, "databaseLock");
         this.placeBidService = placeBidService;
+        this.settlementService = settlementService;
         this.eventPublisher = eventPublisher;
     }
 
     @Override
     public void run() {
         try (BufferedReader reader = new BufferedReader(
-                     new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+                new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
              PrintWriter writer = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8)) {
             if (eventPublisher != null) {
                 this.channel = eventPublisher.register(eventLine -> {
@@ -117,7 +128,7 @@ public final class ClientHandler implements Runnable {
         } catch (Exception error) {
             System.err.println("Client connection failed: " + error.getMessage());
         } finally {
-            if(eventPublisher != null && channel != null){
+            if (eventPublisher != null && channel != null) {
                 eventPublisher.unregister(channel);
             }
             try {
@@ -146,6 +157,9 @@ public final class ClientHandler implements Runnable {
                 case "CREATE_AUCTION" -> createAuction(request, payload);
                 case "PLACE_BID" -> placeBid(request, payload);
                 case "LIST_BIDS" -> listBids(request, payload);
+                case "SET_AUTO_BID" -> setAutoBid(request, payload);
+                case "CANCEL_AUTO_BID" -> cancelAutoBid(request, payload);
+                case "SETTLE_AUCTION" -> settleAuction(request, payload);
                 default -> failure(request, ErrorCode.INVALID_REQUEST,
                         "Unknown action: " + request.action());
             };
@@ -165,7 +179,7 @@ public final class ClientHandler implements Runnable {
             return failure(request, ErrorCode.AUTHENTICATION_FAILED, "Invalid account or password");
         }
         SessionManager.UserSession value = session.get();
-        if(channel != null){
+        if (channel != null) {
             channel.bindUser(value.userId());
         }
         JsonObject result = new JsonObject();
@@ -177,7 +191,7 @@ public final class ClientHandler implements Runnable {
 
     private String logout(RequestEnvelope request) {
         authService.logout(request.sessionId());
-        if (channel != null){
+        if (channel != null) {
             channel.bindUser(null);
         }
         return success(request, null, "{}");
@@ -240,6 +254,7 @@ public final class ClientHandler implements Runnable {
         result.addProperty("auctionId", auctionId);
         return success(request, request.sessionId(), result.toString());
     }
+
     private String placeBid(RequestEnvelope request, JsonObject payload) throws SQLException {
         if (placeBidService == null) {
             return failure(request, ErrorCode.INTERNAL_ERROR, "Bidding service unavailable");
@@ -263,6 +278,56 @@ public final class ClientHandler implements Runnable {
         requireSession(request, null);
         long auctionId = requiredLong(payload, "auctionId");
         return success(request, request.sessionId(), JsonCodec.toJson(placeBidService.listBidsByAuction(auctionId)));
+    }
+
+    private String setAutoBid(RequestEnvelope request, JsonObject payload) throws SQLException {
+        if (placeBidService == null) {
+            return failure(request, ErrorCode.INTERNAL_ERROR, "Bidding service unavailable");
+        }
+        SessionManager.UserSession session = requireSession(request, "BIDDER");
+        long auctionId = requiredLong(payload, "auctionId");
+        boolean active = !payload.has("active") || payload.get("active").isJsonNull() || payload.get("active").getAsBoolean();
+        long maxAmountCents = active ? requiredLong(payload, "maxAmountCents") : 1L;
+        long incrementCents = active ? requiredLong(payload, "incrementCents") : 1L;
+        String clientRequestId = optionalString(payload, "clientRequestId");
+        if (clientRequestId == null || clientRequestId.isBlank()) {
+            clientRequestId = request.requestId();
+        }
+        ResponseEnvelope response = placeBidService.configureAutoBid(
+                clientRequestId, request.sessionId(), session.userId(),
+                auctionId, maxAmountCents, incrementCents, active);
+        return JsonCodec.toJson(response);
+    }
+
+    private String cancelAutoBid(RequestEnvelope request, JsonObject payload) throws SQLException {
+        if (placeBidService == null) {
+            return failure(request, ErrorCode.INTERNAL_ERROR, "Bidding service unavailable");
+        }
+        SessionManager.UserSession session = requireSession(request, "BIDDER");
+        long auctionId = requiredLong(payload, "auctionId");
+        String clientRequestId = optionalString(payload, "clientRequestId");
+        if (clientRequestId == null || clientRequestId.isBlank()) {
+            clientRequestId = request.requestId();
+        }
+        ResponseEnvelope response = placeBidService.configureAutoBid(
+                clientRequestId, request.sessionId(), session.userId(),
+                auctionId, 1L, 1L, false);
+        return JsonCodec.toJson(response);
+    }
+
+    private String settleAuction(RequestEnvelope request, JsonObject payload) throws SQLException {
+        if (settlementService == null) {
+            return failure(request, ErrorCode.INTERNAL_ERROR, "Settlement service unavailable");
+        }
+        SessionManager.UserSession session = requireSession(request, null);
+        long auctionId = requiredLong(payload, "auctionId");
+        String clientRequestId = optionalString(payload, "clientRequestId");
+        if (clientRequestId == null || clientRequestId.isBlank()) {
+            clientRequestId = request.requestId();
+        }
+        ResponseEnvelope response = settlementService.settleAuctionRequest(
+                clientRequestId, request.sessionId(), session.userId(), session.role(), auctionId);
+        return JsonCodec.toJson(response);
     }
 
     private SessionManager.UserSession requireSession(RequestEnvelope request, String role) {
