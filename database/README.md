@@ -1,5 +1,16 @@
 # Database local
 
+## Week 5 release checklist
+
+TV1's final database evidence is in:
+
+- `docs/architecture/erd-v1.mmd`
+- `database/data-dictionary.md`
+- `docs/source-map.md`
+- `docs/week-5-tv1-check-report.md`
+
+The release check starts from a new SQLite file, applies all four migrations, applies the seed twice and verifies that `schema_migrations` has exactly four rows and demo counts do not duplicate.
+
 SQLite là đường chạy mặc định của repository đích. Chạy migration theo thứ tự:
 
 1. `migrations/V001__core_schema.sql`

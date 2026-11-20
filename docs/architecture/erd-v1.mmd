@@ -1,0 +1,98 @@
+erDiagram
+    USERS ||--|| WALLETS : owns
+    USERS ||--o{ ITEMS : sells
+    USERS ||--o{ BIDS : places
+    USERS ||--o{ AUTO_BID_RULES : configures
+    ITEMS ||--o| AUCTIONS : listed_as
+    AUCTIONS ||--o{ BIDS : records
+    AUCTIONS ||--o{ BID_HISTORY : audits
+    AUCTIONS ||--o{ AUTO_BID_RULES : has
+    AUCTIONS ||--o| SETTLEMENTS : settles
+    AUCTIONS ||--o{ AUCTION_EVENTS : emits
+
+    USERS {
+        INTEGER user_id PK
+        TEXT account UK
+        TEXT password_hash
+        TEXT role
+        TEXT created_at
+        TEXT updated_at
+    }
+    WALLETS {
+        INTEGER user_id PK,FK
+        INTEGER balance_cents
+        INTEGER frozen_cents
+        INTEGER version
+    }
+    ITEMS {
+        INTEGER item_id PK
+        INTEGER seller_id FK
+        TEXT name
+        TEXT description
+        TEXT item_type
+        TEXT image_base64
+    }
+    AUCTIONS {
+        INTEGER auction_id PK
+        INTEGER item_id UK,FK
+        INTEGER start_price_cents
+        INTEGER current_price_cents
+        INTEGER min_increment_cents
+        TEXT start_at
+        TEXT end_at
+        TEXT status
+        INTEGER version
+        INTEGER extension_count
+        INTEGER winner_id FK
+        TEXT closed_at
+    }
+    BIDS {
+        INTEGER bid_id PK
+        INTEGER auction_id FK
+        INTEGER bidder_id FK
+        INTEGER amount_cents
+        TEXT bid_time
+        TEXT status
+        TEXT client_request_id UK
+    }
+    BID_HISTORY {
+        INTEGER history_id PK
+        INTEGER bid_id FK
+        INTEGER auction_id FK
+        INTEGER bidder_id FK
+        INTEGER auction_version UK
+        INTEGER amount_cents
+        TEXT status
+    }
+    AUTO_BID_RULES {
+        INTEGER rule_id PK
+        INTEGER auction_id FK
+        INTEGER bidder_id FK
+        INTEGER max_amount_cents
+        INTEGER increment_cents
+        INTEGER active
+    }
+    SETTLEMENTS {
+        INTEGER settlement_id PK
+        INTEGER auction_id UK,FK
+        INTEGER winner_id FK
+        INTEGER seller_id FK
+        INTEGER winning_amount_cents
+        TEXT request_id UK
+        TEXT settled_at
+    }
+    AUCTION_EVENTS {
+        INTEGER event_id PK
+        INTEGER auction_id FK
+        INTEGER sequence UK
+        TEXT event_type
+        TEXT payload_json
+        TEXT occurred_at
+    }
+    REQUEST_RECEIPTS {
+        TEXT request_id PK
+        TEXT action
+        TEXT response_json
+        TEXT created_at
+    }
+
