@@ -2,8 +2,6 @@
 
 Repository cho BTL Lập trình nâng cao của Nhóm 10. Tuần 1 tập trung xây dựng nền tảng độc lập gồm contract dùng chung, schema dữ liệu, tài liệu kiến trúc và kiểm thử contract.
 
-> Hai file thử nghiệm `test.md` và `testt.cpp` không thuộc hệ thống đấu giá và không được đưa vào project.
-
 ## Phạm vi hiện tại của TV1
 
 - `common/`: contract dùng chung giữa client và server, không truy cập DB.
