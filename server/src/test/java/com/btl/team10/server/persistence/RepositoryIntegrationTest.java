@@ -35,7 +35,7 @@ class RepositoryIntegrationTest {
             DatabaseInitializer.initialize(connection, databaseRoot, true);
             DatabaseInitializer.initialize(connection, databaseRoot, true);
 
-            assertEquals(3, count(connection, "schema_migrations"));
+            assertEquals(4, count(connection, "schema_migrations"));
             assertEquals(4, count(connection, "users"));
             assertEquals(4, count(connection, "wallets"));
             assertEquals(1, count(connection, "items"));
