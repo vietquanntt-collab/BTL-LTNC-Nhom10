@@ -145,10 +145,13 @@ class RepositoryIntegrationTest {
     private static boolean indexHasColumn(Connection connection, String tableName, String columnName)
             throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT 1 FROM pragma_index_list(?) WHERE unique = 1")) {
+                "SELECT name, [unique] AS is_unique FROM pragma_index_list(?)")) {
             statement.setString(1, tableName);
             try (ResultSet result = statement.executeQuery()) {
                 while (result.next()) {
+                    if (result.getInt("is_unique") != 1) {
+                        continue;
+                    }
                     String indexName = result.getString("name");
                     try (PreparedStatement columns = connection.prepareStatement(
                             "SELECT 1 FROM pragma_index_info(?) WHERE name = ?")) {
