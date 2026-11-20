@@ -7,7 +7,7 @@
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox alignment="CENTER" spacing="15"
+<VBox alignment="CENTER" spacing="14"
       xmlns="http://javafx.com/javafx/21"
       xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.btl.team10.client.controller.LoginController"
@@ -17,14 +17,21 @@
         <Insets top="40" right="40" bottom="40" left="40"/>
     </padding>
 
-    <Label text="ĐĂNG NHẬP HỆ THỐNG" style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+    <Label fx:id="formTitleLabel" text="ĐĂNG NHẬP HỆ THỐNG"
+           style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
 
-    <!-- Nhãn hiển thị lỗi Validation -->
-    <Label fx:id="errorLabel" textFill="#e74c3c" visible="false" style="-fx-font-weight: bold;"/>
+    <!-- Nhãn hiển thị lỗi hoặc thông báo đăng ký thành công -->
+    <Label fx:id="feedbackLabel" textFill="#e74c3c" visible="false" managed="false"
+           wrapText="true" maxWidth="280" style="-fx-font-weight: bold;"/>
 
-    <TextField fx:id="usernameField" promptText="Tên đăng nhập (seller hoặc bidder1)" maxWidth="250" prefHeight="35"/>
-    <PasswordField fx:id="passwordField" promptText="Mật khẩu seed" maxWidth="250" prefHeight="35"/>
+    <TextField fx:id="usernameField" promptText="Tên đăng nhập (vd: bidder1, seller, admin)" maxWidth="280" prefHeight="36"/>
+    <PasswordField fx:id="passwordField" promptText="Mật khẩu (tối thiểu 6 ký tự)" maxWidth="280" prefHeight="36"/>
+    <PasswordField fx:id="confirmPasswordField" promptText="Nhập lại mật khẩu" maxWidth="280" prefHeight="36"
+                   visible="false" managed="false"/>
 
-    <Button text="Đăng nhập" onAction="#handleLogin" prefWidth="250" prefHeight="40"
+    <Button fx:id="submitButton" text="Đăng nhập" onAction="#handleSubmit" prefWidth="280" prefHeight="40"
             style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
+
+    <Button fx:id="toggleModeButton" text="Chưa có tài khoản? Đăng ký ngay" onAction="#handleToggleMode"
+            style="-fx-background-color: transparent; -fx-text-fill: #2980b9; -fx-underline: true; -fx-cursor: hand;"/>
 </VBox>

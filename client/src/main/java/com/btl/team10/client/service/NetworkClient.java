@@ -3,7 +3,9 @@ package com.btl.team10.client.service;
 import com.btl.team10.common.dto.AuctionDto;
 import com.btl.team10.common.dto.BidDto;
 import com.btl.team10.common.dto.ItemDto;
+import com.btl.team10.common.dto.UserDto;
 import com.btl.team10.common.protocol.EventEnvelope;
+import com.btl.team10.common.protocol.EventType;
 import com.btl.team10.common.protocol.RequestEnvelope;
 import com.btl.team10.common.protocol.ResponseEnvelope;
 import com.btl.team10.common.serialization.JsonCodec;
@@ -29,6 +31,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /** Asynchronous multiplexed TCP client supporting request/response and realtime server push events. */
@@ -36,6 +39,8 @@ public final class NetworkClient implements AutoCloseable {
     private static final NetworkClient INSTANCE = new NetworkClient();
     private static final Type AUCTION_LIST_TYPE = new TypeToken<List<AuctionDto>>() { }.getType();
     private static final Type BID_LIST_TYPE = new TypeToken<List<BidDto>>() { }.getType();
+    private static final Type ITEM_LIST_TYPE = new TypeToken<List<ItemDto>>() { }.getType();
+    private static final Type USER_LIST_TYPE = new TypeToken<List<UserDto>>() { }.getType();
 
     private final String host = System.getProperty("auction.server.host", "127.0.0.1");
     private final int port = Integer.parseInt(System.getProperty("auction.server.port", "9999"));
@@ -55,7 +60,11 @@ public final class NetworkClient implements AutoCloseable {
     private volatile long userId;
     private volatile String account;
     private volatile String role;
+    private volatile long balanceCents;
+    private volatile long frozenCents;
+
     private volatile Consumer<Boolean> connectionStateListener;
+    private volatile BiConsumer<Long, Long> walletListener;
 
     private NetworkClient() {
     }
@@ -79,6 +88,18 @@ public final class NetworkClient implements AutoCloseable {
         this.connectionStateListener = listener;
     }
 
+    /** Callback cập nhật (balanceCents, frozenCents) khi số dư ví thay đổi. */
+    public void setWalletListener(BiConsumer<Long, Long> listener) {
+        this.walletListener = listener;
+    }
+
+    public void register(String account, String password) throws IOException {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("account", account);
+        payload.addProperty("password", password);
+        request("REGISTER", null, payload, UUID.randomUUID().toString());
+    }
+
     public LoginResult login(String account, String password) throws IOException {
         JsonObject payload = new JsonObject();
         payload.addProperty("account", account);
@@ -89,11 +110,39 @@ public final class NetworkClient implements AutoCloseable {
         this.userId = result.get("userId").getAsLong();
         this.account = result.get("account").getAsString();
         this.role = result.get("role").getAsString();
-        return new LoginResult(this.sessionId, this.userId, this.account, this.role);
+        this.balanceCents = result.has("balanceCents") && !result.get("balanceCents").isJsonNull()
+                ? result.get("balanceCents").getAsLong() : 0L;
+        this.frozenCents = result.has("frozenCents") && !result.get("frozenCents").isJsonNull()
+                ? result.get("frozenCents").getAsLong() : 0L;
+        notifyWalletChanged();
+        return new LoginResult(this.sessionId, this.userId, this.account, this.role, this.balanceCents, this.frozenCents);
+    }
+
+    public void logout() {
+        String currentSession = this.sessionId;
+        if (currentSession != null && !currentSession.isBlank()) {
+            try {
+                request("LOGOUT", currentSession, new JsonObject(), UUID.randomUUID().toString());
+            } catch (Exception ignored) {
+            }
+        }
+        close();
     }
 
     public List<AuctionDto> listAuctions() throws IOException {
-        ResponseEnvelope response = request("LIST_AUCTIONS", requireSession(), new JsonObject(), UUID.randomUUID().toString());
+        return listAuctions(null);
+    }
+
+    public List<AuctionDto> listAuctions(String statusFilter) throws IOException {
+        JsonObject payload = new JsonObject();
+        if (statusFilter != null && !statusFilter.isBlank() && !"ALL".equalsIgnoreCase(statusFilter)) {
+            payload.addProperty("status", statusFilter);
+        }
+        ResponseEnvelope response = request("LIST_AUCTIONS", requireSession(), payload, UUID.randomUUID().toString());
+        JsonElement parsed = JsonParser.parseString(response.payloadJson());
+        if (parsed.isJsonObject() && parsed.getAsJsonObject().has("auctions")) {
+            return JsonCodec.fromJson(parsed.getAsJsonObject().get("auctions").toString(), AUCTION_LIST_TYPE);
+        }
         return JsonCodec.fromJson(response.payloadJson(), AUCTION_LIST_TYPE);
     }
 
@@ -116,7 +165,6 @@ public final class NetworkClient implements AutoCloseable {
                 bids = JsonCodec.fromJson(root.get("bids").toString(), BID_LIST_TYPE);
             }
         } else {
-            // Tương thích trường hợp server trả trực tiếp các trường của AuctionDto ở root
             auction = JsonCodec.fromJson(response.payloadJson(), AuctionDto.class);
             if (root.has("bids") && root.get("bids").isJsonArray()) {
                 bids = JsonCodec.fromJson(root.get("bids").toString(), BID_LIST_TYPE);
@@ -142,6 +190,21 @@ public final class NetworkClient implements AutoCloseable {
         return new PlaceBidResult(auctionId, bidId, amountCents, currentPrice, version, response.message());
     }
 
+    public AutoBidResult setAutoBid(long auctionId, long maxAmountCents, long incrementCents) throws IOException {
+        String reqId = UUID.randomUUID().toString();
+        JsonObject payload = new JsonObject();
+        payload.addProperty("auctionId", auctionId);
+        payload.addProperty("maxAmountCents", maxAmountCents);
+        payload.addProperty("incrementCents", incrementCents);
+        payload.addProperty("clientRequestId", reqId);
+
+        ResponseEnvelope response = request("SET_AUTO_BID", requireSession(), payload, reqId);
+        JsonObject result = responseObject(response);
+        long acceptedMax = result.has("maxAmountCents") ? result.get("maxAmountCents").getAsLong() : maxAmountCents;
+        long acceptedInc = result.has("incrementCents") ? result.get("incrementCents").getAsLong() : incrementCents;
+        return new AutoBidResult(auctionId, acceptedMax, acceptedInc, response.message());
+    }
+
     public long createItem(String name, String itemType, String description) throws IOException {
         JsonObject payload = new JsonObject();
         payload.addProperty("name", name);
@@ -149,6 +212,30 @@ public final class NetworkClient implements AutoCloseable {
         payload.addProperty("description", description == null ? "" : description);
         JsonObject result = responseObject(request("CREATE_ITEM", requireSession(), payload, UUID.randomUUID().toString()));
         return result.get("itemId").getAsLong();
+    }
+
+    public void updateItem(long itemId, String name, String itemType, String description) throws IOException {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("itemId", itemId);
+        payload.addProperty("name", name);
+        payload.addProperty("itemType", itemType);
+        payload.addProperty("description", description == null ? "" : description);
+        request("UPDATE_ITEM", requireSession(), payload, UUID.randomUUID().toString());
+    }
+
+    public void deleteItem(long itemId) throws IOException {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("itemId", itemId);
+        request("DELETE_ITEM", requireSession(), payload, UUID.randomUUID().toString());
+    }
+
+    public List<ItemDto> listItems() throws IOException {
+        ResponseEnvelope response = request("LIST_ITEMS", requireSession(), new JsonObject(), UUID.randomUUID().toString());
+        JsonElement parsed = JsonParser.parseString(response.payloadJson());
+        if (parsed.isJsonObject() && parsed.getAsJsonObject().has("items")) {
+            return JsonCodec.fromJson(parsed.getAsJsonObject().get("items").toString(), ITEM_LIST_TYPE);
+        }
+        return JsonCodec.fromJson(response.payloadJson(), ITEM_LIST_TYPE);
     }
 
     public long createAuction(long itemId, long startPriceCents,
@@ -162,6 +249,21 @@ public final class NetworkClient implements AutoCloseable {
         return result.get("auctionId").getAsLong();
     }
 
+    public void cancelAuction(long auctionId) throws IOException {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("auctionId", auctionId);
+        request("CANCEL_AUCTION", requireSession(), payload, UUID.randomUUID().toString());
+    }
+
+    public List<UserDto> adminListUsers() throws IOException {
+        ResponseEnvelope response = request("ADMIN_LIST_USERS", requireSession(), new JsonObject(), UUID.randomUUID().toString());
+        JsonElement parsed = JsonParser.parseString(response.payloadJson());
+        if (parsed.isJsonObject() && parsed.getAsJsonObject().has("users")) {
+            return JsonCodec.fromJson(parsed.getAsJsonObject().get("users").toString(), USER_LIST_TYPE);
+        }
+        return JsonCodec.fromJson(response.payloadJson(), USER_LIST_TYPE);
+    }
+
     public String role() {
         return role;
     }
@@ -172,6 +274,18 @@ public final class NetworkClient implements AutoCloseable {
 
     public String account() {
         return account;
+    }
+
+    public long balanceCents() {
+        return balanceCents;
+    }
+
+    public long frozenCents() {
+        return frozenCents;
+    }
+
+    public boolean isLoggedIn() {
+        return sessionId != null && !sessionId.isBlank();
     }
 
     public boolean isConnected() {
@@ -265,9 +379,11 @@ public final class NetworkClient implements AutoCloseable {
             }
             JsonObject obj = element.getAsJsonObject();
 
-            // Phân biệt EventEnvelope (server push) và ResponseEnvelope (phản hồi request)
             if (obj.has("eventType") && !obj.has("ok")) {
                 EventEnvelope event = JsonCodec.fromJson(line, EventEnvelope.class);
+                if (event.eventType() == EventType.BALANCE_CHANGED) {
+                    handleBalanceEvent(event.payloadJson());
+                }
                 for (Consumer<EventEnvelope> listener : eventListeners) {
                     try {
                         listener.accept(event);
@@ -286,6 +402,33 @@ public final class NetworkClient implements AutoCloseable {
             }
         } catch (Exception e) {
             System.err.println("Không thể phân tích gói tin JSON từ server: " + e.getMessage());
+        }
+    }
+
+    private void handleBalanceEvent(String payloadJson) {
+        if (payloadJson == null || payloadJson.isBlank()) {
+            return;
+        }
+        try {
+            JsonObject payload = JsonParser.parseString(payloadJson).getAsJsonObject();
+            if (payload.has("userId") && payload.get("userId").getAsLong() != this.userId) {
+                return;
+            }
+            if (payload.has("balanceCents") && !payload.get("balanceCents").isJsonNull()) {
+                this.balanceCents = payload.get("balanceCents").getAsLong();
+            }
+            if (payload.has("frozenCents") && !payload.get("frozenCents").isJsonNull()) {
+                this.frozenCents = payload.get("frozenCents").getAsLong();
+            }
+            notifyWalletChanged();
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void notifyWalletChanged() {
+        BiConsumer<Long, Long> listener = this.walletListener;
+        if (listener != null) {
+            listener.accept(this.balanceCents, this.frozenCents);
         }
     }
 
@@ -346,12 +489,17 @@ public final class NetworkClient implements AutoCloseable {
     public synchronized void close() {
         manualClose = true;
         sessionId = null;
+        userId = 0L;
+        account = null;
         role = null;
+        balanceCents = 0L;
+        frozenCents = 0L;
         failAllPending(new IOException("Client closed"));
         cleanupSocketOnly();
     }
 
-    public record LoginResult(String sessionId, long userId, String account, String role) {
+    public record LoginResult(String sessionId, long userId, String account, String role,
+                              long balanceCents, long frozenCents) {
     }
 
     public record AuctionDetailData(AuctionDto auction, ItemDto item, List<BidDto> bids) {
@@ -359,5 +507,8 @@ public final class NetworkClient implements AutoCloseable {
 
     public record PlaceBidResult(long auctionId, long bidId, long amountCents,
                                  long currentPriceCents, long auctionVersion, String message) {
+    }
+
+    public record AutoBidResult(long auctionId, long maxAmountCents, long incrementCents, String message) {
     }
 }

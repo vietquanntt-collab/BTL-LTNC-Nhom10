@@ -7,12 +7,12 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.Priority?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 
@@ -20,7 +20,7 @@
             fx:controller="com.btl.team10.client.controller.AuctionDetailController"
             style="-fx-background-color: #f5f6fa;">
 
-    <!-- Header điều hướng & trạng thái phiên -->
+    <!-- Header điều hướng, số lần Anti-Snipe & trạng thái phiên -->
     <top>
         <HBox alignment="CENTER_LEFT" spacing="12" style="-fx-background-color: #2c3e50;">
             <padding><Insets top="14" right="20" bottom="14" left="20"/></padding>
@@ -29,6 +29,8 @@
             <Label fx:id="auctionTitleLabel" text="Phiên đấu giá #--"
                    style="-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"/>
             <Region HBox.hgrow="ALWAYS"/>
+            <Label fx:id="extensionCountLabel" text="Anti-Snipe: 0 lần gia hạn"
+                   style="-fx-background-color: #34495e; -fx-text-fill: #ecf0f1; -fx-padding: 4 10; -fx-background-radius: 4; -fx-font-size: 12px;"/>
             <Label fx:id="statusBadgeLabel" text="RUNNING"
                    style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 4 10; -fx-background-radius: 4; -fx-font-weight: bold;"/>
         </HBox>
@@ -37,22 +39,41 @@
     <!-- Nội dung chính -->
     <center>
         <ScrollPane fitToWidth="true" style="-fx-background-color: transparent;">
-            <VBox spacing="16">
-                <padding><Insets top="18" right="20" bottom="20" left="20"/></padding>
+            <VBox spacing="14">
+                <padding><Insets top="16" right="20" bottom="20" left="20"/></padding>
 
-                <!-- Banner thông báo Realtime / Outbid / Lỗi / Reconnect -->
+                <!-- Banner thông báo Realtime / Outbid / Anti-Snipe / Lỗi / Reconnect -->
                 <Label fx:id="alertBannerLabel" visible="false" managed="false" wrapText="true" maxWidth="Infinity"
                        style="-fx-padding: 10 14; -fx-background-radius: 6; -fx-font-weight: bold;"/>
 
-                <!-- Khối 1: Thông tin vật phẩm + Giá + Countdown + Đặt giá -->
-                <HBox spacing="16">
+                <!-- Khối kết quả khi đóng phiên (FINISHED / PAID / CANCELLED) -->
+                <HBox fx:id="winnerBannerBox" alignment="CENTER_LEFT" spacing="16" visible="false" managed="false"
+                      style="-fx-background-color: #2c3e50; -fx-padding: 14 16; -fx-background-radius: 8;">
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label fx:id="winnerTitleLabel" text="KẾT QUẢ PHIÊN ĐẤU GIÁ"
+                               style="-fx-text-fill: #f1c40f; -fx-font-size: 15px; -fx-font-weight: bold;"/>
+                        <Label fx:id="settlementStatusLabel" text="Đang chờ quyết toán..."
+                               style="-fx-text-fill: #ecf0f1; -fx-font-size: 13px;"/>
+                    </VBox>
+                </HBox>
+
+                <!-- Khối 1: Thông tin vật phẩm + Giá + Countdown + Đặt giá thủ công -->
+                <HBox spacing="14">
                     <!-- Thẻ thông tin vật phẩm & giá -->
-                    <VBox spacing="8" HBox.hgrow="ALWAYS"
+                    <VBox spacing="10" HBox.hgrow="ALWAYS"
                           style="-fx-background-color: white; -fx-padding: 16; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
-                        <Label fx:id="itemNameLabel" text="Đang tải thông tin vật phẩm..."
-                               style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+                        <HBox alignment="CENTER_LEFT" spacing="10">
+                            <Label fx:id="itemNameLabel" text="Đang tải thông tin vật phẩm..."
+                                   style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" HBox.hgrow="ALWAYS"/>
+                            <Label fx:id="leadStatusLabel" text="CHƯA THAM GIA ĐẶT GIÁ"
+                                   style="-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-padding: 4 10; -fx-background-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold;"/>
+                        </HBox>
+
                         <Label fx:id="itemDescLabel" text="" wrapText="true" style="-fx-text-fill: #636e72;"/>
-                        <HBox spacing="20">
+
+                        <Separator/>
+
+                        <HBox spacing="24">
                             <VBox spacing="2">
                                 <Label text="GIÁ HIỆN TẠI" style="-fx-font-size: 11px; -fx-text-fill: #7f8c8d;"/>
                                 <Label fx:id="currentPriceLabel" text="0 cents"
@@ -71,8 +92,8 @@
                         </HBox>
                     </VBox>
 
-                    <!-- Thẻ Countdown & Form Đặt giá -->
-                    <VBox spacing="10" prefWidth="310"
+                    <!-- Thẻ Countdown & Form Đặt giá thủ công -->
+                    <VBox spacing="10" prefWidth="320"
                           style="-fx-background-color: white; -fx-padding: 16; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
                         <Label text="THỜI GIAN CÒN LẠI" style="-fx-font-size: 11px; -fx-text-fill: #7f8c8d;"/>
                         <Label fx:id="countdownLabel" text="--:--:--"
@@ -90,8 +111,29 @@
                     </VBox>
                 </HBox>
 
-                <!-- Khối 2: Biểu đồ biến động giá & Bảng lịch sử đặt giá -->
-                <HBox spacing="16" prefHeight="300">
+                <!-- Khối 2: Cấu hình Auto-Bid (Đặt giá tự động theo mức trần) -->
+                <VBox spacing="10"
+                      style="-fx-background-color: white; -fx-padding: 14 16; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
+                    <HBox alignment="CENTER_LEFT" spacing="10">
+                        <Label text="ĐẶT GIÁ TỰ ĐỘNG (AUTO-BID)"
+                               style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <Label fx:id="autoBidStatusLabel" text="Chưa kích hoạt Auto-Bid trên phiên này"
+                               style="-fx-text-fill: #7f8c8d; -fx-font-size: 12px; -fx-font-weight: bold;"/>
+                    </HBox>
+
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <TextField fx:id="autoBidMaxField" promptText="Giá trần tối đa (cents)" prefWidth="210" prefHeight="34"/>
+                        <TextField fx:id="autoBidIncrementField" promptText="Bước giá tự động (cents)" prefWidth="210" prefHeight="34"/>
+                        <Button fx:id="setAutoBidButton" text="Kích hoạt Auto-Bid" onAction="#handleSetAutoBid" prefHeight="34"
+                                style="-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                        <Label text="Server tự động nâng giá đến mức trần khi có người vượt giá."
+                               wrapText="true" style="-fx-text-fill: #636e72; -fx-font-size: 12px;" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                </VBox>
+
+                <!-- Khối 3: Biểu đồ biến động giá & Bảng lịch sử đặt giá -->
+                <HBox spacing="14" prefHeight="290">
                     <VBox spacing="6" HBox.hgrow="ALWAYS"
                           style="-fx-background-color: white; -fx-padding: 12; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
                         <Label text="Biểu đồ biến động giá (Realtime)" style="-fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>

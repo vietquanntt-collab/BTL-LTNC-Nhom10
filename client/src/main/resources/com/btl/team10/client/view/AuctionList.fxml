@@ -1,31 +1,61 @@
 <?xml version="1.0" encoding="UTF-8"?>
+
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
+
 <BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.btl.team10.client.controller.AuctionListController"
             style="-fx-background-color: #f5f6fa;">
+
     <top>
-        <VBox spacing="8" style="-fx-background-color: #2c3e50;">
-            <padding><Insets top="18" right="22" bottom="18" left="22"/></padding>
-            <Label text="Đấu giá đang mở" style="-fx-text-fill: white; -fx-font-size: 22px; -fx-font-weight: bold;"/>
-            <Label fx:id="statusLabel" text="Đang tải..." style="-fx-text-fill: #dfe6e9;"/>
-        </VBox>
+        <HBox alignment="CENTER_LEFT" spacing="12" style="-fx-background-color: #2c3e50;">
+            <padding><Insets top="14" right="20" bottom="14" left="20"/></padding>
+            <Label text="DANH SÁCH PHIÊN ĐẤU GIÁ"
+                   style="-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label text="Lọc trạng thái:" style="-fx-text-fill: #ecf0f1; -fx-font-size: 12px;"/>
+            <ComboBox fx:id="statusFilterBox" prefWidth="145" onAction="#onFilterChanged"/>
+            <Button fx:id="refreshBtn" text="Làm mới" onAction="#onRefresh"
+                    style="-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
+        </HBox>
     </top>
+
     <center>
         <VBox spacing="12">
-            <padding><Insets top="22" right="22" bottom="22" left="22"/></padding>
-            <Label text="Nhấn đúp vào một phiên hoặc chọn rồi bấm 'Xem chi tiết' để tham gia đặt giá:"
-                   style="-fx-text-fill: #636e72; -fx-font-size: 13px;"/>
-            <ListView fx:id="auctionListView" prefHeight="400"/>
+            <padding><Insets top="16" right="20" bottom="16" left="20"/></padding>
+
+            <Label fx:id="statusMessageLabel" visible="false" managed="false" wrapText="true" maxWidth="Infinity"
+                   style="-fx-padding: 10 14; -fx-background-radius: 6; -fx-font-weight: bold;"/>
+
+            <TableView fx:id="auctionTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="idCol" text="ID Phiên" prefWidth="80"/>
+                    <TableColumn fx:id="itemCol" text="ID Vật phẩm" prefWidth="95"/>
+                    <TableColumn fx:id="startPriceCol" text="Giá khởi điểm" prefWidth="120"/>
+                    <TableColumn fx:id="currentPriceCol" text="Giá hiện tại" prefWidth="120"/>
+                    <TableColumn fx:id="incrementCol" text="Bước giá" prefWidth="100"/>
+                    <TableColumn fx:id="statusCol" text="Trạng thái" prefWidth="110"/>
+                    <TableColumn fx:id="endAtCol" text="Thời điểm kết thúc" prefWidth="170"/>
+                </columns>
+            </TableView>
+
             <HBox alignment="CENTER_RIGHT" spacing="10">
-                <Button text="Tải lại" onAction="#reload" prefWidth="100" prefHeight="34"/>
-                <Button text="Xem chi tiết &amp; Đặt giá" onAction="#openSelectedAuction" prefWidth="180" prefHeight="34"
-                        style="-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                <Label text="Mẹo: Nhấp đúp vào một dòng phiên đấu giá để mở phòng đặt giá chi tiết."
+                       style="-fx-text-fill: #636e72; -fx-font-size: 12px;" HBox.hgrow="ALWAYS"/>
+                <Button fx:id="cancelAuctionBtn" text="Hủy phiên đã chọn" onAction="#onCancelAuction"
+                        visible="false" managed="false" prefHeight="36"
+                        style="-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                <Button fx:id="openDetailBtn" text="Xem chi tiết &amp; Đặt giá" onAction="#onOpenDetail"
+                        prefHeight="36"
+                        style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
             </HBox>
         </VBox>
     </center>

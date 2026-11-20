@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.btl.team10.client.controller.SellerDashboardController"
+            style="-fx-background-color: #f5f6fa;">
+
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="12" style="-fx-background-color: #2c3e50;">
+            <padding><Insets top="14" right="20" bottom="14" left="20"/></padding>
+            <Label text="QUẢN LÝ VẬT PHẨM &amp; MỞ ĐẤU GIÁ (SELLER)"
+                   style="-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button text="Tải lại vật phẩm" onAction="#onRefreshItems"
+                    style="-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
+        </HBox>
+    </top>
+
+    <center>
+        <ScrollPane fitToWidth="true" style="-fx-background-color: transparent;">
+            <VBox spacing="14">
+                <padding><Insets top="16" right="20" bottom="20" left="20"/></padding>
+
+                <Label fx:id="feedbackLabel" visible="false" managed="false" wrapText="true" maxWidth="Infinity"
+                       style="-fx-padding: 10 14; -fx-background-radius: 6; -fx-font-weight: bold;"/>
+
+                <!-- Bảng danh sách vật phẩm hiện có -->
+                <VBox spacing="8"
+                      style="-fx-background-color: white; -fx-padding: 14; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
+                    <Label text="Danh sách vật phẩm (Nhấp vào 1 dòng để sửa, xóa hoặc chọn mở phiên đấu giá)"
+                           style="-fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+                    <TableView fx:id="itemTable" prefHeight="220">
+                        <columns>
+                            <TableColumn fx:id="itemIdCol" text="ID Vật phẩm" prefWidth="100"/>
+                            <TableColumn fx:id="itemNameCol" text="Tên vật phẩm" prefWidth="220"/>
+                            <TableColumn fx:id="itemTypeCol" text="Phân loại" prefWidth="140"/>
+                            <TableColumn fx:id="itemDescCol" text="Mô tả" prefWidth="310"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+
+                <!-- Hai biểu mẫu song song: Quản lý Vật phẩm & Mở Phiên Đấu Giá -->
+                <HBox spacing="14">
+                    <!-- Cột trái: Tạo / Sửa / Xóa vật phẩm -->
+                    <VBox spacing="10" HBox.hgrow="ALWAYS"
+                          style="-fx-background-color: white; -fx-padding: 16; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
+                        <Label text="1. THÔNG TIN VẬT PHẨM (TẠO / SỬA / XÓA)"
+                               style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+                        <Separator/>
+
+                        <Label text="Tên vật phẩm:" style="-fx-font-size: 12px; -fx-text-fill: #636e72;"/>
+                        <TextField fx:id="itemNameField" promptText="Ví dụ: Kiếm Rồng Huyền Thoại"/>
+
+                        <Label text="Phân loại (itemType):" style="-fx-font-size: 12px; -fx-text-fill: #636e72;"/>
+                        <TextField fx:id="itemTypeField" promptText="Nhập mã phân loại hợp lệ"/>
+
+                        <Label text="Mô tả chi tiết:" style="-fx-font-size: 12px; -fx-text-fill: #636e72;"/>
+                        <TextArea fx:id="itemDescArea" promptText="Nhập mô tả tình trạng và thuộc tính vật phẩm..."
+                                  prefRowCount="3" wrapText="true"/>
+
+                        <HBox spacing="8">
+                            <Button fx:id="createItemBtn" text="Tạo vật phẩm" onAction="#onCreateItem"
+                                    style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                            <Button fx:id="updateItemBtn" text="Cập nhật" onAction="#onUpdateItem" disable="true"
+                                    style="-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                            <Button fx:id="deleteItemBtn" text="Xóa" onAction="#onDeleteItem" disable="true"
+                                    style="-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                            <Button text="Xóa trắng form" onAction="#onClearForm"
+                                    style="-fx-background-color: #ecf0f1; -fx-cursor: hand;"/>
+                        </HBox>
+                    </VBox>
+
+                    <!-- Cột phải: Mở phiên đấu giá mới -->
+                    <VBox spacing="10" prefWidth="350"
+                          style="-fx-background-color: white; -fx-padding: 16; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
+                        <Label text="2. MỞ PHIÊN ĐẤU GIÁ MỚI"
+                               style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+                        <Separator/>
+
+                        <Label text="ID vật phẩm đem đấu giá:" style="-fx-font-size: 12px; -fx-text-fill: #636e72;"/>
+                        <TextField fx:id="auctionItemIdField" promptText="Chọn dòng vật phẩm ở bảng trên hoặc nhập ID"/>
+
+                        <Label text="Giá khởi điểm (cents):" style="-fx-font-size: 12px; -fx-text-fill: #636e72;"/>
+                        <TextField fx:id="startPriceField" promptText="Ví dụ: 10000"/>
+
+                        <Label text="Bước giá tối thiểu (cents):" style="-fx-font-size: 12px; -fx-text-fill: #636e72;"/>
+                        <TextField fx:id="minIncrementField" promptText="Ví dụ: 500"/>
+
+                        <Label text="Thời lượng phiên (giờ):" style="-fx-font-size: 12px; -fx-text-fill: #636e72;"/>
+                        <TextField fx:id="durationHoursField" text="1" promptText="Ví dụ: 1"/>
+
+                        <Button fx:id="createAuctionBtn" text="Mở phiên đấu giá ngay" onAction="#onCreateAuction"
+                                maxWidth="Infinity" prefHeight="38"
+                                style="-fx-background-color: #e67e22; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                    </VBox>
+                </HBox>
+            </VBox>
+        </ScrollPane>
+    </center>
+</BorderPane>
