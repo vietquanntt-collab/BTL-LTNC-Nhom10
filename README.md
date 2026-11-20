@@ -68,6 +68,19 @@ Kết quả kiểm tra và phạm vi đã sửa được ghi ở [báo cáo tu�
 
 Kịch bản chi tiết: [hướng dẫn chạy và demo](docs/local-testing.md).
 
+## TV1 tuần 5
+
+TV1 đã chốt migration/seed, constraint/index inventory, ERD và source map:
+
+- [ERD v1](docs/architecture/erd-v1.mmd)
+- [Source map](docs/source-map.md)
+- [Báo cáo nghiệm thu TV1](docs/week-5-tv1-check-report.md)
+- [Hướng dẫn commit/push TV1](docs/handoff-week5-tv1.md)
+
+Chạy riêng kiểm tra schema và migration:
+
+    .\mvnw.cmd -B -pl common,server -am test "-Dtest=RepositoryIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=false"
+
 ## Contract và chính sách
 
 - REGISTER tạo BIDDER; client không tự chọn role.
