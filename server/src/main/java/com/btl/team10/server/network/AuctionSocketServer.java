@@ -1,6 +1,7 @@
 package com.btl.team10.server.network;
 
 import com.btl.team10.server.bidding.PlaceBidService;
+import com.btl.team10.server.bidding.SettlementService;
 import com.btl.team10.server.repository.AuctionRepository;
 import com.btl.team10.server.repository.ItemRepository;
 import com.btl.team10.server.session.AuthService;
@@ -21,6 +22,7 @@ public final class AuctionSocketServer {
     private final ItemRepository itemRepository;
     private final AuctionRepository auctionRepository;
     private final PlaceBidService placeBidService;
+    private final SettlementService settlementService;
     private final EventPublisher eventPublisher;
     private final Object databaseLock = new Object();
     private final ExecutorService threadPool = Executors.newCachedThreadPool(runnable -> {
@@ -33,12 +35,21 @@ public final class AuctionSocketServer {
 
     public AuctionSocketServer(int port, AuthService authService, SessionManager sessionManager,
                                ItemRepository itemRepository, AuctionRepository auctionRepository) {
-        this(port, authService, sessionManager, itemRepository, auctionRepository, null, new EventPublisher());
+        this(port, authService, sessionManager, itemRepository, auctionRepository,
+                null, null, new EventPublisher());
     }
 
     public AuctionSocketServer(int port, AuthService authService, SessionManager sessionManager,
                                ItemRepository itemRepository, AuctionRepository auctionRepository,
                                PlaceBidService placeBidService, EventPublisher eventPublisher) {
+        this(port, authService, sessionManager, itemRepository, auctionRepository,
+                placeBidService, null, eventPublisher);
+    }
+
+    public AuctionSocketServer(int port, AuthService authService, SessionManager sessionManager,
+                               ItemRepository itemRepository, AuctionRepository auctionRepository,
+                               PlaceBidService placeBidService, SettlementService settlementService,
+                               EventPublisher eventPublisher) {
         if (port < 0 || port > 65_535) {
             throw new IllegalArgumentException("port must be between 0 and 65535");
         }
@@ -48,6 +59,7 @@ public final class AuctionSocketServer {
         this.itemRepository = itemRepository;
         this.auctionRepository = auctionRepository;
         this.placeBidService = placeBidService;
+        this.settlementService = settlementService;
         this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
     }
 
@@ -64,7 +76,7 @@ public final class AuctionSocketServer {
                     Socket client = boundServer.accept();
                     threadPool.submit(new ClientHandler(
                             client, authService, sessionManager, itemRepository, auctionRepository,
-                            databaseLock, placeBidService, eventPublisher));
+                            databaseLock, placeBidService, settlementService, eventPublisher));
                 } catch (IOException error) {
                     if (running) {
                         throw error;
@@ -95,7 +107,8 @@ public final class AuctionSocketServer {
         ServerSocket current = serverSocket;
         return current == null ? port : current.getLocalPort();
     }
-    public Object databaseLock(){
+
+    public Object databaseLock() {
         return databaseLock;
     }
 }
