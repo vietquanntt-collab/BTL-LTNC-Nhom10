@@ -2,6 +2,8 @@ package com.btl.team10.server.bidding;
 
 import com.btl.team10.common.protocol.EventType;
 import com.btl.team10.server.network.EventPublisher;
+import com.btl.team10.server.repository.JdbcSettlementRepository;
+import com.btl.team10.server.repository.JdbcWalletRepository;
 import com.google.gson.JsonObject;
 
 import java.sql.Connection;
@@ -20,6 +22,7 @@ public final class AuctionExpirationScheduler {
     private final Connection connection;
     private final EventPublisher eventPublisher;
     private final Object databaseLock;
+    private final SettlementService settlementService;
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "auction-expiration-scheduler");
         t.setDaemon(true);
@@ -27,9 +30,24 @@ public final class AuctionExpirationScheduler {
     });
 
     public AuctionExpirationScheduler(Connection connection, EventPublisher eventPublisher, Object databaseLock) {
+        this(connection,
+                eventPublisher,
+                databaseLock,
+                new SettlementService(
+                        connection,
+                        new JdbcSettlementRepository(connection),
+                        new JdbcWalletRepository(connection),
+                        eventPublisher));
+    }
+
+    public AuctionExpirationScheduler(Connection connection,
+                                      EventPublisher eventPublisher,
+                                      Object databaseLock,
+                                      SettlementService settlementService) {
         this.connection = Objects.requireNonNull(connection, "connection");
         this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
         this.databaseLock = Objects.requireNonNull(databaseLock, "databaseLock");
+        this.settlementService = Objects.requireNonNull(settlementService, "settlementService");
     }
 
     public void start() {
@@ -91,14 +109,6 @@ public final class AuctionExpirationScheduler {
                     }
                 }
 
-                if (item.winnerId != null) {
-                    try (PreparedStatement updateBid = connection.prepareStatement(
-                            "UPDATE bids SET status = 'WINNER' WHERE auction_id = ? AND status = 'ACTIVE'")) {
-                        updateBid.setLong(1, item.auctionId);
-                        updateBid.executeUpdate();
-                    }
-                }
-
                 long seq = nextSequence(item.auctionId);
                 JsonObject payload = new JsonObject();
                 payload.addProperty("auctionId", item.auctionId);
@@ -120,6 +130,9 @@ public final class AuctionExpirationScheduler {
 
                 connection.commit();
                 eventPublisher.publishToAll(EventType.AUCTION_FINISHED, item.auctionId, seq, payload.toString());
+
+                // Idempotent settlement immediately after auction transitions to FINISHED
+                settlementService.settleFinishedAuction(item.auctionId, "scheduler-settle-" + item.auctionId);
             }
         } catch (SQLException e) {
             connection.rollback();
