@@ -1,17 +1,25 @@
 package com.btl.team10.server;
 
+import com.btl.team10.server.bidding.AntiSnipePolicy;
 import com.btl.team10.server.bidding.AuctionExpirationScheduler;
 import com.btl.team10.server.bidding.PlaceBidService;
-import com.btl.team10.server.network.EventPublisher;
+import com.btl.team10.server.bidding.SettlementService;
 import com.btl.team10.server.network.AuctionSocketServer;
+import com.btl.team10.server.network.EventPublisher;
 import com.btl.team10.server.persistence.DatabaseConnectionFactory;
 import com.btl.team10.server.persistence.DatabaseInitializer;
 import com.btl.team10.server.repository.AuctionRepository;
+import com.btl.team10.server.repository.AutoBidRuleRepository;
 import com.btl.team10.server.repository.ItemRepository;
 import com.btl.team10.server.repository.JdbcAuctionRepository;
+import com.btl.team10.server.repository.JdbcAutoBidRuleRepository;
 import com.btl.team10.server.repository.JdbcItemRepository;
+import com.btl.team10.server.repository.JdbcSettlementRepository;
 import com.btl.team10.server.repository.JdbcUserRepository;
+import com.btl.team10.server.repository.JdbcWalletRepository;
+import com.btl.team10.server.repository.SettlementRepository;
 import com.btl.team10.server.repository.UserRepository;
+import com.btl.team10.server.repository.WalletRepository;
 import com.btl.team10.server.session.AuthService;
 import com.btl.team10.server.session.SessionManager;
 
@@ -19,7 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 
-/** Starts the week 3 server with one initialized SQLite database. */
+/** Starts the week 4 server with one initialized SQLite database. */
 public final class ServerApplication {
     private static final int DEFAULT_PORT = 9999;
 
@@ -32,7 +40,7 @@ public final class ServerApplication {
         boolean seed = Boolean.parseBoolean(System.getProperty("auction.db.seed", "true"));
         int port = Integer.parseInt(System.getProperty("auction.server.port", String.valueOf(DEFAULT_PORT)));
 
-        System.out.println("Auction server - week 3");
+        System.out.println("Auction server - week 4");
         System.out.println("Database: " + databaseFile.toAbsolutePath().normalize());
         System.out.println("Schema: " + databaseRoot.toAbsolutePath().normalize());
 
@@ -42,13 +50,40 @@ public final class ServerApplication {
             UserRepository userRepository = new JdbcUserRepository(connection);
             ItemRepository itemRepository = new JdbcItemRepository(connection);
             AuctionRepository auctionRepository = new JdbcAuctionRepository(connection);
+            AutoBidRuleRepository autoBidRuleRepository = new JdbcAutoBidRuleRepository(connection);
+            WalletRepository walletRepository = new JdbcWalletRepository(connection);
+            SettlementRepository settlementRepository = new JdbcSettlementRepository(connection);
+
             SessionManager sessionManager = new SessionManager();
             AuthService authService = new AuthService(userRepository, sessionManager);
             EventPublisher eventPublisher = new EventPublisher();
-            PlaceBidService placeBidService = new PlaceBidService(connection, eventPublisher);
+
+            PlaceBidService placeBidService = new PlaceBidService(
+                    connection,
+                    eventPublisher,
+                    autoBidRuleRepository,
+                    walletRepository,
+                    AntiSnipePolicy.defaultPolicy());
+            SettlementService settlementService = new SettlementService(
+                    connection,
+                    settlementRepository,
+                    walletRepository,
+                    eventPublisher);
+
             AuctionSocketServer server = new AuctionSocketServer(
-                    port, authService, sessionManager, itemRepository, auctionRepository, placeBidService, eventPublisher);
-            AuctionExpirationScheduler scheduler = new AuctionExpirationScheduler(connection, eventPublisher, server.databaseLock());
+                    port,
+                    authService,
+                    sessionManager,
+                    itemRepository,
+                    auctionRepository,
+                    placeBidService,
+                    settlementService,
+                    eventPublisher);
+            AuctionExpirationScheduler scheduler = new AuctionExpirationScheduler(
+                    connection,
+                    eventPublisher,
+                    server.databaseLock(),
+                    settlementService);
 
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 scheduler.stop();
