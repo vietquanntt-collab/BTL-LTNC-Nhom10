@@ -11,8 +11,12 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Thread-per-connection TCP server for the shared request and realtime event contract. */
 public final class AuctionSocketServer {
@@ -25,13 +29,15 @@ public final class AuctionSocketServer {
     private final SettlementService settlementService;
     private final EventPublisher eventPublisher;
     private final Object databaseLock = new Object();
+    private final Set<Socket> activeSockets = ConcurrentHashMap.newKeySet();
+    private final AtomicInteger activeConnections = new AtomicInteger(0);
     private final ExecutorService threadPool = Executors.newCachedThreadPool(runnable -> {
         Thread thread = new Thread(runnable, "auction-client");
         thread.setDaemon(true);
         return thread;
     });
     private volatile boolean running;
-    private ServerSocket serverSocket;
+    private volatile ServerSocket serverSocket;
 
     public AuctionSocketServer(int port, AuthService authService, SessionManager sessionManager,
                                ItemRepository itemRepository, AuctionRepository auctionRepository) {
@@ -70,13 +76,24 @@ public final class AuctionSocketServer {
         running = true;
         try (ServerSocket boundServer = new ServerSocket(port)) {
             serverSocket = boundServer;
-            System.out.println("Auction socket server listening on port " + boundServer.getLocalPort());
+            System.out.println("[HEALTH] Auction socket server listening on port " + boundServer.getLocalPort());
             while (running) {
                 try {
                     Socket client = boundServer.accept();
-                    threadPool.submit(new ClientHandler(
-                            client, authService, sessionManager, itemRepository, auctionRepository,
-                            databaseLock, placeBidService, settlementService, eventPublisher));
+                    client.setTcpNoDelay(true);
+                    activeSockets.add(client);
+                    activeConnections.incrementAndGet();
+                    threadPool.submit(() -> {
+                        try {
+                            new ClientHandler(
+                                    client, authService, sessionManager, itemRepository, auctionRepository,
+                                    databaseLock, placeBidService, settlementService, eventPublisher,
+                                    this::activeConnections).run();
+                        } finally {
+                            activeSockets.remove(client);
+                            activeConnections.decrementAndGet();
+                        }
+                    });
                 } catch (IOException error) {
                     if (running) {
                         throw error;
@@ -89,16 +106,34 @@ public final class AuctionSocketServer {
         }
     }
 
+    /** Gracefully stops accepting new clients, waits briefly for in-flight requests, and closes open sockets. */
     public void stop() {
         running = false;
         try {
-            if (serverSocket != null) {
-                serverSocket.close();
+            ServerSocket current = serverSocket;
+            if (current != null && !current.isClosed()) {
+                current.close();
             }
         } catch (IOException ignored) {
             // Closing the accept socket is best effort.
-        } finally {
+        }
+        threadPool.shutdown();
+        try {
+            if (!threadPool.awaitTermination(2, TimeUnit.SECONDS)) {
+                for (Socket socket : activeSockets) {
+                    try {
+                        socket.close();
+                    } catch (IOException ignored) {
+                        // Best-effort close during shutdown.
+                    }
+                }
+                threadPool.shutdownNow();
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
             threadPool.shutdownNow();
+        } finally {
+            activeSockets.clear();
         }
     }
 
@@ -106,6 +141,14 @@ public final class AuctionSocketServer {
     public int boundPort() {
         ServerSocket current = serverSocket;
         return current == null ? port : current.getLocalPort();
+    }
+
+    public int activeConnections() {
+        return Math.max(0, activeConnections.get());
+    }
+
+    public boolean isRunning() {
+        return running;
     }
 
     public Object databaseLock() {

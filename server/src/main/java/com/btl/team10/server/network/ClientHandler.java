@@ -23,9 +23,11 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 
 import java.io.BufferedReader;
+import java.io.EOFException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -34,6 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.IntSupplier;
 
 /** Handles one line-delimited connection using the shared JSON contract. */
 public final class ClientHandler implements Runnable {
@@ -46,30 +49,42 @@ public final class ClientHandler implements Runnable {
     private final PlaceBidService placeBidService;
     private final SettlementService settlementService;
     private final EventPublisher eventPublisher;
+    private final IntSupplier activeConnectionsSupplier;
     private SocketClientObserver clientObserver;
 
     public ClientHandler(Socket socket, AuthService authService, SessionManager sessionManager,
                          ItemRepository itemRepository, AuctionRepository auctionRepository) {
-        this(socket, authService, sessionManager, itemRepository, auctionRepository, new Object(), null, null, null);
+        this(socket, authService, sessionManager, itemRepository, auctionRepository,
+                new Object(), null, null, null, () -> 1);
     }
 
     ClientHandler(Socket socket, AuthService authService, SessionManager sessionManager,
                   ItemRepository itemRepository, AuctionRepository auctionRepository,
                   Object databaseLock) {
-        this(socket, authService, sessionManager, itemRepository, auctionRepository, databaseLock, null, null, null);
+        this(socket, authService, sessionManager, itemRepository, auctionRepository,
+                databaseLock, null, null, null, () -> 1);
     }
 
     public ClientHandler(Socket socket, AuthService authService, SessionManager sessionManager,
                          ItemRepository itemRepository, AuctionRepository auctionRepository,
                          Object databaseLock, PlaceBidService placeBidService, EventPublisher eventPublisher) {
         this(socket, authService, sessionManager, itemRepository, auctionRepository,
-                databaseLock, placeBidService, null, eventPublisher);
+                databaseLock, placeBidService, null, eventPublisher, () -> 1);
     }
 
     public ClientHandler(Socket socket, AuthService authService, SessionManager sessionManager,
                          ItemRepository itemRepository, AuctionRepository auctionRepository,
                          Object databaseLock, PlaceBidService placeBidService,
                          SettlementService settlementService, EventPublisher eventPublisher) {
+        this(socket, authService, sessionManager, itemRepository, auctionRepository,
+                databaseLock, placeBidService, settlementService, eventPublisher, () -> 1);
+    }
+
+    ClientHandler(Socket socket, AuthService authService, SessionManager sessionManager,
+                  ItemRepository itemRepository, AuctionRepository auctionRepository,
+                  Object databaseLock, PlaceBidService placeBidService,
+                  SettlementService settlementService, EventPublisher eventPublisher,
+                  IntSupplier activeConnectionsSupplier) {
         this.socket = socket;
         this.authService = authService;
         this.sessionManager = sessionManager;
@@ -79,6 +94,7 @@ public final class ClientHandler implements Runnable {
         this.placeBidService = placeBidService;
         this.settlementService = settlementService;
         this.eventPublisher = eventPublisher;
+        this.activeConnectionsSupplier = activeConnectionsSupplier == null ? () -> 1 : activeConnectionsSupplier;
     }
 
     @Override
@@ -95,19 +111,20 @@ public final class ClientHandler implements Runnable {
                 if (line.isBlank()) {
                     continue;
                 }
-                boolean quit = isQuit(line.trim());
+                String trimmed = line.trim();
+                boolean quit = isQuit(trimmed);
                 String response;
                 if (clientObserver != null) {
                     clientObserver.beginRequest();
                 }
                 try {
                     synchronized (databaseLock) {
-                        response = line.trim().startsWith("{")
-                                ? handleJson(line.trim()) : handlePipe(line.trim());
+                        response = trimmed.startsWith("{")
+                                ? handleJson(trimmed) : handlePipe(trimmed);
                     }
                 } catch (RuntimeException error) {
-                    response = line.trim().startsWith("{")
-                            ? failureFor(line, ErrorCode.INTERNAL_ERROR, "Request failed")
+                    response = trimmed.startsWith("{")
+                            ? failureFor(trimmed, ErrorCode.INTERNAL_ERROR, "Request failed")
                             : "ERROR|Request failed";
                 }
                 if (clientObserver != null) {
@@ -121,10 +138,13 @@ public final class ClientHandler implements Runnable {
                     break;
                 }
             }
+        } catch (SocketException | EOFException disconnected) {
+            // Normal client disconnect or socket close during shutdown/reconnect.
         } catch (Exception error) {
-            System.err.println("Client connection failed: " + error.getMessage());
+            System.err.println("[WARN] Client connection closed with error: " + error.getMessage());
         } finally {
             if (eventPublisher != null && clientObserver != null) {
+                clientObserver.bindUser(null);
                 eventPublisher.unsubscribe(clientObserver);
             }
             try {
@@ -139,15 +159,25 @@ public final class ClientHandler implements Runnable {
         RequestEnvelope request;
         try {
             request = JsonCodec.fromJson(line, RequestEnvelope.class);
+            if (request == null || request.action() == null || request.action().isBlank()) {
+                return failureFor(line, ErrorCode.INVALID_REQUEST, "action must not be blank");
+            }
             if (!"v1".equals(request.protocolVersion())) {
                 return failure(request, ErrorCode.INVALID_REQUEST, "Unsupported protocol version");
             }
-            JsonElement payloadElement = JsonParser.parseString(request.payloadJson());
-            if (!payloadElement.isJsonObject()) {
-                return failure(request, ErrorCode.INVALID_REQUEST, "payload must be an object");
+            String rawPayload = request.payloadJson();
+            JsonObject payload;
+            if (rawPayload == null || rawPayload.isBlank()) {
+                payload = new JsonObject();
+            } else {
+                JsonElement payloadElement = JsonParser.parseString(rawPayload);
+                if (!payloadElement.isJsonObject()) {
+                    return failure(request, ErrorCode.INVALID_REQUEST, "payload must be an object");
+                }
+                payload = payloadElement.getAsJsonObject();
             }
-            JsonObject payload = payloadElement.getAsJsonObject();
             return switch (request.action().toUpperCase(Locale.ROOT)) {
+                case "PING", "HEALTH" -> health(request);
                 case "REGISTER" -> register(request, payload);
                 case "LOGIN" -> login(request, payload);
                 case "LOGOUT" -> logout(request);
@@ -172,12 +202,21 @@ public final class ClientHandler implements Runnable {
             return failureFor(line, error.code, error.getMessage());
         } catch (ValidationException error) {
             return failureFor(line, error.errorCode(), error.getMessage());
-        } catch (JsonParseException | IllegalArgumentException error) {
-            return failureFor(line, ErrorCode.INVALID_REQUEST, "Invalid request");
         } catch (SQLException error) {
             return failureFor(line, error.getErrorCode() == 19 ? ErrorCode.CONFLICT : ErrorCode.INTERNAL_ERROR,
                     error.getErrorCode() == 19 ? "Request conflicts with existing data" : "Database error");
+        } catch (RuntimeException error) {
+            return failureFor(line, ErrorCode.INVALID_REQUEST, "Invalid request");
         }
+    }
+
+    private String health(RequestEnvelope request) throws SQLException {
+        JsonObject result = new JsonObject();
+        result.addProperty("status", "UP");
+        result.addProperty("serverTime", Instant.now().toString());
+        result.addProperty("activeConnections", activeConnectionsSupplier.getAsInt());
+        result.addProperty("openAuctions", auctionRepository.findActiveAuctions().size());
+        return success(request, request.sessionId(), result.toString());
     }
 
     private String register(RequestEnvelope request, JsonObject payload) throws SQLException {
@@ -189,7 +228,7 @@ public final class ClientHandler implements Runnable {
             result.addProperty("role", "BIDDER");
             return success(request, null, result.toString());
         } catch (IllegalArgumentException error) {
-            throw new RequestFailure(error.getMessage().contains("already registered")
+            throw new RequestFailure(error.getMessage() != null && error.getMessage().contains("already registered")
                     ? ErrorCode.CONFLICT : ErrorCode.VALIDATION_ERROR, error.getMessage());
         }
     }
@@ -454,6 +493,7 @@ public final class ClientHandler implements Runnable {
         try {
             return switch (action) {
                 case "QUIT", "EXIT" -> "BYE";
+                case "PING" -> "PONG";
                 case "LOGIN" -> {
                     if (parts.length != 3) yield "ERROR|LOGIN requires account and password";
                     Optional<SessionManager.UserSession> session = authService.login(parts[1], parts[2]);
@@ -580,19 +620,27 @@ public final class ClientHandler implements Runnable {
 
     private static String failure(RequestEnvelope request, ErrorCode code, String message) {
         return JsonCodec.toJson(new ResponseEnvelope(
-                "v1", request.requestId(), request.action(), false, code, message,
-                request.sessionId(), "{}"));
+                "v1", request.requestId() == null ? "unknown" : request.requestId(),
+                request.action() == null ? "INVALID" : request.action(),
+                false, code, message, request.sessionId(), "{}"));
     }
 
     private static String failureFor(String line, ErrorCode code, String message) {
         try {
             RequestEnvelope request = JsonCodec.fromJson(line, RequestEnvelope.class);
+            if (request == null) {
+                throw new IllegalArgumentException();
+            }
             return failure(request, code, message);
         } catch (RuntimeException ignored) {
             return "{\"protocolVersion\":\"v1\",\"requestId\":\"unknown\","
                     + "\"action\":\"INVALID\",\"ok\":false,\"errorCode\":\""
-                    + code + "\",\"message\":\"Invalid request\",\"sessionId\":null,\"payloadJson\":\"{}\"}";
+                    + code + "\",\"message\":\"" + escapeJson(message) + "\",\"sessionId\":null,\"payloadJson\":\"{}\"}";
         }
+    }
+
+    private static String escapeJson(String value) {
+        return value == null ? "Invalid request" : value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private static boolean isQuit(String line) {
