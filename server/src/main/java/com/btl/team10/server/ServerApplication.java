@@ -26,6 +26,7 @@ import com.btl.team10.server.session.SessionManager;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Starts the auction server with one initialized SQLite database. */
 public final class ServerApplication {
@@ -39,12 +40,20 @@ public final class ServerApplication {
         Path databaseFile = Path.of(System.getProperty("auction.db.path", "data/auction.db"));
         boolean seed = Boolean.parseBoolean(System.getProperty("auction.db.seed", "true"));
         int port = Integer.parseInt(System.getProperty("auction.server.port", String.valueOf(DEFAULT_PORT)));
+        AntiSnipePolicy antiSnipePolicy = AntiSnipePolicy.defaultPolicy();
 
-        System.out.println("Nhóm 10 - Auction server");
-        System.out.println("Database: " + databaseFile.toAbsolutePath().normalize());
-        System.out.println("Schema: " + databaseRoot.toAbsolutePath().normalize());
+        System.out.println("=== Nhóm 10 - Online Auction Server ===");
+        System.out.println("[HEALTH] Port: " + port);
+        System.out.println("[HEALTH] Database: " + databaseFile.toAbsolutePath().normalize() + " (seed=" + seed + ")");
+        System.out.println("[HEALTH] Schema: " + databaseRoot.toAbsolutePath().normalize());
+        System.out.println("[HEALTH] Anti-Snipe: window=" + antiSnipePolicy.windowSeconds()
+                + "s, extension=" + antiSnipePolicy.extensionSeconds()
+                + "s, maxExtensions=" + antiSnipePolicy.maxExtensions());
 
-        try (Connection connection = DatabaseConnectionFactory.open(databaseFile)) {
+        Connection connection = DatabaseConnectionFactory.open(databaseFile);
+        Object databaseLock = new Object();
+        AtomicBoolean closed = new AtomicBoolean(false);
+        try {
             DatabaseInitializer.initialize(connection, databaseRoot, seed);
 
             UserRepository userRepository = new JdbcUserRepository(connection);
@@ -63,7 +72,7 @@ public final class ServerApplication {
                     eventPublisher,
                     autoBidRuleRepository,
                     walletRepository,
-                    AntiSnipePolicy.defaultPolicy());
+                    antiSnipePolicy);
             SettlementService settlementService = new SettlementService(
                     connection,
                     settlementRepository,
@@ -79,19 +88,42 @@ public final class ServerApplication {
                     placeBidService,
                     settlementService,
                     eventPublisher);
+            databaseLock = server.databaseLock();
             AuctionExpirationScheduler scheduler = new AuctionExpirationScheduler(
                     connection,
                     eventPublisher,
-                    server.databaseLock(),
+                    databaseLock,
                     settlementService);
 
+            final Object lockRef = databaseLock;
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                System.out.println("[HEALTH] Shutdown signal received, stopping auction server...");
                 scheduler.stop();
                 server.stop();
+                closeConnectionSafely(connection, lockRef, closed);
+                System.out.println("[HEALTH] Auction server stopped cleanly.");
             }, "auction-server-shutdown"));
 
+            System.out.println("[HEALTH] Open auctions at startup: " + auctionRepository.findActiveAuctions().size());
             scheduler.start();
             server.start();
+        } finally {
+            closeConnectionSafely(connection, databaseLock, closed);
+        }
+    }
+
+    private static void closeConnectionSafely(Connection connection, Object databaseLock, AtomicBoolean closed) {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+        synchronized (databaseLock) {
+            try {
+                if (!connection.isClosed()) {
+                    connection.close();
+                }
+            } catch (Exception ignored) {
+                // Best-effort close on exit.
+            }
         }
     }
 
