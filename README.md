@@ -1,122 +1,152 @@
 # Nhóm 10 – Online Auction System
 
-Bản tích hợp bốn tuần đầu gồm TCP/JSON server, JavaFX client và SQLite local. Nhóm đã có đăng ký/đăng nhập, phân quyền, Seller CRUD item, mở/hủy auction, đấu giá realtime, Auto-Bid, Anti-Snipe, scheduler, settlement và dashboard Admin.
+Hệ thống đấu giá trực tuyến xây dựng theo kiến trúc **Client–Server (TCP/JSON Socket)** với giao diện **JavaFX** và cơ sở dữ liệu nhúng **SQLite**. Hệ thống hỗ trợ đầy đủ nghiệp vụ: đăng ký/đăng nhập, phân quyền (`ADMIN`, `SELLER`, `BIDDER`), quản lý vật phẩm & phiên đấu giá, đặt giá realtime, đấu giá tự động (**Auto-Bid**), chống đặt giá phút chót (**Anti-Snipe**), tự động đóng phiên & tất toán ví (**Settlement**), lịch sử đấu giá, biểu đồ biến động giá và bảng điều khiển quản trị.
 
-Bản rà soát lấy nền từ develop, commit ba745b80db4b922375df0d0306fbe3004bb85a08. Thay đổi bàn giao được để chưa commit để người nhận tự review, tạo nhánh và push.
+---
 
-## Chạy trên Windows
+## 1. Yêu cầu môi trường (Chạy trên máy sạch)
 
-Cài **JDK 21** và Git. Maven Wrapper và JavaFX dependency đã có trong project; lần chạy đầu cần Internet để tải dependency.
+- **Hệ điều hành:** Windows 10/11, Linux hoặc macOS.
+- **Java Development Kit (JDK):** Phiên bản **JDK 21** (khuyến nghị Eclipse Temurin 21 hoặc Oracle JDK 21).
+- **Công cụ build & thư viện:** Maven Wrapper (`mvnw` / `mvnw.cmd`), SQLite JDBC và các thư viện JavaFX đã được cấu hình sẵn trong dự án. Máy chỉ cần kết nối Internet ở lần build đầu tiên để tải dependency.
 
-Mở PowerShell tại thư mục chứa README:
+Kiểm tra phiên bản Java trên máy:
 
-    java -version
-    .\scripts\build.ps1
+```powershell
+java -version
+```
 
-Nếu máy có nhiều JDK, đặt JDK 21 cho terminal hiện tại:
+Nếu máy cài nhiều phiên bản JDK, trỏ `JAVA_HOME` về JDK 21 cho cửa sổ terminal hiện tại:
 
-    $env:JAVA_HOME = '<thu-muc-JDK-21>'
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21"
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+```
 
-Nếu PowerShell chặn script:
+---
 
-    Set-ExecutionPolicy -Scope Process Bypass
+## 2. Hướng dẫn Build và Chạy trên Windows
 
-Terminal 1 – server:
+Mở **PowerShell** tại thư mục gốc của dự án (thư mục chứa file `README.md` này):
 
-    .\scripts\run-server.ps1
+### Bước 1: Cấp quyền chạy script PowerShell (nếu bị chặn)
 
-Terminal 2 – client:
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+```
 
-    .\scripts\run-client.ps1
+### Bước 2: Build toàn bộ dự án
 
-Server mặc định dùng cổng 9999, tự migrate/seed database ở data/auction.db. Muốn dữ liệu demo mới:
+```powershell
+.\scripts\build.ps1
+```
 
-    .\scripts\run-server.ps1 -Port 10000 -DatabasePath data\demo-new.db
-    .\scripts\run-client.ps1 -HostName 127.0.0.1 -Port 10000
+*(Hoặc build trực tiếp bằng Maven Wrapper: `.\mvnw.cmd clean package`)*
 
-| Account | Password | Role | Tổng số dư demo |
-|---|---|---|---:|
-| admin | admin123 | ADMIN | 0 |
-| seller | seller123 | SELLER | 0 |
-| bidder1 | bidder123 | BIDDER | 2.000.000 cents |
-| bidder2 | bidder123 | BIDDER | 2.000.000 cents |
+### Bước 3: Khởi động Server (Terminal 1)
 
-Bidder2 đang dẫn đầu phiên seed với 110.000 cents đóng băng; khả dụng ban đầu là 1.890.000 cents. Tài khoản đăng ký mới có role BIDDER và ví bằng 0.
+```powershell
+.\scripts\run-server.ps1
+```
 
-## Kiểm thử
+Server mặc định lắng nghe tại cổng **`9999`**, tự động chạy database migration và nạp dữ liệu mẫu vào **`data/auction.db`**.
 
-    .\scripts\build.ps1
+Nếu muốn khởi tạo một database sạch mới hoàn toàn hoặc chạy ở cổng khác:
 
-Có thể dọn output rồi build sau khi đóng tiến trình Java/Maven:
+```powershell
+.\scripts\run-server.ps1 -Port 10000 -DatabasePath data\demo-new.db
+```
 
-    .\scripts\build.ps1 -Clean
+### Bước 4: Khởi động Client (Terminal 2, 3...)
 
-Chạy riêng bảy test socket quản lý:
+Mở thêm một hoặc nhiều cửa sổ PowerShell mới để đăng nhập đồng thời các vai trò **Admin**, **Seller** và **Bidder**:
 
-    .\mvnw.cmd -B -pl common,server -am test "-Dtest=ManagementSocketIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=false"
+```powershell
+.\scripts\run-client.ps1
+```
 
-Kết quả kiểm tra và phạm vi đã sửa được ghi ở [báo cáo tuần 4](docs/week-4-check-report.md).
+Nếu Server chạy ở địa chỉ hoặc cổng khác mặc định (`127.0.0.1:9999`):
 
-## Luồng test cho cả nhóm
+```powershell
+.\scripts\run-client.ps1 -HostName 127.0.0.1 -Port 10000
+```
 
-1. Đăng nhập seller, tạo item, sửa rồi xóa một item chưa mở auction.
-2. Tạo item khác, mở auction: giá 100000, bước 5000, thời lượng 1 giờ.
-3. Hai client đăng nhập bidder1/bidder2, đặt giá và quan sát realtime, lịch sử, biểu đồ và số dư ví.
-4. Cấu hình Auto-Bid; client còn lại đặt giá để kiểm tra không vượt giá trần.
-5. Admin xem users, lọc auction và hủy phiên đang mở. Bidder nhận CANCELLED và được giải phóng tiền.
-6. Bộ test tự động kiểm tra Anti-Snipe, scheduler, no-winner, retry settlement và event order.
+---
 
-Kịch bản chi tiết: [hướng dẫn chạy và demo](docs/local-testing.md).
+## 3. Tài khoản Demo mặc định (Seed Data)
 
-## TV1 tuần 5
+Khi khởi chạy với database mới, hệ thống tự động tạo sẵn 4 tài khoản mẫu:
 
-TV1 đã chốt migration/seed, constraint/index inventory, ERD và source map:
+| Account | Password | Role | Tổng số dư (cents) | Ghi chú |
+|---|---|---|---:|---|
+| `admin` | `admin123` | `ADMIN` | `0` | Quản lý người dùng & hủy phiên đấu giá |
+| `seller` | `seller123` | `SELLER` | `0` | Tạo vật phẩm & mở/hủy phiên đấu giá của mình |
+| `bidder1` | `bidder123` | `BIDDER` | `2,000,000` | Khả dụng `2,000,000` cents |
+| `bidder2` | `bidder123` | `BIDDER` | `2,000,000` | Đang dẫn đầu phiên mẫu (`110,000` frozen, `1,890,000` khả dụng) |
 
-- [ERD v1](docs/architecture/erd-v1.mmd)
-- [Source map](docs/source-map.md)
-- [Báo cáo nghiệm thu TV1](docs/week-5-tv1-check-report.md)
-- [Hướng dẫn commit/push TV1](docs/handoff-week5-tv1.md)
+> **Lưu ý:** Tài khoản đăng ký mới qua chức năng `REGISTER` mặc định có vai trò `BIDDER` và số dư ví bằng `0`.
 
-Chạy riêng kiểm tra schema và migration:
+---
 
-    .\mvnw.cmd -B -pl common,server -am test "-Dtest=RepositoryIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=false"
+## 4. Kiểm thử & Đóng gói Artifact
 
-## Contract và chính sách
+- **Chạy toàn bộ kiểm thử hồi quy (Unit, Integration & Socket E2E):**
+  ```powershell
+  .\mvnw.cmd test
+  ```
+- **Dọn output cũ và đóng gói các module `.jar`:**
+  ```powershell
+  .\mvnw.cmd clean package
+  ```
+  *(Hoặc dùng script nhóm: `.\scripts\build.ps1 -Clean`)*
+- **Chạy riêng bộ kiểm thử nghiệp vụ đấu giá & E2E:**
+  ```powershell
+  .\mvnw.cmd -pl server test "-Dtest=AutoBidTest,AntiSnipeAndSchedulerTest,SettlementAndEventOrderTest,AuctionEndToEndFlowTest,ManagementSocketIntegrationTest"
+  ```
+- **Chạy riêng kiểm thử schema & migration database:**
+  ```powershell
+  .\mvnw.cmd -B -pl common,server -am test "-Dtest=RepositoryIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=false"
+  ```
 
-- REGISTER tạo BIDDER; client không tự chọn role.
-- LOGIN trả userId, role, balanceCents, frozenCents và session.
-- LIST_AUCTIONS không có status giữ tương thích OPEN/RUNNING; status ALL trả cả FINISHED/PAID/CANCELLED.
-- Seller chỉ quản lý item/auction của mình; Admin xem users và hủy auction.
-- Hủy phiên giải phóng đúng frozen balance, vô hiệu hóa Auto-Bid và phát event sau commit.
-- Hết giờ chuyển FINISHED rồi PAID. Settlement retry không chuyển tiền lần hai.
-- Event có sequence từng auction; response được trả trước event phát sinh từ request đó.
+---
 
-Chi tiết ở [protocol v1](docs/contracts/protocol-v1.md).
+## 5. Kịch bản Demo / Rehearsal chuẩn
 
-## Tự tạo nhánh, commit và push
+1. **Seller tạo vật phẩm & mở phiên:** Đăng nhập `seller` / `seller123` $\rightarrow$ tạo vật phẩm mới $\rightarrow$ mở phiên đấu giá (giá khởi điểm `100,000`, bước giá `5,000`, thời lượng `1` giờ).
+2. **Đấu giá Realtime (2 Bidder):** Mở 2 cửa sổ Client, đăng nhập `bidder1` và `bidder2` $\rightarrow$ đặt giá qua lại và quan sát giá cao nhất, thông báo `OUTBID`, lịch sử đặt giá, biểu đồ và số dư đóng băng cập nhật tức thì trên cả hai màn hình.
+3. **Auto-Bid:** `bidder1` cấu hình đặt giá tự động với mức trần `150,000` $\rightarrow$ `bidder2` đặt giá `120,000` $\rightarrow$ hệ thống tự động nâng giá đối kháng thay cho `bidder1` và dừng đúng mức trần.
+4. **Anti-Snipe:** Đặt giá trong những giây cuối trước khi hết giờ $\rightarrow$ thời gian kết thúc phiên (`end_at`) tự động được cộng thêm theo cấu hình.
+5. **Settlement & Bid History:** Khi phiên hết giờ, trạng thái tự động chuyển `FINISHED` $\rightarrow$ `PAID`, tiền đóng băng của người thắng được tất toán sang ví Seller, người thua được hoàn tiền đóng băng và toàn bộ lượt đặt giá hiển thị đầy đủ trong **Bid History**.
+6. **Admin quản trị:** Đăng nhập `admin` / `admin123` $\rightarrow$ kiểm tra danh sách người dùng, lọc phiên theo trạng thái (`OPEN`, `FINISHED`, `PAID`, `CANCELLED`) và hủy một phiên đang mở để kiểm tra hoàn tiền tức thì cho Bidder.
 
-Folder BTL-week4-check là repository độc lập có lịch sử nhóm. Mở terminal tại folder này:
+---
 
-    git status
-    git switch -c feature/week4-check
-    .\scripts\build.ps1
-    git diff --check
-    git add -A
-    git diff --cached --stat
-    git diff --cached --check
-    git commit -m "fix: complete week four integration and handoff"
-    git push -u origin feature/week4-check
+## 6. Chính sách & Quy tắc hệ thống
 
-Nếu muốn chia commit theo chức năng, xem [hướng dẫn commit](docs/handoff-week4.md). Mọi thay đổi được để unstaged; không có commit hoặc push tự động trong bản bàn giao.
+- **Phân quyền:** `REGISTER` luôn tạo tài khoản `BIDDER`; Seller chỉ quản lý vật phẩm và phiên đấu giá do chính mình tạo; Admin có quyền xem danh sách người dùng và hủy bất kỳ phiên `OPEN` nào.
+- **Tài chính & Ví:** Khi đặt giá thành công, số tiền tương ứng được khóa vào `frozen_cents`; khi bị vượt giá (`OUTBID`) hoặc phiên bị hủy (`CANCELLED`), số tiền đóng băng được giải phóng ngay lập tức.
+- **Tất toán Idempotent:** Khi phiên kết thúc có người thắng, quá trình tất toán (`SettlementService`) đảm bảo không bao giờ trừ hoặc cộng tiền trùng lặp ngay cả khi scheduler chạy lại.
+- **Thứ tự sự kiện Realtime:** Mỗi phiên đấu giá duy trì bộ đếm `sequence` tăng dần nghiêm ngặt; `ResponseEnvelope` của request luôn được gửi về Client trước các `EventEnvelope` phát sinh từ request đó.
 
-Sau khi push, mở Pull Request từ feature/week4-check vào develop, chờ CI và review của các owner.
+---
 
-## Tài liệu bàn giao
+## 7. Troubleshooting (Xử lý sự cố thường gặp)
 
-- [Báo cáo kiểm tra bốn tuần](docs/week-4-check-report.md).
-- [Checklist và hướng dẫn commit](docs/handoff-week4.md).
-- [Hướng dẫn chạy và demo](docs/local-testing.md).
-- [Protocol](docs/contracts/protocol-v1.md), [database](database/README.md), [nguồn và điều chỉnh](docs/source-map.md).
+| Hiện tượng / Lỗi | Nguyên nhân | Cách khắc phục |
+|---|---|---|
+| `Execution of scripts is disabled on this system` khi chạy `.ps1` | Windows PowerShell mặc định chặn chạy script cục bộ | Chạy lệnh `Set-ExecutionPolicy -Scope Process Bypass` rồi chạy lại `.\scripts\...` |
+| `java.net.BindException: Address already in use` | Cổng `9999` đang bị một tiến trình Server cũ chiếm dụng | Đóng terminal chạy Server cũ (hoặc chạy `Stop-Process -Name java -Force`), hoặc đổi cổng bằng `-Port 10000` |
+| `Connection refused` khi mở Client | Client kết nối trước khi Server khởi động xong hoặc nhập sai cổng | Đợi Server in ra `[HEALTH] Auction socket server listening on port 9999` rồi mới khởi động Client |
+| `UnsupportedClassVersionError` hoặc lỗi biên dịch Maven | Máy đang dùng JDK phiên bản thấp hơn 21 (JDK 8/11/17) | Cài JDK 21 và trỏ biến `$env:JAVA_HOME` về đúng thư mục cài đặt JDK 21 |
+| `SQLITE_BUSY` hoặc lỗi schema do database cũ | File `data/auction.db` còn tiến trình giữ khóa hoặc dùng schema từ bản cũ | Dừng toàn bộ tiến trình Java, xóa file `data/auction.db` (hoặc truyền `-DatabasePath data\fresh.db`) để Server tự tạo lại từ đầu |
+| Dòng log `SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder"` | Thư viện SQLite JDBC dùng logger mặc định (NOP) khi không cấu hình SLF4J binding | Đây chỉ là thông báo thông tin của thư viện, **không phải lỗi** và không ảnh hưởng tới hoạt động của Server |
 
-Target, JAR, database runtime, JavaFX cache và cấu hình riêng được ignore.
+---
 
+## 8. Tài liệu kỹ thuật & Báo cáo
+
+- **Kiến trúc Database & ERD:** [ERD v1](docs/architecture/erd-v1.mmd) | [Database README](database/README.md) | [Báo cáo nghiệm thu TV1](docs/week-5-tv1-check-report.md)
+- **Giao thức Socket & Contract:** [Protocol v1](docs/contracts/protocol-v1.md)
+- **Bản đồ mã nguồn:** [Source Map](docs/source-map.md)
+- **Hướng dẫn chạy & Demo chi tiết:** [Local Testing](docs/local-testing.md)
+- **Báo cáo kiểm tra Tuần 4:** [Week 4 Check Report](docs/week-4-check-report.md)
