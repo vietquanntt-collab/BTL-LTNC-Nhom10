@@ -11,9 +11,12 @@
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.effect.DropShadow?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
 <BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
@@ -56,6 +59,89 @@
                                style="-fx-text-fill: #ecf0f1; -fx-font-size: 13px;"/>
                     </VBox>
                 </HBox>
+
+                <!-- SÂN KHẤU ĐẤU GIÁ GALA 2D & MC DẪN CHƯƠNG TRÌNH -->
+                <StackPane fx:id="galaStageRoot" prefHeight="285" maxHeight="285"
+                           style="-fx-background-color: linear-gradient(to bottom, #16182c 0%, #24294a 75%, #3a2318 100%); -fx-background-radius: 12; -fx-border-color: #f1c40f; -fx-border-width: 2; -fx-border-radius: 12;">
+                    <children>
+                        <!-- Ảnh nền hội trường Đấu Giá Gala -->
+                        <ImageView fx:id="stageBackdropView" fitWidth="1120" fitHeight="281"
+                                   preserveRatio="false" opacity="0.92" mouseTransparent="true"/>
+
+                        <!-- Lớp phủ ánh sáng sân khấu (đổi màu khi Anti-Snipe / Chốt phiên) -->
+                        <Region fx:id="stageAtmosphereOverlay" mouseTransparent="true"
+                                style="-fx-background-color: linear-gradient(to bottom, rgba(10,12,24,0.38), rgba(10,12,24,0.22), rgba(10,12,24,0.62)); -fx-background-radius: 10;"/>
+
+                        <!-- Dàn dựng 3 cột: Bục + Vật phẩm lơ lửng | Lời thoại MC | Nhân vật MC -->
+                        <HBox alignment="BOTTOM_CENTER" spacing="16">
+                            <padding><Insets top="10" right="24" bottom="6" left="28"/></padding>
+
+                            <!-- Cột 1: Bục Đấu Giá Gala + Vật phẩm lơ lửng phía trên -->
+                            <VBox alignment="BOTTOM_CENTER" prefWidth="245" prefHeight="268" spacing="-10">
+                                <StackPane fx:id="itemFloatingBox" prefWidth="150" prefHeight="150">
+                                    <effect>
+                                        <DropShadow color="#f1c40f" radius="24" spread="0.32"/>
+                                    </effect>
+                                    <ImageView fx:id="itemStageImageView" fitWidth="142" fitHeight="142" preserveRatio="true"/>
+                                    <VBox fx:id="defaultArtifactBox" alignment="CENTER" spacing="4"
+                                          prefWidth="116" prefHeight="116" visible="false" managed="false"
+                                          style="-fx-background-color: rgba(20,24,42,0.82); -fx-background-radius: 14; -fx-border-color: #f1c40f; -fx-border-radius: 14; -fx-border-width: 1.5;">
+                                        <Label fx:id="defaultArtifactIconLabel" text="VẬT PHẨM"
+                                               style="-fx-text-fill: #f1c40f; -fx-font-weight: bold; -fx-font-size: 13px;"/>
+                                        <Label text="ĐANG LÊN SÀN"
+                                               style="-fx-text-fill: #ecf0f1; -fx-font-size: 10px;"/>
+                                    </VBox>
+                                </StackPane>
+
+                                <StackPane alignment="BOTTOM_CENTER" prefWidth="210" prefHeight="116">
+                                    <ImageView fx:id="pedestalImageView" fitWidth="188" fitHeight="112" preserveRatio="true">
+                                        <effect>
+                                            <DropShadow color="rgba(0,0,0,0.65)" radius="12"/>
+                                        </effect>
+                                    </ImageView>
+                                    <VBox fx:id="fallbackPedestalBox" alignment="CENTER" prefWidth="175" prefHeight="72"
+                                          visible="false" managed="false"
+                                          style="-fx-background-color: #5c260c; -fx-border-color: #f1c40f; -fx-border-width: 2; -fx-background-radius: 6; -fx-border-radius: 6;">
+                                        <Label text="ĐẤU GIÁ GALA"
+                                               style="-fx-text-fill: #f1c40f; -fx-font-weight: bold; -fx-font-size: 12px;"/>
+                                        <Label text="LIVE AUCTION"
+                                               style="-fx-text-fill: #fde68a; -fx-font-size: 10px;"/>
+                                    </VBox>
+                                </StackPane>
+                            </VBox>
+
+                            <!-- Cột 2: Bong bóng thoại dẫn chương trình của MC -->
+                            <VBox alignment="CENTER" HBox.hgrow="ALWAYS" prefHeight="268">
+                                <VBox fx:id="mcSpeechBubble" spacing="6" maxWidth="Infinity"
+                                      style="-fx-background-color: rgba(255, 255, 255, 0.96); -fx-padding: 14 16; -fx-background-radius: 14; -fx-border-color: #f1c40f; -fx-border-width: 2.5; -fx-border-radius: 14;">
+                                    <effect>
+                                        <DropShadow color="rgba(0,0,0,0.45)" radius="14"/>
+                                    </effect>
+                                    <HBox alignment="CENTER_LEFT" spacing="8">
+                                        <Label text="MC GALA ĐẤU GIÁ"
+                                               style="-fx-background-color: #b45309; -fx-text-fill: white; -fx-padding: 2 8; -fx-background-radius: 4; -fx-font-size: 10px; -fx-font-weight: bold;"/>
+                                        <Label fx:id="mcMoodLabel" text="CHÀO SÀN"
+                                               style="-fx-text-fill: #b45309; -fx-font-size: 11px; -fx-font-weight: bold;"/>
+                                    </HBox>
+                                    <Label fx:id="mcDialogueLabel"
+                                           text="Chào mừng quý vị đến với Đêm Đấu Giá Gala! Vật phẩm đã lên bục, mời các nhà sưu tầm phát giá!"
+                                           wrapText="true"
+                                           style="-fx-text-fill: #1e293b; -fx-font-size: 13px; -fx-font-weight: bold;"/>
+                                </VBox>
+                                <Region prefHeight="26"/>
+                            </VBox>
+
+                            <!-- Cột 3: Nhân vật MC (tự chuyển đổi giữa dáng giới thiệu & dáng giơ tay hào hứng) -->
+                            <StackPane fx:id="mcActorBox" prefWidth="235" prefHeight="268" alignment="BOTTOM_CENTER">
+                                <ImageView fx:id="mcImageView" fitWidth="230" fitHeight="258" preserveRatio="true">
+                                    <effect>
+                                        <DropShadow color="rgba(0,0,0,0.55)" radius="14"/>
+                                    </effect>
+                                </ImageView>
+                            </StackPane>
+                        </HBox>
+                    </children>
+                </StackPane>
 
                 <!-- Khối 1: Thông tin vật phẩm + Giá + Countdown + Đặt giá thủ công -->
                 <HBox spacing="14">
