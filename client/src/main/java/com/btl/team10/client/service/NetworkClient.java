@@ -206,20 +206,34 @@ public final class NetworkClient implements AutoCloseable {
     }
 
     public long createItem(String name, String itemType, String description) throws IOException {
+        return createItem(name, itemType, description, null);
+    }
+
+    public long createItem(String name, String itemType, String description, String imageBase64) throws IOException {
         JsonObject payload = new JsonObject();
         payload.addProperty("name", name);
         payload.addProperty("itemType", itemType);
         payload.addProperty("description", description == null ? "" : description);
+        if (imageBase64 != null && !imageBase64.isBlank()) {
+            payload.addProperty("imageBase64", imageBase64);
+        }
         JsonObject result = responseObject(request("CREATE_ITEM", requireSession(), payload, UUID.randomUUID().toString()));
         return result.get("itemId").getAsLong();
     }
 
     public void updateItem(long itemId, String name, String itemType, String description) throws IOException {
+        updateItem(itemId, name, itemType, description, null);
+    }
+
+    public void updateItem(long itemId, String name, String itemType, String description, String imageBase64) throws IOException {
         JsonObject payload = new JsonObject();
         payload.addProperty("itemId", itemId);
         payload.addProperty("name", name);
         payload.addProperty("itemType", itemType);
         payload.addProperty("description", description == null ? "" : description);
+        if (imageBase64 != null && !imageBase64.isBlank()) {
+            payload.addProperty("imageBase64", imageBase64);
+        }
         request("UPDATE_ITEM", requireSession(), payload, UUID.randomUUID().toString());
     }
 

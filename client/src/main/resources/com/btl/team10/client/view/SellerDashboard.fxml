@@ -9,9 +9,11 @@
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
 <BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
@@ -42,12 +44,13 @@
                       style="-fx-background-color: white; -fx-padding: 14; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
                     <Label text="Danh sách vật phẩm (Nhấp vào 1 dòng để sửa, xóa hoặc chọn mở phiên đấu giá)"
                            style="-fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
-                    <TableView fx:id="itemTable" prefHeight="220">
+                    <TableView fx:id="itemTable" prefHeight="200">
                         <columns>
-                            <TableColumn fx:id="itemIdCol" text="ID Vật phẩm" prefWidth="100"/>
-                            <TableColumn fx:id="itemNameCol" text="Tên vật phẩm" prefWidth="220"/>
-                            <TableColumn fx:id="itemTypeCol" text="Phân loại" prefWidth="140"/>
-                            <TableColumn fx:id="itemDescCol" text="Mô tả" prefWidth="310"/>
+                            <TableColumn fx:id="itemIdCol" text="ID Vật phẩm" prefWidth="95"/>
+                            <TableColumn fx:id="itemNameCol" text="Tên vật phẩm" prefWidth="210"/>
+                            <TableColumn fx:id="itemTypeCol" text="Phân loại" prefWidth="130"/>
+                            <TableColumn fx:id="itemImageCol" text="Ảnh sân khấu" prefWidth="105"/>
+                            <TableColumn fx:id="itemDescCol" text="Mô tả" prefWidth="240"/>
                         </columns>
                     </TableView>
                 </VBox>
@@ -61,15 +64,48 @@
                                style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
                         <Separator/>
 
-                        <Label text="Tên vật phẩm:" style="-fx-font-size: 12px; -fx-text-fill: #636e72;"/>
-                        <TextField fx:id="itemNameField" promptText="Ví dụ: Kiếm Rồng Huyền Thoại"/>
+                        <HBox spacing="12" alignment="TOP_LEFT">
+                            <VBox spacing="8" HBox.hgrow="ALWAYS">
+                                <Label text="Tên vật phẩm:" style="-fx-font-size: 12px; -fx-text-fill: #636e72;"/>
+                                <TextField fx:id="itemNameField" promptText="Ví dụ: Cúp Vô Địch UEFA Euro"/>
 
-                        <Label text="Phân loại (itemType):" style="-fx-font-size: 12px; -fx-text-fill: #636e72;"/>
-                        <TextField fx:id="itemTypeField" promptText="Nhập mã phân loại hợp lệ"/>
+                                <Label text="Phân loại (itemType):" style="-fx-font-size: 12px; -fx-text-fill: #636e72;"/>
+                                <TextField fx:id="itemTypeField" promptText="CARD, FIGURE, POSTER, OTHER"/>
+                            </VBox>
+
+                            <VBox spacing="6" alignment="CENTER">
+                                <StackPane prefWidth="112" prefHeight="112"
+                                           style="-fx-background-color: #1e293b; -fx-border-color: #f1c40f; -fx-border-radius: 6; -fx-background-radius: 6;">
+                                    <Label fx:id="previewPlaceholderLabel" text="Xem trước"
+                                           style="-fx-text-fill: #cbd5e1; -fx-font-size: 11px;"/>
+                                    <ImageView fx:id="itemPreviewImageView" fitWidth="102" fitHeight="102" preserveRatio="true"/>
+                                </StackPane>
+                                <HBox spacing="4">
+                                    <Button fx:id="chooseImageBtn" text="Chọn file ảnh" onAction="#onChooseImage"
+                                            style="-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-size: 11px; -fx-cursor: hand;"/>
+                                    <Button fx:id="clearImageBtn" text="X" onAction="#onClearImage"
+                                            style="-fx-background-color: #ecf0f1; -fx-font-size: 11px; -fx-cursor: hand;"/>
+                                </HBox>
+                            </VBox>
+                        </HBox>
+
+                        <!-- Nút chọn nhanh mẫu vật phẩm Gala -->
+                        <HBox spacing="6" alignment="CENTER_LEFT">
+                            <Label text="Mẫu Gala:" style="-fx-font-size: 11px; -fx-text-fill: #7f8c8d;"/>
+                            <Button text="Cúp Euro" onAction="#onPresetEuro"
+                                    style="-fx-background-color: #fef3c7; -fx-text-fill: #92400e; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                            <Button text="Quả Bóng Vàng" onAction="#onPresetBallonDor"
+                                    style="-fx-background-color: #fef3c7; -fx-text-fill: #92400e; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                            <Button text="Áo Messi GOAT" onAction="#onPresetMessiGoat"
+                                    style="-fx-background-color: #fef3c7; -fx-text-fill: #92400e; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                        </HBox>
+
+                        <Label fx:id="imageFileLabel" text="Tự động tách nền đen khi đưa lên sân khấu 2D."
+                               style="-fx-font-size: 11px; -fx-text-fill: #7f8c8d;"/>
 
                         <Label text="Mô tả chi tiết:" style="-fx-font-size: 12px; -fx-text-fill: #636e72;"/>
                         <TextArea fx:id="itemDescArea" promptText="Nhập mô tả tình trạng và thuộc tính vật phẩm..."
-                                  prefRowCount="3" wrapText="true"/>
+                                  prefRowCount="2" wrapText="true"/>
 
                         <HBox spacing="8">
                             <Button fx:id="createItemBtn" text="Tạo vật phẩm" onAction="#onCreateItem"
@@ -84,7 +120,7 @@
                     </VBox>
 
                     <!-- Cột phải: Mở phiên đấu giá mới -->
-                    <VBox spacing="10" prefWidth="350"
+                    <VBox spacing="10" prefWidth="340"
                           style="-fx-background-color: white; -fx-padding: 16; -fx-background-radius: 8; -fx-border-color: #dcdde1; -fx-border-radius: 8;">
                         <Label text="2. MỞ PHIÊN ĐẤU GIÁ MỚI"
                                style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
