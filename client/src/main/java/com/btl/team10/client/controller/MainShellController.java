@@ -2,6 +2,7 @@ package com.btl.team10.client.controller;
 
 import com.btl.team10.client.navigation.NavigationManager;
 import com.btl.team10.client.service.NetworkClient;
+import com.btl.team10.client.util.UiMotion;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
@@ -13,6 +14,7 @@ public class MainShellController {
 
     private static MainShellController instance;
 
+    @FXML private VBox sidebarBox;
     @FXML private StackPane mainContentArea;
     @FXML private VBox guestInfoBox;
     @FXML private VBox sessionPanel;
@@ -30,7 +32,11 @@ public class MainShellController {
         instance = this;
         NavigationManager.getInstance().setContentArea(mainContentArea);
         NetworkClient.getInstance().setWalletListener((balance, frozen) ->
-                Platform.runLater(() -> updateWalletLabels(balance, frozen)));
+                Platform.runLater(() -> {
+                    updateWalletLabels(balance, frozen);
+                    UiMotion.pulse(balanceLabel, 1.07);
+                    UiMotion.pulse(frozenLabel, 1.07);
+                }));
         refreshSessionState();
         NavigationManager.getInstance().loadView("/com/btl/team10/client/view/login.fxml");
     }
@@ -45,8 +51,14 @@ public class MainShellController {
         NetworkClient client = NetworkClient.getInstance();
         boolean loggedIn = client.isLoggedIn();
 
-        guestInfoBox.setVisible(!loggedIn);
-        guestInfoBox.setManaged(!loggedIn);
+        // Ẩn toàn bộ sidebar khi chưa đăng nhập để màn hình Login bung 100% chiều rộng sân khấu
+        if (sidebarBox != null) {
+            sidebarBox.setVisible(loggedIn);
+            sidebarBox.setManaged(loggedIn);
+        }
+
+        guestInfoBox.setVisible(false);
+        guestInfoBox.setManaged(false);
         sessionPanel.setVisible(loggedIn);
         sessionPanel.setManaged(loggedIn);
         hideNotice();
@@ -60,9 +72,9 @@ public class MainShellController {
         userRoleBadge.setText(role);
 
         String badgeColor = switch (role) {
-            case "ADMIN" -> "#8e44ad";
-            case "SELLER" -> "#d35400";
-            default -> "#2980b9";
+            case "ADMIN" -> "#7e22ce";
+            case "SELLER" -> "#c2410c";
+            default -> "#2563eb";
         };
         userRoleBadge.setStyle("-fx-background-color: " + badgeColor
                 + "; -fx-text-fill: white; -fx-padding: 2 8; -fx-background-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold;");
@@ -94,7 +106,7 @@ public class MainShellController {
     private void onNavigateSeller() {
         String path = "/com/btl/team10/client/view/SellerDashboard.fxml";
         if (getClass().getResource(path) == null) {
-            showNotice("Màn hình SellerDashboard sẽ được thêm ở Bước 4.");
+            showNotice("Màn hình SellerDashboard chưa khả dụng.");
             return;
         }
         hideNotice();
@@ -105,7 +117,7 @@ public class MainShellController {
     private void onNavigateAdmin() {
         String path = "/com/btl/team10/client/view/AdminDashboard.fxml";
         if (getClass().getResource(path) == null) {
-            showNotice("Màn hình AdminDashboard sẽ được thêm ở Bước 4.");
+            showNotice("Màn hình AdminDashboard chưa khả dụng.");
             return;
         }
         hideNotice();

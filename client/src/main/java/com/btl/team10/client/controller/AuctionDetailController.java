@@ -3,6 +3,7 @@ package com.btl.team10.client.controller;
 import com.btl.team10.client.navigation.NavigationManager;
 import com.btl.team10.client.service.NetworkClient;
 import com.btl.team10.client.util.StageAssetLoader;
+import com.btl.team10.client.util.UiMotion;
 import com.btl.team10.common.dto.AuctionDto;
 import com.btl.team10.common.dto.BidDto;
 import com.btl.team10.common.dto.ItemDto;
@@ -27,12 +28,12 @@ import javafx.scene.chart.XYChart;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Pane;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -63,9 +64,7 @@ public final class AuctionDetailController {
     @FXML private Label winnerTitleLabel;
     @FXML private Label settlementStatusLabel;
 
-    // Khu vực Sân khấu Gala 2D & MC
     @FXML private StackPane galaStageRoot;
-    @FXML private Pane backdropPane;
     @FXML private ImageView stageBackdropView;
     @FXML private Region stageAtmosphereOverlay;
     @FXML private StackPane itemFloatingBox;
@@ -111,11 +110,15 @@ public final class AuctionDetailController {
     private final Consumer<EventEnvelope> realtimeListener = this::onServerEvent;
 
     private Timeline countdownTimeline;
+    private Timeline mcTypingTimeline;
+    private Timeline priceCounterTimeline;
     private TranslateTransition stageFloatAnimation;
     private AuctionDto currentAuction;
     private ItemDto currentItem;
     private Image mcPresentSprite;
     private Image mcHypeSprite;
+    private long displayedPriceCents = -1L;
+    private boolean confettiCelebrated = false;
     private volatile long lastSequence = 0L;
 
     @FXML
@@ -123,12 +126,29 @@ public final class AuctionDetailController {
         bidderCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().bidderId()));
         amountCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().amountCents()));
         timeCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(TIME_FMT.format(c.getValue().bidTime())));
-        statusCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().status().name()));
+        statusCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(
+                c.getValue().status() == BidStatus.ACTIVE ? "DẪN ĐẦU" : c.getValue().status().name()));
+
+        bidHistoryTable.setRowFactory(tv -> new TableRow<>() {
+            @Override
+            protected void updateItem(BidDto item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setStyle("");
+                } else if (item.status() == BidStatus.ACTIVE) {
+                    setStyle("-fx-background-color: #eafaf1; -fx-font-weight: bold;");
+                } else {
+                    setStyle("");
+                }
+            }
+        });
 
         bidHistoryTable.setPlaceholder(new Label("Chưa có lượt đặt giá nào trên sàn."));
         bidHistoryTable.setItems(bidRows);
         bidHistoryChart.getData().add(priceSeries);
 
+        UiMotion.attachHoverLift(placeBidButton);
+        UiMotion.attachHoverLift(setAutoBidButton);
         setupStageAssets();
         startStageFloatAnimation();
 
@@ -163,8 +183,8 @@ public final class AuctionDetailController {
         Image backdrop = StageAssetLoader.loadRawBackdrop("stage_bg");
         if (backdrop != null) {
             stageBackdropView.setImage(backdrop);
-            stageBackdropView.fitWidthProperty().bind(backdropPane.widthProperty());
-            stageBackdropView.fitHeightProperty().bind(backdropPane.heightProperty());
+            stageBackdropView.fitWidthProperty().bind(galaStageRoot.widthProperty());
+            stageBackdropView.fitHeightProperty().bind(galaStageRoot.heightProperty());
         }
 
         Image pedestal = StageAssetLoader.loadCutoutSprite("pedestal");
@@ -242,7 +262,16 @@ public final class AuctionDetailController {
             itemNameLabel.setText("Vật phẩm #" + auction.itemId());
         }
 
-        currentPriceLabel.setText(auction.currentPriceCents() + " cents");
+        long targetPrice = auction.currentPriceCents();
+        if (displayedPriceCents < 0) {
+            displayedPriceCents = targetPrice;
+            currentPriceLabel.setText(targetPrice + " cents");
+        } else if (targetPrice != displayedPriceCents) {
+            priceCounterTimeline = UiMotion.animatePriceCounter(
+                    currentPriceLabel, displayedPriceCents, targetPrice, " cents", priceCounterTimeline);
+            displayedPriceCents = targetPrice;
+        }
+
         minIncrementLabel.setText("+" + auction.minIncrementCents() + " cents");
         long minValid = computeMinValidBid(auction);
         minNextBidLabel.setText(minValid + " cents");
@@ -256,6 +285,10 @@ public final class AuctionDetailController {
             setBidControlsEnabled(false);
             updateWinnerBanner(auction);
             announceClosedByMc(auction);
+            if (!confettiCelebrated && auction.winnerId() != null && auction.status() != AuctionStatus.CANCELLED) {
+                confettiCelebrated = true;
+                UiMotion.burstConfetti(galaStageRoot);
+            }
         } else {
             statusBadgeLabel.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 4 10; -fx-background-radius: 4; -fx-font-weight: bold;");
             winnerBannerBox.setVisible(false);
@@ -301,29 +334,14 @@ public final class AuctionDetailController {
     }
 
     private void playStageHighlight() {
-        ScaleTransition itemPulse = new ScaleTransition(javafx.util.Duration.millis(180), itemFloatingBox);
-        itemPulse.setFromX(1.0);
-        itemPulse.setFromY(1.0);
-        itemPulse.setToX(1.10);
-        itemPulse.setToY(1.10);
-        itemPulse.setAutoReverse(true);
-        itemPulse.setCycleCount(2);
-        itemPulse.play();
-
-        ScaleTransition mcPulse = new ScaleTransition(javafx.util.Duration.millis(170), mcActorBox);
-        mcPulse.setFromX(1.0);
-        mcPulse.setFromY(1.0);
-        mcPulse.setToX(1.05);
-        mcPulse.setToY(1.05);
-        mcPulse.setAutoReverse(true);
-        mcPulse.setCycleCount(2);
-        mcPulse.play();
+        UiMotion.pulse(itemFloatingBox, 1.11);
+        UiMotion.pulse(mcActorBox, 1.05);
     }
 
     private void updateMcSpeech(String mood, String line, String accentHex, boolean excitedPose) {
         mcMoodLabel.setText(mood);
         mcMoodLabel.setStyle("-fx-text-fill: " + accentHex + "; -fx-font-size: 11px; -fx-font-weight: bold;");
-        mcDialogueLabel.setText(line);
+        mcTypingTimeline = UiMotion.typewriter(mcDialogueLabel, line, mcTypingTimeline);
         mcSpeechBubble.setStyle("-fx-background-color: rgba(255, 255, 255, 0.97); -fx-padding: 12 16; "
                 + "-fx-background-radius: 14; -fx-border-color: " + accentHex + "; -fx-border-width: 2.5; -fx-border-radius: 14;");
 
@@ -435,6 +453,7 @@ public final class AuctionDetailController {
     private void handleFillMinBid() {
         if (currentAuction != null) {
             bidAmountField.setText(String.valueOf(computeMinValidBid(currentAuction)));
+            UiMotion.pulse(bidAmountField, 1.03);
         }
     }
 
@@ -445,6 +464,7 @@ public final class AuctionDetailController {
         }
         if (isAuctionEnded(currentAuction)) {
             showBanner("Phiên đấu giá đã kết thúc, không thể đặt giá.", "#e74c3c");
+            UiMotion.shake(bidAmountField);
             return;
         }
 
@@ -453,12 +473,14 @@ public final class AuctionDetailController {
             amountCents = Long.parseLong(bidAmountField.getText().trim());
         } catch (NumberFormatException e) {
             showBanner("Vui lòng nhập số tiền hợp lệ (số nguyên cents).", "#e74c3c");
+            UiMotion.shake(bidAmountField);
             return;
         }
 
         long minValid = computeMinValidBid(currentAuction);
         if (amountCents < minValid) {
             showBanner("Mức giá tối thiểu hợp lệ hiện tại là " + minValid + " cents.", "#e74c3c");
+            UiMotion.shake(bidAmountField);
             return;
         }
 
@@ -493,6 +515,7 @@ public final class AuctionDetailController {
                     submittingBid.set(false);
                     placeBidButton.setText("Đặt giá ngay");
                     showBanner("Đặt giá thất bại: " + error.getMessage(), "#e74c3c");
+                    UiMotion.shake(bidAmountField);
                     if (!isAuctionEnded(currentAuction)) {
                         placeBidButton.setDisable(false);
                     }
@@ -510,6 +533,7 @@ public final class AuctionDetailController {
         }
         if (isAuctionEnded(currentAuction)) {
             showBanner("Phiên đấu giá đã kết thúc, không thể cài đặt Auto-Bid.", "#e74c3c");
+            UiMotion.shake(autoBidMaxField);
             return;
         }
 
@@ -520,16 +544,19 @@ public final class AuctionDetailController {
             incrementCents = Long.parseLong(autoBidIncrementField.getText().trim());
         } catch (NumberFormatException e) {
             showBanner("Giá trần và bước giá Auto-Bid phải là số nguyên (cents).", "#e74c3c");
+            UiMotion.shake(autoBidMaxField);
             return;
         }
 
         long minValid = computeMinValidBid(currentAuction);
         if (maxAmountCents < minValid) {
             showBanner("Giá trần Auto-Bid phải lớn hơn hoặc bằng mức đặt hợp lệ tối thiểu (" + minValid + " cents).", "#e74c3c");
+            UiMotion.shake(autoBidMaxField);
             return;
         }
         if (incrementCents < currentAuction.minIncrementCents()) {
             showBanner("Bước giá Auto-Bid tối thiểu là " + currentAuction.minIncrementCents() + " cents.", "#e74c3c");
+            UiMotion.shake(autoBidIncrementField);
             return;
         }
 
@@ -564,6 +591,7 @@ public final class AuctionDetailController {
                     submittingAutoBid.set(false);
                     setAutoBidButton.setText("Kích hoạt Auto-Bid");
                     showBanner("Cài đặt Auto-Bid thất bại: " + error.getMessage(), "#e74c3c");
+                    UiMotion.shake(autoBidMaxField);
                     if (!isAuctionEnded(currentAuction)) {
                         setAutoBidButton.setDisable(false);
                     }
@@ -632,6 +660,7 @@ public final class AuctionDetailController {
                 case BID_REJECTED -> {
                     String reason = payload.has("reason") ? payload.get("reason").getAsString() : "Lệnh đặt giá bị từ chối.";
                     showBanner("Lệnh đặt giá bị từ chối: " + reason, "#e74c3c");
+                    UiMotion.shake(bidAmountField);
                 }
                 case AUCTION_EXTENDED -> {
                     Instant newEndAt = currentAuction.endAt();
@@ -776,6 +805,7 @@ public final class AuctionDetailController {
         countdownLabel.setText(String.format("%02d:%02d:%02d", hours, minutes, seconds));
         if (totalSeconds <= 60) {
             countdownLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #e74c3c;");
+            UiMotion.pulse(countdownLabel, 1.07);
         } else {
             countdownLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #2980b9;");
         }
@@ -820,6 +850,14 @@ public final class AuctionDetailController {
     public void cleanup() {
         stopCountdown();
         stopStageFloatAnimation();
+        if (mcTypingTimeline != null) {
+            mcTypingTimeline.stop();
+            mcTypingTimeline = null;
+        }
+        if (priceCounterTimeline != null) {
+            priceCounterTimeline.stop();
+            priceCounterTimeline = null;
+        }
         NetworkClient.getInstance().removeEventListener(realtimeListener);
         NetworkClient.getInstance().setConnectionStateListener(null);
     }
