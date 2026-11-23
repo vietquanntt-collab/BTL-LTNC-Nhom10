@@ -1,5 +1,6 @@
 package com.btl.team10.client;
 
+import com.btl.team10.client.service.NetworkClient;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
@@ -14,6 +15,7 @@ public class ClientApp extends Application {
 
         primaryStage.setTitle("Online Auction System - Client Shell");
         primaryStage.setScene(scene);
+        primaryStage.setOnCloseRequest(event -> NetworkClient.getInstance().close());
         primaryStage.show();
     }
 
