@@ -3,80 +3,89 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.control.Separator?>
 <?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.Circle?>
 
 <BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.btl.team10.client.controller.MainShellController"
             prefWidth="1120.0" prefHeight="700.0">
 
-    <!-- Thanh điều hướng bên trái (tự ẩn ở màn hình Đăng nhập để lộ trọn sân khấu) -->
+    <!-- Thanh điều hướng tối giản bên trái -->
     <left>
-        <VBox fx:id="sidebarBox" spacing="12" prefWidth="235.0"
-              style="-fx-background-color: linear-gradient(to bottom, #141829, #1e253d);">
-            <padding><Insets top="18" right="14" bottom="18" left="14"/></padding>
+        <VBox fx:id="sidebarBox" spacing="16" prefWidth="210.0"
+              style="-fx-background-color: #111627; -fx-border-color: rgba(255,255,255,0.08); -fx-border-width: 0 1 0 0;">
+            <padding><Insets top="20" right="14" bottom="18" left="14"/></padding>
 
-            <Label text="ONLINE AUCTION" style="-fx-text-fill: #facc15; -fx-font-size: 16px; -fx-font-weight: bold;"/>
-            <Label text="Nhóm 10 • Gala Client" style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;"/>
+            <!-- Logo / Tên ứng dụng tối giản -->
+            <HBox alignment="CENTER_LEFT" spacing="8">
+                <Circle radius="4.5" fill="#facc15"/>
+                <Label text="GALA AUCTION"
+                       style="-fx-text-fill: #f8fafc; -fx-font-size: 14px; -fx-font-weight: bold;"/>
+            </HBox>
 
-            <Separator opacity="0.22"/>
-
-            <!-- Khối hiển thị dự phòng -->
-            <VBox fx:id="guestInfoBox" spacing="6" visible="false" managed="false"
-                  style="-fx-background-color: rgba(255,255,255,0.06); -fx-padding: 10; -fx-background-radius: 8;">
-                <Label text="Chưa đăng nhập" style="-fx-text-fill: #f8fafc; -fx-font-weight: bold;"/>
-                <Label text="Vui lòng đăng nhập hoặc đăng ký tài khoản để tham gia đấu giá."
-                       wrapText="true" style="-fx-text-fill: #cbd5e1; -fx-font-size: 12px;"/>
+            <!-- Khối dự phòng -->
+            <VBox fx:id="guestInfoBox" spacing="4" visible="false" managed="false">
+                <Label text="Chưa đăng nhập" style="-fx-text-fill: #94a3b8; -fx-font-size: 12px;"/>
             </VBox>
 
-            <!-- Khối thông tin tài khoản, vai trò & ví tiền sau khi đăng nhập -->
-            <VBox fx:id="sessionPanel" spacing="10" visible="false" managed="false" VBox.vgrow="ALWAYS">
-                <VBox spacing="6"
-                      style="-fx-background-color: rgba(255,255,255,0.07); -fx-border-color: rgba(250,204,21,0.28); -fx-border-radius: 8; -fx-padding: 12; -fx-background-radius: 8;">
-                    <Label fx:id="userAccountLabel" text="Tài khoản"
-                           style="-fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold;"/>
-                    <Label fx:id="userRoleBadge" text="BIDDER"
-                           style="-fx-background-color: #2563eb; -fx-text-fill: white; -fx-padding: 2 8; -fx-background-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold;"/>
-                    <Separator opacity="0.22"/>
-                    <Label text="SỐ DƯ VÍ (CENTS)" style="-fx-text-fill: #94a3b8; -fx-font-size: 10px; -fx-font-weight: bold;"/>
-                    <Label fx:id="balanceLabel" text="Khả dụng: 0"
-                           style="-fx-text-fill: #4ade80; -fx-font-size: 12px; -fx-font-weight: bold;"/>
-                    <Label fx:id="frozenLabel" text="Đóng băng: 0"
-                           style="-fx-text-fill: #fbbf24; -fx-font-size: 12px;"/>
+            <!-- Khu vực tài khoản, ví & điều hướng -->
+            <VBox fx:id="sessionPanel" spacing="16" visible="false" managed="false" VBox.vgrow="ALWAYS">
+
+                <!-- Thẻ tài khoản & số dư gọn nhẹ -->
+                <VBox spacing="10"
+                      style="-fx-background-color: rgba(255,255,255,0.04); -fx-background-radius: 12; -fx-border-color: rgba(255,255,255,0.08); -fx-border-radius: 12; -fx-padding: 12;">
+                    <HBox alignment="CENTER_LEFT" spacing="8">
+                        <Label fx:id="userAccountLabel" text="Tài khoản" HBox.hgrow="ALWAYS" maxWidth="Infinity"
+                               style="-fx-text-fill: #f8fafc; -fx-font-size: 13px; -fx-font-weight: bold;"/>
+                        <Label fx:id="userRoleBadge" text="BIDDER"
+                               style="-fx-background-color: rgba(56,189,248,0.16); -fx-text-fill: #7dd3fc; -fx-padding: 2 7; -fx-background-radius: 6; -fx-font-size: 10px; -fx-font-weight: bold;"/>
+                    </HBox>
+
+                    <VBox spacing="3"
+                          style="-fx-background-color: rgba(15,23,42,0.55); -fx-padding: 8 10; -fx-background-radius: 8;">
+                        <Label text="SỐ DƯ KHẢ DỤNG" style="-fx-text-fill: #64748b; -fx-font-size: 9.5px; -fx-font-weight: bold;"/>
+                        <Label fx:id="balanceLabel" text="0 c"
+                               style="-fx-text-fill: #4ade80; -fx-font-size: 14px; -fx-font-weight: bold;"/>
+                        <Label fx:id="frozenLabel" text="Đóng băng: 0 c"
+                               style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;"/>
+                    </VBox>
                 </VBox>
 
-                <Label text="ĐIỀU HƯỚNG" style="-fx-text-fill: #94a3b8; -fx-font-size: 11px; -fx-font-weight: bold;"/>
+                <!-- Danh sách điều hướng phẳng -->
+                <VBox spacing="6">
+                    <Button fx:id="navAuctionsBtn" text="Phiên đấu giá" onAction="#onNavigateAuctions"
+                            maxWidth="Infinity" alignment="CENTER_LEFT" prefHeight="36"
+                            style="-fx-background-color: rgba(250,204,21,0.12); -fx-text-fill: #fde047; -fx-border-color: #facc15; -fx-border-width: 0 0 0 3; -fx-background-radius: 7; -fx-padding: 0 12; -fx-font-size: 12.5px; -fx-font-weight: bold; -fx-cursor: hand;"/>
 
-                <Button fx:id="navAuctionsBtn" text="Phiên đấu giá" onAction="#onNavigateAuctions"
-                        maxWidth="Infinity" alignment="CENTER_LEFT" prefHeight="36"
-                        style="-fx-background-color: rgba(255,255,255,0.08); -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6; -fx-cursor: hand;"/>
+                    <Button fx:id="navSellerBtn" text="Quản lý vật phẩm" onAction="#onNavigateSeller"
+                            maxWidth="Infinity" alignment="CENTER_LEFT" prefHeight="36" visible="false" managed="false"
+                            style="-fx-background-color: transparent; -fx-text-fill: #94a3b8; -fx-background-radius: 7; -fx-padding: 0 12; -fx-font-size: 12.5px; -fx-font-weight: bold; -fx-cursor: hand;"/>
 
-                <Button fx:id="navSellerBtn" text="Quản lý vật phẩm (Seller)" onAction="#onNavigateSeller"
-                        maxWidth="Infinity" alignment="CENTER_LEFT" prefHeight="36" visible="false" managed="false"
-                        style="-fx-background-color: rgba(255,255,255,0.08); -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6; -fx-cursor: hand;"/>
-
-                <Button fx:id="navAdminBtn" text="Quản trị hệ thống (Admin)" onAction="#onNavigateAdmin"
-                        maxWidth="Infinity" alignment="CENTER_LEFT" prefHeight="36" visible="false" managed="false"
-                        style="-fx-background-color: rgba(255,255,255,0.08); -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6; -fx-cursor: hand;"/>
+                    <Button fx:id="navAdminBtn" text="Quản trị hệ thống" onAction="#onNavigateAdmin"
+                            maxWidth="Infinity" alignment="CENTER_LEFT" prefHeight="36" visible="false" managed="false"
+                            style="-fx-background-color: transparent; -fx-text-fill: #94a3b8; -fx-background-radius: 7; -fx-padding: 0 12; -fx-font-size: 12.5px; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                </VBox>
 
                 <Region VBox.vgrow="ALWAYS"/>
 
                 <Label fx:id="shellNoticeLabel" text="" wrapText="true" visible="false" managed="false"
-                       style="-fx-background-color: #d97706; -fx-text-fill: white; -fx-padding: 8; -fx-background-radius: 6; -fx-font-size: 11px;"/>
+                       style="-fx-background-color: rgba(217,119,6,0.2); -fx-text-fill: #fcd34d; -fx-padding: 8 10; -fx-background-radius: 8; -fx-font-size: 11px;"/>
 
+                <!-- Nút đăng xuất tinh gọn -->
                 <Button fx:id="logoutBtn" text="Đăng xuất" onAction="#onLogout"
-                        maxWidth="Infinity" prefHeight="36"
-                        style="-fx-background-color: #dc2626; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6; -fx-cursor: hand;"/>
+                        maxWidth="Infinity" prefHeight="34"
+                        style="-fx-background-color: rgba(239,68,68,0.12); -fx-text-fill: #fca5a5; -fx-border-color: rgba(239,68,68,0.28); -fx-border-radius: 8; -fx-background-radius: 8; -fx-font-size: 12px; -fx-font-weight: bold; -fx-cursor: hand;"/>
             </VBox>
         </VBox>
     </left>
 
     <!-- Khu vực hiển thị nội dung chính -->
     <center>
-        <StackPane fx:id="mainContentArea" style="-fx-background-color: #0f1322;"/>
+        <StackPane fx:id="mainContentArea" style="-fx-background-color: #0e1324;"/>
     </center>
 
 </BorderPane>

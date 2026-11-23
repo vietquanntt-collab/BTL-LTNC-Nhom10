@@ -54,7 +54,6 @@ public final class LoginController {
     @FXML private PasswordField passwordField;
     @FXML private VBox confirmGroup;
     @FXML private PasswordField confirmPasswordField;
-    @FXML private VBox demoQuickBox;
     @FXML private Button submitButton;
     @FXML private Button toggleModeButton;
 
@@ -194,8 +193,6 @@ public final class LoginController {
             formSubtitleLabel.setText("Đăng ký tài khoản để tham gia đấu giá trực tiếp");
             confirmGroup.setVisible(true);
             confirmGroup.setManaged(true);
-            demoQuickBox.setVisible(false);
-            demoQuickBox.setManaged(false);
             submitButton.setText("Hoàn tất đăng ký →");
             submitButton.setStyle("-fx-background-color: linear-gradient(to right, #22c55e, #16a34a); -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;");
             toggleModeButton.setText("Đã có tài khoản? Quay lại đăng nhập");
@@ -206,40 +203,11 @@ public final class LoginController {
             formSubtitleLabel.setText("Đăng nhập để bước vào khán phòng đấu giá trực tiếp");
             confirmGroup.setVisible(false);
             confirmGroup.setManaged(false);
-            demoQuickBox.setVisible(true);
-            demoQuickBox.setManaged(true);
             submitButton.setText("Vào Khán Phòng Đấu Giá →");
             submitButton.setStyle("-fx-background-color: linear-gradient(to right, #f59e0b, #d97706); -fx-text-fill: #0f172a; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;");
             toggleModeButton.setText("Chưa có tài khoản? Đăng ký ngay");
         }
         UiMotion.pulse(authCardBox, 1.015);
-    }
-
-    @FXML
-    private void fillDemoBidder() {
-        switchToLogin();
-        usernameField.setText("bidder1");
-        passwordField.setText("bidder123");
-        hideFeedback();
-        UiMotion.pulse(submitButton, 1.04);
-    }
-
-    @FXML
-    private void fillDemoSeller() {
-        switchToLogin();
-        usernameField.setText("seller");
-        passwordField.setText("seller123");
-        hideFeedback();
-        UiMotion.pulse(submitButton, 1.04);
-    }
-
-    @FXML
-    private void fillDemoAdmin() {
-        switchToLogin();
-        usernameField.setText("admin");
-        passwordField.setText("admin123");
-        hideFeedback();
-        UiMotion.pulse(submitButton, 1.04);
     }
 
     @FXML
