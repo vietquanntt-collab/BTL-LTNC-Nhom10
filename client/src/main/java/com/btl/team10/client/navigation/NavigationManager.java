@@ -1,5 +1,6 @@
 package com.btl.team10.client.navigation;
 
+import com.btl.team10.client.controller.AuctionDetailController;
 import com.btl.team10.client.state.UIState;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
@@ -13,6 +14,7 @@ public class NavigationManager {
 
     private static NavigationManager instance;
     private StackPane contentArea;
+    private Object currentController;
     private final Map<UIState, Node> stateCache = new HashMap<>();
 
     private NavigationManager() {}
@@ -33,6 +35,7 @@ public class NavigationManager {
         if (contentArea == null) return;
 
         try {
+            cleanupActiveController();
             if (!stateCache.containsKey(state)) {
                 FXMLLoader loader = new FXMLLoader(getClass().getResource(state.getFxmlPath()));
                 Node node = loader.load();
@@ -52,9 +55,11 @@ public class NavigationManager {
     /** Loads a view and returns its controller when the caller needs to update it. */
     public <T> T loadView(String fxmlPath, Class<T> controllerType) {
         try {
+            cleanupActiveController();
             FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
             Node node = loader.load();
             Object controller = loader.getController();
+            currentController = controller;
             contentArea.getChildren().setAll(node);
             if (controllerType == null) {
                 return null;
@@ -65,5 +70,12 @@ public class NavigationManager {
             e.printStackTrace();
             return null;
         }
+    }
+
+    private void cleanupActiveController() {
+        if (currentController instanceof AuctionDetailController detailController) {
+            detailController.cleanup();
+        }
+        currentController = null;
     }
 }

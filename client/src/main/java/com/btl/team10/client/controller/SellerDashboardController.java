@@ -2,6 +2,7 @@ package com.btl.team10.client.controller;
 
 import com.btl.team10.client.navigation.NavigationManager;
 import com.btl.team10.client.service.NetworkClient;
+import com.btl.team10.client.util.StageAssetLoader;
 import com.btl.team10.common.dto.ItemDto;
 import com.btl.team10.common.model.ItemType;
 import javafx.application.Platform;
@@ -15,22 +16,36 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.stage.FileChooser;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 
 public final class SellerDashboardController {
+
+    private static final long MAX_IMAGE_BYTES = 512L * 1024L;
 
     @FXML private Label feedbackLabel;
     @FXML private TableView<ItemDto> itemTable;
     @FXML private TableColumn<ItemDto, Long> itemIdCol;
     @FXML private TableColumn<ItemDto, String> itemNameCol;
     @FXML private TableColumn<ItemDto, String> itemTypeCol;
+    @FXML private TableColumn<ItemDto, String> itemImageCol;
     @FXML private TableColumn<ItemDto, String> itemDescCol;
 
     @FXML private TextField itemNameField;
     @FXML private TextField itemTypeField;
     @FXML private TextArea itemDescArea;
+    @FXML private Label previewPlaceholderLabel;
+    @FXML private ImageView itemPreviewImageView;
+    @FXML private Label imageFileLabel;
+    @FXML private Button chooseImageBtn;
+    @FXML private Button clearImageBtn;
     @FXML private Button createItemBtn;
     @FXML private Button updateItemBtn;
     @FXML private Button deleteItemBtn;
@@ -42,15 +57,19 @@ public final class SellerDashboardController {
     @FXML private Button createAuctionBtn;
 
     private final ObservableList<ItemDto> itemRows = FXCollections.observableArrayList();
+    private String selectedImageBase64;
 
     @FXML
     private void initialize() {
         itemTypeField.setPromptText("Hợp lệ: " + Arrays.toString(ItemType.values()));
+        itemTable.setPlaceholder(new Label("Chưa có vật phẩm nào. Hãy tạo vật phẩm mới bên dưới."));
 
         itemIdCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().itemId()));
         itemNameCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().name()));
         itemTypeCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(
                 c.getValue().itemType() != null ? c.getValue().itemType().name() : ""));
+        itemImageCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(
+                c.getValue().imageBase64() != null && !c.getValue().imageBase64().isBlank() ? "Có ảnh" : "Tự động"));
         itemDescCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().description()));
 
         itemTable.setItems(itemRows);
@@ -63,10 +82,88 @@ public final class SellerDashboardController {
                 itemTypeField.setText(selected.itemType() != null ? selected.itemType().name() : "");
                 itemDescArea.setText(selected.description());
                 auctionItemIdField.setText(String.valueOf(selected.itemId()));
+                selectedImageBase64 = selected.imageBase64();
+                Image preview = StageAssetLoader.resolveItemStageImage(selected);
+                itemPreviewImageView.setImage(preview);
+                previewPlaceholderLabel.setVisible(preview == null);
+                imageFileLabel.setText(selected.imageBase64() != null && !selected.imageBase64().isBlank()
+                        ? "Ảnh đính kèm của vật phẩm #" + selected.itemId()
+                        : "Tự động ghép ảnh sân khấu cho vật phẩm #" + selected.itemId());
             }
         });
 
         loadItems();
+    }
+
+    @FXML
+    private void onPresetEuro() {
+        applyPreset("euro_trophy", "Cúp Vô Địch UEFA Euro", "OTHER",
+                "Phiên bản trưng bày mạ bạc khắc biểu tượng Giải vô địch bóng đá châu Âu UEFA.");
+    }
+
+    @FXML
+    private void onPresetBallonDor() {
+        applyPreset("ballon_dor", "Quả Bóng Vàng FIFA Ballon d'Or", "FIGURE",
+                "Tượng Quả Bóng Vàng chế tác tinh xảo trên khối đế khoáng thạch sang trọng.");
+    }
+
+    @FXML
+    private void onPresetMessiGoat() {
+        applyPreset("messi_goat", "Áo Phông Phiên Bản GOAT 10 Messi", "POSTER",
+                "Áo kỷ niệm phiên bản giới hạn in họa tiết GOAT số 10 dành cho nhà sưu tầm bóng đá.");
+    }
+
+    private void applyPreset(String spriteName, String title, String type, String desc) {
+        itemTable.getSelectionModel().clearSelection();
+        itemNameField.setText(title);
+        itemTypeField.setText(type);
+        itemDescArea.setText(desc);
+        selectedImageBase64 = StageAssetLoader.loadPresetAsBase64(spriteName);
+        Image cutout = StageAssetLoader.loadCutoutSprite(spriteName);
+        itemPreviewImageView.setImage(cutout);
+        previewPlaceholderLabel.setVisible(cutout == null);
+        imageFileLabel.setText("Đã chọn mẫu sân khấu: " + title);
+        hideFeedback();
+    }
+
+    @FXML
+    private void onChooseImage() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Chọn ảnh vật phẩm (.png / .jpg)");
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Ảnh món đồ (*.png, *.jpg, *.jpeg)", "*.png", "*.jpg", "*.jpeg"));
+        File file = chooser.showOpenDialog(itemNameField.getScene().getWindow());
+        if (file == null) {
+            return;
+        }
+        if (file.length() > MAX_IMAGE_BYTES) {
+            showError("Ảnh vượt quá 512 KB (" + (file.length() / 1024) + " KB). Vui lòng chọn ảnh gọn hơn.");
+            return;
+        }
+        try {
+            byte[] bytes = Files.readAllBytes(file.toPath());
+            String base64 = Base64.getEncoder().encodeToString(bytes);
+            Image cutout = StageAssetLoader.decodeAndCutoutBase64(base64);
+            if (cutout == null) {
+                showError("File ảnh không hợp lệ hoặc bị hỏng.");
+                return;
+            }
+            selectedImageBase64 = base64;
+            itemPreviewImageView.setImage(cutout);
+            previewPlaceholderLabel.setVisible(false);
+            imageFileLabel.setText("Đã chọn: " + file.getName() + " (" + Math.max(1, file.length() / 1024) + " KB)");
+            hideFeedback();
+        } catch (Exception e) {
+            showError("Không thể đọc file ảnh: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void onClearImage() {
+        selectedImageBase64 = null;
+        itemPreviewImageView.setImage(null);
+        previewPlaceholderLabel.setVisible(true);
+        imageFileLabel.setText("Tự động tách nền đen khi đưa lên sân khấu 2D.");
     }
 
     @FXML
@@ -80,6 +177,7 @@ public final class SellerDashboardController {
         itemNameField.clear();
         itemTypeField.clear();
         itemDescArea.clear();
+        onClearImage();
         hideFeedback();
     }
 
@@ -92,10 +190,11 @@ public final class SellerDashboardController {
             showError("Tên vật phẩm và phân loại không được để trống.");
             return;
         }
+        String imagePayload = selectedImageBase64;
         createItemBtn.setDisable(true);
         Thread thread = new Thread(() -> {
             try {
-                long newItemId = NetworkClient.getInstance().createItem(name, type, desc);
+                long newItemId = NetworkClient.getInstance().createItem(name, type, desc, imagePayload);
                 Platform.runLater(() -> {
                     createItemBtn.setDisable(false);
                     auctionItemIdField.setText(String.valueOf(newItemId));
@@ -132,7 +231,7 @@ public final class SellerDashboardController {
                 NetworkClient.getInstance().updateItem(selected.itemId(), name, type, desc);
                 Platform.runLater(() -> {
                     updateItemBtn.setDisable(false);
-                    showSuccess("Đã cập nhật vật phẩm #" + selected.itemId() + ".");
+                    showSuccess("Đã cập nhật thông tin vật phẩm #" + selected.itemId() + ".");
                     loadItems();
                 });
             } catch (Exception e) {
@@ -200,7 +299,7 @@ public final class SellerDashboardController {
                         .createAuction(itemId, startPrice, minIncrement, durationHours);
                 Platform.runLater(() -> {
                     createAuctionBtn.setDisable(false);
-                    showSuccess("Đã mở phiên đấu giá #" + auctionId + " thành công! Đang chuyển sang danh sách phiên...");
+                    showSuccess("Đã mở phiên đấu giá #" + auctionId + " thành công!");
                     NavigationManager.getInstance().loadView("/com/btl/team10/client/view/AuctionList.fxml");
                 });
             } catch (Exception e) {
