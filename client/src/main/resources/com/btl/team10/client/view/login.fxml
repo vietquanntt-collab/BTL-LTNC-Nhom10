@@ -18,30 +18,30 @@
            fx:controller="com.btl.team10.client.controller.LoginController"
            style="-fx-background-color: #16182c;">
 
-    <!-- Lớp 1: Ảnh nền sân khấu Gala hiển thị trọn vẹn -->
+    <!-- Lớp 1: Ảnh nền sân khấu Gala tự động crop chuẩn tỷ lệ -->
     <Pane fx:id="bgPane" minWidth="0" minHeight="0" prefWidth="0" prefHeight="0" mouseTransparent="true">
         <children>
             <ImageView fx:id="loginBgView" preserveRatio="false"/>
         </children>
     </Pane>
 
-    <!-- Lớp 2: Phủ tối rất nhẹ ở viền để giữ độ tương phản -->
+    <!-- Lớp 2: Phủ tối rất nhẹ ở viền phải để giữ độ tương phản -->
     <Region mouseTransparent="true"
-            style="-fx-background-color: linear-gradient(to right, rgba(10,14,28,0.05), rgba(10,14,28,0.28));"/>
+            style="-fx-background-color: linear-gradient(to right, rgba(10,14,28,0.03), rgba(10,14,28,0.26));"/>
 
-    <!-- Lớp 3: Chỉ giữ lại thẻ Đăng nhập / Đăng ký gọn bên phải -->
+    <!-- Lớp 3: Thẻ Đăng nhập / Đăng ký gọn bên phải -->
     <StackPane alignment="CENTER_RIGHT">
         <padding>
-            <Insets top="20" right="36" bottom="20" left="20"/>
+            <Insets top="20" right="26" bottom="20" left="20"/>
         </padding>
 
-        <VBox maxWidth="400" maxHeight="515" spacing="12" alignment="TOP_LEFT"
+        <VBox maxWidth="365" maxHeight="515" spacing="12" alignment="TOP_LEFT"
               style="-fx-background-color: rgba(255, 255, 255, 0.96); -fx-background-radius: 16; -fx-border-color: rgba(241, 196, 15, 0.65); -fx-border-width: 1.5; -fx-border-radius: 16;">
             <effect>
                 <DropShadow color="rgba(0, 0, 0, 0.45)" radius="24" offsetY="8"/>
             </effect>
             <padding>
-                <Insets top="22" right="26" bottom="20" left="26"/>
+                <Insets top="22" right="24" bottom="20" left="24"/>
             </padding>
 
             <!-- Thanh chuyển tab Đăng nhập / Đăng ký -->

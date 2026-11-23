@@ -5,6 +5,7 @@ import com.btl.team10.client.service.NetworkClient;
 import com.btl.team10.client.util.StageAssetLoader;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
@@ -49,9 +50,45 @@ public final class LoginController {
         Image bgImage = StageAssetLoader.loadRawBackdrop("login_bg");
         if (bgImage != null && loginBgView != null && bgPane != null) {
             loginBgView.setImage(bgImage);
+            loginBgView.setPreserveRatio(false);
             loginBgView.fitWidthProperty().bind(bgPane.widthProperty());
             loginBgView.fitHeightProperty().bind(bgPane.heightProperty());
+
+            Runnable updateViewport = () -> updateBackgroundViewport(bgImage);
+            bgPane.widthProperty().addListener((obs, oldVal, newVal) -> updateViewport.run());
+            bgPane.heightProperty().addListener((obs, oldVal, newVal) -> updateViewport.run());
+            updateViewport.run();
         }
+    }
+
+    private void updateBackgroundViewport(Image bgImage) {
+        double paneW = bgPane.getWidth();
+        double paneH = bgPane.getHeight();
+        double imgW = bgImage.getWidth();
+        double imgH = bgImage.getHeight();
+        if (paneW <= 0 || paneH <= 0 || imgW <= 0 || imgH <= 0) {
+            return;
+        }
+
+        double paneRatio = paneW / paneH;
+        double imgRatio = imgW / imgH;
+
+        double minX = 0;
+        double minY = 0;
+        double cropW = imgW;
+        double cropH = imgH;
+
+        if (paneRatio < imgRatio) {
+            // Khung hẹp ngang hơn ảnh gốc: giữ nguyên chiều cao và cắt phần bên phải (Ronaldo) để ảnh không bị méo
+            cropW = imgH * paneRatio;
+            minX = 0;
+        } else if (paneRatio > imgRatio) {
+            // Khi phóng to toàn màn hình: giữ nguyên chiều rộng và căn giữa chiều cao
+            cropH = imgW / paneRatio;
+            minY = (imgH - cropH) / 2.0;
+        }
+
+        loginBgView.setViewport(new Rectangle2D(minX, minY, cropW, cropH));
     }
 
     @FXML
