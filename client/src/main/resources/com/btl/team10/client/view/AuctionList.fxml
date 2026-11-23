@@ -4,58 +4,118 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.Circle?>
 
 <BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.btl.team10.client.controller.AuctionListController"
-            style="-fx-background-color: #f5f6fa;">
+            style="-fx-background-color: #eef2f7;">
 
+    <!-- Thanh tiêu đề Khán phòng Gala -->
     <top>
-        <HBox alignment="CENTER_LEFT" spacing="12" style="-fx-background-color: #2c3e50;">
+        <VBox spacing="12" style="-fx-background-color: linear-gradient(to right, #141829, #1f2742); -fx-border-color: rgba(250,204,21,0.28); -fx-border-width: 0 0 1.5 0;">
             <padding><Insets top="14" right="20" bottom="14" left="20"/></padding>
-            <Label text="DANH SÁCH PHIÊN ĐẤU GIÁ"
-                   style="-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;"/>
-            <Region HBox.hgrow="ALWAYS"/>
-            <Label text="Lọc trạng thái:" style="-fx-text-fill: #ecf0f1; -fx-font-size: 12px;"/>
-            <ComboBox fx:id="statusFilterBox" prefWidth="145" onAction="#onFilterChanged"/>
-            <Button fx:id="refreshBtn" text="Làm mới" onAction="#onRefresh"
-                    style="-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
-        </HBox>
+
+            <HBox alignment="CENTER_LEFT" spacing="10">
+                <HBox alignment="CENTER_LEFT" spacing="6"
+                      style="-fx-background-color: rgba(74, 222, 128, 0.14); -fx-border-color: rgba(74, 222, 128, 0.4); -fx-border-radius: 12; -fx-background-radius: 12; -fx-padding: 3 10;">
+                    <Circle fx:id="liveHeaderDot" radius="4" fill="#4ade80"/>
+                    <Label text="SÀN TRỰC TUYẾN" style="-fx-text-fill: #86efac; -fx-font-size: 10px; -fx-font-weight: bold;"/>
+                </HBox>
+
+                <Label text="KHÁN PHÒNG ĐẤU GIÁ GALA"
+                       style="-fx-text-fill: #f8fafc; -fx-font-size: 18px; -fx-font-weight: bold;"/>
+
+                <Label fx:id="totalCountBadge" text="0 phiên"
+                       style="-fx-background-color: rgba(250, 204, 21, 0.18); -fx-text-fill: #fde047; -fx-padding: 3 10; -fx-background-radius: 12; -fx-font-size: 11px; -fx-font-weight: bold;"/>
+
+                <Region HBox.hgrow="ALWAYS"/>
+
+                <TextField fx:id="searchField" promptText="Tìm vật phẩm hoặc #ID..." prefWidth="195" prefHeight="32"
+                           style="-fx-background-color: rgba(255,255,255,0.10); -fx-text-fill: white; -fx-prompt-text-fill: #94a3b8; -fx-border-color: rgba(148,163,184,0.35); -fx-border-radius: 7; -fx-background-radius: 7; -fx-padding: 0 10; -fx-font-size: 12px;"/>
+
+                <ComboBox fx:id="statusFilterBox" prefWidth="128" prefHeight="32" onAction="#onFilterChanged"/>
+
+                <Button fx:id="toggleLayoutBtn" text="Dạng bảng" onAction="#onToggleLayout" prefHeight="32"
+                        style="-fx-background-color: rgba(255,255,255,0.12); -fx-text-fill: #e2e8f0; -fx-font-weight: bold; -fx-background-radius: 7; -fx-cursor: hand;"/>
+
+                <Button fx:id="refreshBtn" text="Làm mới" onAction="#onRefresh" prefHeight="32"
+                        style="-fx-background-color: linear-gradient(to right, #f59e0b, #d97706); -fx-text-fill: #0f172a; -fx-font-weight: bold; -fx-background-radius: 7; -fx-cursor: hand;"/>
+            </HBox>
+
+            <!-- 3 thẻ thống kê nhanh (KPI) -->
+            <HBox spacing="12">
+                <VBox spacing="2" HBox.hgrow="ALWAYS"
+                      style="-fx-background-color: rgba(255,255,255,0.06); -fx-border-color: rgba(74,222,128,0.3); -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 8 14;">
+                    <Label text="PHIÊN ĐANG DIỄN RA (LIVE)" style="-fx-text-fill: #94a3b8; -fx-font-size: 10px; -fx-font-weight: bold;"/>
+                    <Label fx:id="kpiLiveLabel" text="0 phiên" style="-fx-text-fill: #4ade80; -fx-font-size: 15px; -fx-font-weight: bold;"/>
+                </VBox>
+
+                <VBox spacing="2" HBox.hgrow="ALWAYS"
+                      style="-fx-background-color: rgba(255,255,255,0.06); -fx-border-color: rgba(250,204,21,0.3); -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 8 14;">
+                    <Label text="TỔNG GIÁ TRỊ SÀN" style="-fx-text-fill: #94a3b8; -fx-font-size: 10px; -fx-font-weight: bold;"/>
+                    <Label fx:id="kpiVolumeLabel" text="0 cents" style="-fx-text-fill: #fde047; -fx-font-size: 15px; -fx-font-weight: bold;"/>
+                </VBox>
+
+                <VBox spacing="2" HBox.hgrow="ALWAYS"
+                      style="-fx-background-color: rgba(255,255,255,0.06); -fx-border-color: rgba(56,189,248,0.3); -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 8 14;">
+                    <Label text="TỔNG SỐ PHIÊN HIỂN THỊ" style="-fx-text-fill: #94a3b8; -fx-font-size: 10px; -fx-font-weight: bold;"/>
+                    <Label fx:id="kpiTotalLabel" text="0 phiên" style="-fx-text-fill: #7dd3fc; -fx-font-size: 15px; -fx-font-weight: bold;"/>
+                </VBox>
+            </HBox>
+        </VBox>
     </top>
 
+    <!-- Khu vực danh sách thẻ / bảng -->
     <center>
         <VBox spacing="12">
-            <padding><Insets top="16" right="20" bottom="16" left="20"/></padding>
+            <padding><Insets top="14" right="20" bottom="14" left="20"/></padding>
 
             <Label fx:id="statusMessageLabel" visible="false" managed="false" wrapText="true" maxWidth="Infinity"
-                   style="-fx-padding: 10 14; -fx-background-radius: 6; -fx-font-weight: bold;"/>
+                   style="-fx-padding: 10 14; -fx-background-radius: 8; -fx-font-weight: bold;"/>
 
-            <TableView fx:id="auctionTable" VBox.vgrow="ALWAYS">
-                <columns>
-                    <TableColumn fx:id="idCol" text="ID Phiên" prefWidth="80"/>
-                    <TableColumn fx:id="itemCol" text="ID Vật phẩm" prefWidth="95"/>
-                    <TableColumn fx:id="startPriceCol" text="Giá khởi điểm" prefWidth="120"/>
-                    <TableColumn fx:id="currentPriceCol" text="Giá hiện tại" prefWidth="120"/>
-                    <TableColumn fx:id="incrementCol" text="Bước giá" prefWidth="100"/>
-                    <TableColumn fx:id="statusCol" text="Trạng thái" prefWidth="110"/>
-                    <TableColumn fx:id="endAtCol" text="Thời điểm kết thúc" prefWidth="170"/>
-                </columns>
-            </TableView>
+            <StackPane VBox.vgrow="ALWAYS">
+                <!-- Chế độ 1: Lưới thẻ trưng bày Gala (Mặc định) -->
+                <ScrollPane fx:id="cardScrollPane" fitToWidth="true"
+                            style="-fx-background-color: transparent; -fx-background: transparent;">
+                    <FlowPane fx:id="cardGridPane" hgap="16" vgap="16" prefWrapLength="800">
+                        <padding><Insets top="4" right="4" bottom="8" left="4"/></padding>
+                    </FlowPane>
+                </ScrollPane>
+
+                <!-- Chế độ 2: Bảng chi tiết (ẩn mặc định, bật bằng nút 'Dạng bảng') -->
+                <TableView fx:id="auctionTable" visible="false" managed="false"
+                           style="-fx-background-radius: 10; -fx-border-color: #cbd5e1; -fx-border-radius: 10;">
+                    <columns>
+                        <TableColumn fx:id="idCol" text="ID Phiên" prefWidth="80"/>
+                        <TableColumn fx:id="itemCol" text="Vật phẩm" prefWidth="150"/>
+                        <TableColumn fx:id="startPriceCol" text="Giá khởi điểm" prefWidth="120"/>
+                        <TableColumn fx:id="currentPriceCol" text="Giá hiện tại" prefWidth="120"/>
+                        <TableColumn fx:id="incrementCol" text="Bước giá" prefWidth="105"/>
+                        <TableColumn fx:id="statusCol" text="Trạng thái" prefWidth="115"/>
+                        <TableColumn fx:id="endAtCol" text="Thời điểm kết thúc" prefWidth="165"/>
+                    </columns>
+                </TableView>
+            </StackPane>
 
             <HBox alignment="CENTER_RIGHT" spacing="10">
-                <Label text="Mẹo: Nhấp đúp vào một dòng phiên đấu giá để mở phòng đặt giá chi tiết."
-                       style="-fx-text-fill: #636e72; -fx-font-size: 12px;" HBox.hgrow="ALWAYS"/>
+                <Label text="Mẹo: Nhấp đúp vào thẻ vật phẩm hoặc bấm 'Vào phòng đấu giá' để lên sàn trực tiếp."
+                       style="-fx-text-fill: #475569; -fx-font-size: 12px;" HBox.hgrow="ALWAYS"/>
                 <Button fx:id="cancelAuctionBtn" text="Hủy phiên đã chọn" onAction="#onCancelAuction"
                         visible="false" managed="false" prefHeight="36"
-                        style="-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
-                <Button fx:id="openDetailBtn" text="Xem chi tiết &amp; Đặt giá" onAction="#onOpenDetail"
+                        style="-fx-background-color: #dc2626; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;"/>
+                <Button fx:id="openDetailBtn" text="Xem chi tiết &amp; Đặt giá →" onAction="#onOpenDetail"
                         prefHeight="36"
-                        style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                        style="-fx-background-color: #16a34a; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;"/>
             </HBox>
         </VBox>
     </center>

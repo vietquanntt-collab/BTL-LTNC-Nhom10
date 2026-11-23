@@ -2,6 +2,7 @@ package com.btl.team10.client.navigation;
 
 import com.btl.team10.client.controller.AuctionDetailController;
 import com.btl.team10.client.state.UIState;
+import com.btl.team10.client.util.UiMotion;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.layout.StackPane;
@@ -17,7 +18,8 @@ public class NavigationManager {
     private Object currentController;
     private final Map<UIState, Node> stateCache = new HashMap<>();
 
-    private NavigationManager() {}
+    private NavigationManager() {
+    }
 
     public static NavigationManager getInstance() {
         if (instance == null) {
@@ -30,10 +32,10 @@ public class NavigationManager {
         this.contentArea = contentArea;
     }
 
-    // Chuyển UI State hiển thị trên Client Shell
     public void switchState(UIState state) {
-        if (contentArea == null) return;
-
+        if (contentArea == null) {
+            return;
+        }
         try {
             cleanupActiveController();
             if (!stateCache.containsKey(state)) {
@@ -41,18 +43,18 @@ public class NavigationManager {
                 Node node = loader.load();
                 stateCache.put(state, node);
             }
-            contentArea.getChildren().setAll(stateCache.get(state));
+            Node target = stateCache.get(state);
+            contentArea.getChildren().setAll(target);
+            UiMotion.animateViewEntrance(target);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    // Load một View bất kỳ vào Shell
     public void loadView(String fxmlPath) {
         loadView(fxmlPath, null);
     }
 
-    /** Loads a view and returns its controller when the caller needs to update it. */
     public <T> T loadView(String fxmlPath, Class<T> controllerType) {
         try {
             cleanupActiveController();
@@ -61,6 +63,7 @@ public class NavigationManager {
             Object controller = loader.getController();
             currentController = controller;
             contentArea.getChildren().setAll(node);
+            UiMotion.animateViewEntrance(node);
             if (controllerType == null) {
                 return null;
             }

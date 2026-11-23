@@ -3,10 +3,17 @@ package com.btl.team10.client.controller;
 import com.btl.team10.client.navigation.NavigationManager;
 import com.btl.team10.client.service.NetworkClient;
 import com.btl.team10.client.util.StageAssetLoader;
+import com.btl.team10.client.util.UiMotion;
+import javafx.animation.Animation;
+import javafx.animation.FadeTransition;
+import javafx.animation.ParallelTransition;
+import javafx.animation.ScaleTransition;
+import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.control.Button;
+import javafx.scene.control.Control;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
@@ -14,16 +21,29 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
+import javafx.util.Duration;
+
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class LoginController {
 
     private static final String TAB_ACTIVE_STYLE =
-            "-fx-background-color: white; -fx-text-fill: #1e293b; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;";
+            "-fx-background-color: linear-gradient(to right, #f59e0b, #d97706); -fx-text-fill: #0f172a; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;";
     private static final String TAB_INACTIVE_STYLE =
-            "-fx-background-color: transparent; -fx-text-fill: #64748b; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;";
+            "-fx-background-color: transparent; -fx-text-fill: #cbd5e1; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;";
+
+    private static final String INPUT_NORMAL_STYLE =
+            "-fx-background-color: rgba(255, 255, 255, 0.08); -fx-text-fill: white; -fx-prompt-text-fill: #64748b; -fx-border-color: rgba(148, 163, 184, 0.35); -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 0 12; -fx-font-size: 13px;";
+    private static final String INPUT_FOCUS_STYLE =
+            "-fx-background-color: rgba(255, 255, 255, 0.13); -fx-text-fill: white; -fx-prompt-text-fill: #94a3b8; -fx-border-color: #facc15; -fx-border-width: 1.4; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 0 12; -fx-font-size: 13px;";
 
     @FXML private Pane bgPane;
     @FXML private ImageView loginBgView;
+    @FXML private Pane ambientParticlesPane;
+    @FXML private VBox authCardBox;
+    @FXML private Circle liveStatusDot;
 
     @FXML private Button loginTabBtn;
     @FXML private Button registerTabBtn;
@@ -43,7 +63,60 @@ public final class LoginController {
     @FXML
     private void initialize() {
         setupBackgroundImage();
+        startAmbientStageMotion();
+        bindInputFocusGlow(usernameField);
+        bindInputFocusGlow(passwordField);
+        bindInputFocusGlow(confirmPasswordField);
+        UiMotion.startLiveBlink(liveStatusDot);
         applyModeUi(false);
+    }
+
+    private void bindInputFocusGlow(Control field) {
+        if (field == null) {
+            return;
+        }
+        field.focusedProperty().addListener((obs, wasFocused, isFocused) ->
+                field.setStyle(isFocused ? INPUT_FOCUS_STYLE : INPUT_NORMAL_STYLE));
+    }
+
+    private void startAmbientStageMotion() {
+        if (loginBgView != null) {
+            ScaleTransition kenBurns = new ScaleTransition(Duration.seconds(14), loginBgView);
+            kenBurns.setFromX(1.0);
+            kenBurns.setFromY(1.0);
+            kenBurns.setToX(1.045);
+            kenBurns.setToY(1.045);
+            kenBurns.setAutoReverse(true);
+            kenBurns.setCycleCount(Animation.INDEFINITE);
+            kenBurns.play();
+        }
+
+        if (ambientParticlesPane != null) {
+            ThreadLocalRandom rnd = ThreadLocalRandom.current();
+            for (int i = 0; i < 22; i++) {
+                Circle sparkle = new Circle(rnd.nextDouble(1.5, 3.6), Color.web("#fde047", rnd.nextDouble(0.35, 0.85)));
+                sparkle.setLayoutX(rnd.nextDouble(40, 1080));
+                sparkle.setLayoutY(rnd.nextDouble(120, 680));
+                ambientParticlesPane.getChildren().add(sparkle);
+
+                Duration cycle = Duration.seconds(rnd.nextDouble(5.5, 10.5));
+                TranslateTransition floatUp = new TranslateTransition(cycle, sparkle);
+                floatUp.setByY(rnd.nextDouble(-140, -60));
+                floatUp.setByX(rnd.nextDouble(-30, 30));
+                floatUp.setAutoReverse(true);
+                floatUp.setCycleCount(Animation.INDEFINITE);
+
+                FadeTransition shimmer = new FadeTransition(Duration.seconds(rnd.nextDouble(1.8, 3.5)), sparkle);
+                shimmer.setFromValue(0.15);
+                shimmer.setToValue(0.90);
+                shimmer.setAutoReverse(true);
+                shimmer.setCycleCount(Animation.INDEFINITE);
+
+                ParallelTransition pt = new ParallelTransition(floatUp, shimmer);
+                pt.setDelay(Duration.millis(rnd.nextDouble(0, 2000)));
+                pt.play();
+            }
+        }
     }
 
     private void setupBackgroundImage() {
@@ -79,11 +152,9 @@ public final class LoginController {
         double cropH = imgH;
 
         if (paneRatio < imgRatio) {
-            // Khung hẹp ngang hơn ảnh gốc: giữ nguyên chiều cao và cắt phần bên phải (Ronaldo) để ảnh không bị méo
             cropW = imgH * paneRatio;
-            minX = 0;
+            minX = (imgW - cropW) / 2.0;
         } else if (paneRatio > imgRatio) {
-            // Khi phóng to toàn màn hình: giữ nguyên chiều rộng và căn giữa chiều cao
             cropH = imgW / paneRatio;
             minY = (imgH - cropH) / 2.0;
         }
@@ -120,27 +191,28 @@ public final class LoginController {
             loginTabBtn.setStyle(TAB_INACTIVE_STYLE);
             registerTabBtn.setStyle(TAB_ACTIVE_STYLE);
             formTitleLabel.setText("TẠO TÀI KHOẢN MỚI");
-            formSubtitleLabel.setText("Đăng ký tài khoản mới để tham gia đấu giá trực tiếp");
+            formSubtitleLabel.setText("Đăng ký tài khoản để tham gia đấu giá trực tiếp");
             confirmGroup.setVisible(true);
             confirmGroup.setManaged(true);
             demoQuickBox.setVisible(false);
             demoQuickBox.setManaged(false);
-            submitButton.setText("Hoàn tất đăng ký");
-            submitButton.setStyle("-fx-background-color: #16a34a; -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;");
+            submitButton.setText("Hoàn tất đăng ký →");
+            submitButton.setStyle("-fx-background-color: linear-gradient(to right, #22c55e, #16a34a); -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;");
             toggleModeButton.setText("Đã có tài khoản? Quay lại đăng nhập");
         } else {
             loginTabBtn.setStyle(TAB_ACTIVE_STYLE);
             registerTabBtn.setStyle(TAB_INACTIVE_STYLE);
             formTitleLabel.setText("CHÀO MỪNG TRỞ LẠI");
-            formSubtitleLabel.setText("Đăng nhập để theo dõi và tham gia phiên đấu giá");
+            formSubtitleLabel.setText("Đăng nhập để bước vào khán phòng đấu giá trực tiếp");
             confirmGroup.setVisible(false);
             confirmGroup.setManaged(false);
             demoQuickBox.setVisible(true);
             demoQuickBox.setManaged(true);
-            submitButton.setText("Đăng nhập vào sàn");
-            submitButton.setStyle("-fx-background-color: #1d4ed8; -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;");
+            submitButton.setText("Vào Khán Phòng Đấu Giá →");
+            submitButton.setStyle("-fx-background-color: linear-gradient(to right, #f59e0b, #d97706); -fx-text-fill: #0f172a; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;");
             toggleModeButton.setText("Chưa có tài khoản? Đăng ký ngay");
         }
+        UiMotion.pulse(authCardBox, 1.015);
     }
 
     @FXML
@@ -149,6 +221,7 @@ public final class LoginController {
         usernameField.setText("bidder1");
         passwordField.setText("bidder123");
         hideFeedback();
+        UiMotion.pulse(submitButton, 1.04);
     }
 
     @FXML
@@ -157,6 +230,7 @@ public final class LoginController {
         usernameField.setText("seller");
         passwordField.setText("seller123");
         hideFeedback();
+        UiMotion.pulse(submitButton, 1.04);
     }
 
     @FXML
@@ -165,6 +239,7 @@ public final class LoginController {
         usernameField.setText("admin");
         passwordField.setText("admin123");
         hideFeedback();
+        UiMotion.pulse(submitButton, 1.04);
     }
 
     @FXML
@@ -209,7 +284,7 @@ public final class LoginController {
             } catch (Exception e) {
                 Platform.runLater(() -> {
                     setControlsDisabled(false);
-                    submitButton.setText("Đăng nhập vào sàn");
+                    submitButton.setText("Vào Khán Phòng Đấu Giá →");
                     showError(e.getMessage() != null ? e.getMessage() : "Không thể đăng nhập.");
                 });
             }
@@ -234,7 +309,7 @@ public final class LoginController {
             } catch (Exception e) {
                 Platform.runLater(() -> {
                     setControlsDisabled(false);
-                    submitButton.setText("Hoàn tất đăng ký");
+                    submitButton.setText("Hoàn tất đăng ký →");
                     showError(e.getMessage() != null ? e.getMessage() : "Đăng ký thất bại.");
                 });
             }
@@ -255,14 +330,15 @@ public final class LoginController {
 
     public void showError(String message) {
         feedbackLabel.setText(message);
-        feedbackLabel.setStyle("-fx-background-color: #fef2f2; -fx-text-fill: #b91c1c; -fx-border-color: #fecaca; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8 12; -fx-font-size: 12px; -fx-font-weight: bold;");
+        feedbackLabel.setStyle("-fx-background-color: rgba(220, 38, 38, 0.22); -fx-text-fill: #fca5a5; -fx-border-color: rgba(248, 113, 113, 0.5); -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8 12; -fx-font-size: 12px; -fx-font-weight: bold;");
         feedbackLabel.setVisible(true);
         feedbackLabel.setManaged(true);
+        UiMotion.shake(authCardBox);
     }
 
     private void showSuccess(String message) {
         feedbackLabel.setText(message);
-        feedbackLabel.setStyle("-fx-background-color: #f0fdf4; -fx-text-fill: #15803d; -fx-border-color: #bbf7d0; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8 12; -fx-font-size: 12px; -fx-font-weight: bold;");
+        feedbackLabel.setStyle("-fx-background-color: rgba(22, 163, 74, 0.22); -fx-text-fill: #86efac; -fx-border-color: rgba(74, 222, 128, 0.5); -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8 12; -fx-font-size: 12px; -fx-font-weight: bold;");
         feedbackLabel.setVisible(true);
         feedbackLabel.setManaged(true);
     }
