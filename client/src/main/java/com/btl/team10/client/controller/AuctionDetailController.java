@@ -32,6 +32,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -64,6 +65,7 @@ public final class AuctionDetailController {
 
     // Khu vực Sân khấu Gala 2D & MC
     @FXML private StackPane galaStageRoot;
+    @FXML private Pane backdropPane;
     @FXML private ImageView stageBackdropView;
     @FXML private Region stageAtmosphereOverlay;
     @FXML private StackPane itemFloatingBox;
@@ -151,7 +153,6 @@ public final class AuctionDetailController {
     }
 
     private void setupStageAssets() {
-        // Bo tròn góc ảnh nền khớp với khung sân khấu
         Rectangle clip = new Rectangle();
         clip.setArcWidth(22);
         clip.setArcHeight(22);
@@ -162,8 +163,8 @@ public final class AuctionDetailController {
         Image backdrop = StageAssetLoader.loadRawBackdrop("stage_bg");
         if (backdrop != null) {
             stageBackdropView.setImage(backdrop);
-            stageBackdropView.fitWidthProperty().bind(galaStageRoot.widthProperty());
-            stageBackdropView.fitHeightProperty().bind(galaStageRoot.heightProperty());
+            stageBackdropView.fitWidthProperty().bind(backdropPane.widthProperty());
+            stageBackdropView.fitHeightProperty().bind(backdropPane.heightProperty());
         }
 
         Image pedestal = StageAssetLoader.loadCutoutSprite("pedestal");
@@ -323,7 +324,7 @@ public final class AuctionDetailController {
         mcMoodLabel.setText(mood);
         mcMoodLabel.setStyle("-fx-text-fill: " + accentHex + "; -fx-font-size: 11px; -fx-font-weight: bold;");
         mcDialogueLabel.setText(line);
-        mcSpeechBubble.setStyle("-fx-background-color: rgba(255, 255, 255, 0.97); -fx-padding: 14 16; "
+        mcSpeechBubble.setStyle("-fx-background-color: rgba(255, 255, 255, 0.97); -fx-padding: 12 16; "
                 + "-fx-background-radius: 14; -fx-border-color: " + accentHex + "; -fx-border-width: 2.5; -fx-border-radius: 14;");
 
         Image targetPose = excitedPose ? mcHypeSprite : mcPresentSprite;

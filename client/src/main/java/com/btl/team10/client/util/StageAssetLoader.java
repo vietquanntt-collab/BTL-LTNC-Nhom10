@@ -16,8 +16,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Tải tài nguyên hình ảnh cho sân khấu 2D, tự động tách nền đen viền ngoài
- * và tự khớp hình minh họa vật phẩm khi dữ liệu chưa đính kèm Base64.
+ * Tải tài nguyên hình ảnh cho sân khấu 2D, hỗ trợ cả file bị lặp đuôi (.jpg.jpg),
+ * tự động tách nền đen viền ngoài và tự khớp hình minh họa vật phẩm.
  */
 public final class StageAssetLoader {
 
@@ -109,7 +109,11 @@ public final class StageAssetLoader {
     }
 
     private static byte[] readResourceBytes(String baseName) {
-        for (String ext : new String[]{".png", ".jpg", ".jpeg"}) {
+        String[] extensions = {
+                ".png", ".jpg", ".jpeg", ".JPG", ".PNG", ".JPEG",
+                ".jpg.jpg", ".jpg.png", ".png.jpg", ".jpeg.png"
+        };
+        for (String ext : extensions) {
             try (InputStream is = StageAssetLoader.class.getResourceAsStream(IMAGE_DIR + baseName + ext)) {
                 if (is != null) {
                     return is.readAllBytes();
@@ -136,7 +140,6 @@ public final class StageAssetLoader {
             return source;
         }
 
-        // Nếu ảnh đã có kênh alpha trong suốt sẵn ở góc thì giữ nguyên, chỉ cắt sát khung
         int cornerAlpha = (reader.getArgb(0, 0) >>> 24) & 0xFF;
         boolean hasExistingTransparency = cornerAlpha < 240;
 
