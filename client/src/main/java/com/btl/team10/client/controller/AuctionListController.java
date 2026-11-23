@@ -1,5 +1,6 @@
 package com.btl.team10.client.controller;
 
+import com.btl.team10.client.navigation.NavigationManager;
 import com.btl.team10.client.service.NetworkClient;
 import com.btl.team10.common.dto.AuctionDto;
 import com.btl.team10.common.model.AuctionStatus;
@@ -8,17 +9,13 @@ import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
-import javafx.scene.layout.StackPane;
 
-import java.io.IOException;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -58,6 +55,7 @@ public final class AuctionListController {
         statusCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().status().name()));
         endAtCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(TIME_FMT.format(c.getValue().endAt())));
 
+        auctionTable.setPlaceholder(new Label("Không có phiên đấu giá nào khớp bộ lọc hiện tại."));
         auctionTable.setItems(rows);
 
         String role = NetworkClient.getInstance().role();
@@ -133,20 +131,12 @@ public final class AuctionListController {
     }
 
     private void openAuctionDetail(AuctionDto selected) {
-        try {
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/com/btl/team10/client/view/AuctionDetail.fxml"));
-            Parent detailView = loader.load();
-            AuctionDetailController controller = loader.getController();
-            if (controller != null) {
-                controller.initAuction(selected);
-            }
-            if (auctionTable.getScene() != null
-                    && auctionTable.getScene().lookup("#mainContentArea") instanceof StackPane contentArea) {
-                contentArea.getChildren().setAll(detailView);
-            }
-        } catch (IOException e) {
-            showBanner("Không thể mở chi tiết phiên đấu giá: " + e.getMessage(), "#e74c3c");
+        AuctionDetailController controller = NavigationManager.getInstance()
+                .loadView("/com/btl/team10/client/view/AuctionDetail.fxml", AuctionDetailController.class);
+        if (controller != null) {
+            controller.initAuction(selected);
+        } else {
+            showBanner("Không thể mở chi tiết phiên đấu giá.", "#e74c3c");
         }
     }
 

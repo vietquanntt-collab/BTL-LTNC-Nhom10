@@ -60,6 +60,8 @@ public final class AdminDashboardController {
         auctionWinnerCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(
                 c.getValue().winnerId() != null ? "Bidder #" + c.getValue().winnerId() : "-"));
 
+        userTable.setPlaceholder(new Label("Chưa có dữ liệu người dùng."));
+        auctionTable.setPlaceholder(new Label("Chưa có phiên đấu giá nào trong hệ thống."));
         userTable.setItems(userRows);
         auctionTable.setItems(auctionRows);
 

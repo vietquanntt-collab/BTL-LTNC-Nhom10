@@ -29,7 +29,7 @@
     <PasswordField fx:id="confirmPasswordField" promptText="Nhập lại mật khẩu" maxWidth="280" prefHeight="36"
                    visible="false" managed="false"/>
 
-    <Button fx:id="submitButton" text="Đăng nhập" onAction="#handleSubmit" prefWidth="280" prefHeight="40"
+    <Button fx:id="submitButton" text="Đăng nhập" onAction="#handleSubmit" defaultButton="true" prefWidth="280" prefHeight="40"
             style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"/>
 
     <Button fx:id="toggleModeButton" text="Chưa có tài khoản? Đăng ký ngay" onAction="#handleToggleMode"
