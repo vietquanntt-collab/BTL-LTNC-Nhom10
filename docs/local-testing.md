@@ -75,4 +75,4 @@ Các test tạo auction thời hạn ngắn trong DB riêng, kiểm tra anti-sni
 - Chạy package-release.ps1 theo README; gửi gói native đúng OS, người nhận mở terminal tại gốc gói và java -jar jars/server.jar / jars/client.jar ở hai terminal.
 - TV1 kiểm schema/migration, số dư trước-sau và ERD; TV2 kiểm socket/auth/transaction; TV3 xem UI trên máy thật; TV4 đối chiếu test report/CI và điều phối rehearsal.
 - Lưu lỗi kèm vai trò, mã phiên, bước tái hiện, log liên quan và commit kiểm tra. Không đưa mật khẩu/token thật vào issue.
-- Chỉ đề xuất PR develop -> main khi checklist nhóm, source attribution, đối chiếu rubric, CI và báo cáo/slide được xác nhận trong week-5-check-report.md.
+- Chỉ đề xuất PR develop -> main khi checklist nhóm, review mã nguồn, đối chiếu rubric, CI và báo cáo/slide được xác nhận trong week-5-check-report.md.

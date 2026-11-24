@@ -23,4 +23,4 @@
 
 ## Nghiệm thu
 
-DomainTest và các regression DB/socket/UI đã kiểm tra các cấu trúc trên. Kết quả local không xác nhận CI remote hoặc thay thế review chéo, nguồn tham khảo, visual QA/rehearsal và báo cáo/slide. Xem requirements-review.md và week-5-check-report.md.
+DomainTest và các regression DB/socket/UI đã kiểm tra các cấu trúc trên. Kết quả local không xác nhận CI remote hoặc thay thế review chéo, visual QA/rehearsal và báo cáo/slide. Xem requirements-review.md và week-5-check-report.md.

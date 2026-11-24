@@ -21,7 +21,7 @@
 - `common` biên dịch được; contract test kiểm tra enum, request identity, response error và event sequence.
 - Migration chạy theo thứ tự trên SQLite sạch; seed tạo được dữ liệu demo.
 - Không có file build, database runtime, conflict marker hoặc file thử nghiệm ngoài hệ thống.
-- Không có tài liệu truy nguyên nguồn code cũ trong baseline phát hành.
+- Tài liệu bàn giao mô tả đúng cấu trúc module, contract và cách chạy của bản phát hành.
 
 ## Lệnh xác minh
 

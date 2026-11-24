@@ -36,7 +36,7 @@ Ba chức năng nâng cao là tùy chọn, tổng tối đa +1.5 theo hướng d
 
 ## Các việc ngoài build còn cần nhóm làm
 
-- Xác nhận nguồn/attribution của baseline Nhóm 8 và ảnh theo source-map.md.
+- Đối chiếu phạm vi chức năng và phân công kiểm tra theo source-map.md.
 - Chạy GitHub Actions trên commit mới, review chéo code và xử lý phát hiện của nhóm.
 - Test bằng tay nhiều client/LAN, DPI 100%/125%, bàn phím, màn hình và trường hợp nội dung dài theo local-testing.md.
 - Chuẩn bị slide/báo cáo, ghi đóng góp thực tế, rehearsal demo; mỗi thành viên phải hiểu toàn bộ mã nguồn như yêu cầu PDF.

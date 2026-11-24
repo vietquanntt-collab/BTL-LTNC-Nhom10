@@ -1,35 +1,52 @@
-# Source map và attribution
+# Bản đồ mã nguồn và phân công kiểm tra
 
-Bản audit bắt đầu từ develop 8af20c4 của vietquanntt-collab/BTL-LTNC-Nhom10, đã tích hợp giao diện PR #36 (abe5265) và kiểm tra lại ngày 2026-11-24. Hai ảnh mc_present.jpg/mc_hype.jpg vẫn được giữ vì controller sử dụng; PR #36 xóa ảnh nhưng chưa bỏ các tham chiếu runtime. Các owner dưới là phân công trong kế hoạch; không tự suy ra ai đã viết từng dòng hoặc đã review. Lịch sử commit/PR của nhóm là bằng chứng tác giả cần giữ.
+Gala Auction được tổ chức thành ba module Maven: common, server và client. Tài liệu này giúp nhóm tìm đúng phần triển khai, xác định bộ kiểm thử liên quan và phân công review trước khi bàn giao.
 
-## Đối chiếu với baseline được cung cấp
+## Cấu trúc dự án
 
-Có thư mục tham khảo BTL_Nhom8/BTL_Nhom8 tại máy audit, chứa package com.btl.n8. Đây là bản file local không có Git remote/revision ở thư mục đã kiểm tra; chưa xác minh license, quyền dùng hay dòng mã nào đã sao chép. Bảng dưới chỉ nêu nguồn đối chiếu cụ thể và thay đổi đích, không khẳng định mọi mã đích là tác phẩm mới hoặc đã được cho phép.
+~~~text
+common/     DTO, enum, JSON codec và contract giao thức
+server/     Domain, xác thực, socket, đấu giá và truy cập SQLite
+client/     JavaFX/FXML, điều hướng, kết nối và trạng thái giao diện
+database/   Migration, dữ liệu demo, ERD và data dictionary
+config/     Cấu hình mẫu và quy tắc Checkstyle
+scripts/    Build, chạy ứng dụng và tạo thư mục release
+docs/       Kiến trúc, yêu cầu, kịch bản test và báo cáo bàn giao
+~~~
 
-| Khu vực | File baseline để đối chiếu (trong src/main/java/com/btl/n8/) | File đích | Thay đổi/evidence | Owner review |
-|---|---|---|---|---|
-| User/session | Service/UserService.java, Network/ServerSessionManager.java | server/.../session/AuthService.java, SessionManager.java | PBKDF2, session token, role server; SessionManagerTest, ManagementSocketIntegrationTest | TV2 |
-| Item/repository | Connection/ItemDAO.java, ItemDAOImpl.java, Model/Mapper/ItemMapper.java | server/.../repository/ItemRepository.java, JdbcItemRepository.java, mapper/ItemRowMapper.java | SQLite local, prepared statement, ownership, ảnh, khóa item đã list; repository/socket/client tests | TV1 + TV2 |
-| Bid/concurrency | Service/BidService.java | server/.../bidding/PlaceBidService.java | integer cents, transaction/version, frozen wallet, receipt/history; ConcurrencyBidTest, BidAuditLogTest | TV2 + TV4 |
-| Advanced | Controller/AutoBidManager.java, Service/AutoBidService.java, Network/SettlementHandler.java | server/.../bidding/, repository/ | policy server, AntiSnipePolicy, settlement idempotency; AutoBidTest, AntiSnipeAndSchedulerTest, SettlementAndEventOrderTest | TV2 + TV4 |
-| Domain design | Model/Entity/User.java, Item.java, Model/Factory/ItemFactory.java | server/.../domain/ | Entity/User/Item hierarchy, Auction, BidTransaction và Factory Method đã được tích hợp; DomainTest và regression DB/socket kiểm chứng. | TV1 |
-| Network/UI | Network/ClientHandler.java, RequestHandler.java, các controller/FXML baseline | client/.../service/NetworkClient.java, controller/, resources/ | protocol v1 payloadJson, UI qua socket, lifecycle/role; NetworkClientTest, ClientUiTest | TV2 + TV3 |
-| Build/test | pom.xml, src/test/java/com/btl/n8/Service/*Test.java | root/common/server/client POM, tests, .github/workflows/ci.yml | Java21 multimodule, regression DB/socket/UI và native JAR; clean verify | TV4 |
+Các package Java chính nằm trong com.btl.team10. Đường dẫn ở bảng dưới tính từ thư mục gốc repository.
 
-## Thay đổi trong đợt bàn giao
+## Chức năng, mã nguồn và kiểm thử
 
-- Migration V005 và DatabaseInitializer xử lý database trước/sau khi có cột ảnh. ItemImageUpgradeTest là regression mới cho đường nâng cấp.
-- ClientHandler/JdbcItemRepository/NetworkClient lưu, giữ hoặc xóa ảnh đúng contract. SESSION rebind ví khi reconnect; server socket và client tests kiểm chứng.
-- CSS, FXML và LoginController được chỉnh trong bản audit; giữ tài nguyên sân khấu do develop cung cấp. Điều chỉnh lifecycle, countdown đóng phiên, Auto-Bid off, tìm kiếm tên và đóng gói client.
-- Regression client dùng server dependency scope=test, không đưa server vào client production.
-- Các tài liệu/sơ đồ cập nhật theo hai PDF mới; domain hierarchy/Factory, Checkstyle và JaCoCo có code/test thực tế.
+| Khu vực | Mã nguồn chính | Bằng chứng kiểm thử | Phụ trách kiểm tra |
+|---|---|---|---|
+| Đăng ký, đăng nhập và session | server/src/main/java/com/btl/team10/server/session/; server/src/main/java/com/btl/team10/server/network/ClientHandler.java | SessionManagerTest, ManagementSocketIntegrationTest, NetworkClientTest | TV2 |
+| Domain OOP và Factory Method | server/src/main/java/com/btl/team10/server/domain/; server/src/main/java/com/btl/team10/server/repository/mapper/ | DomainTest, RepositoryIntegrationTest, PlaceBidServiceTest | TV1 |
+| Schema, seed và repository | database/migrations/; database/seed/; server/src/main/java/com/btl/team10/server/persistence/; server/src/main/java/com/btl/team10/server/repository/ | RepositoryIntegrationTest, ItemImageUpgradeTest, BidRepositoryIntegrationTest | TV1 + TV2 |
+| Vật phẩm và ảnh | JdbcItemRepository, ItemRowMapper, ClientHandler; client/src/main/java/com/btl/team10/client/controller/SellerDashboardController.java | ManagementSocketIntegrationTest, NetworkClientTest, ClientUiTest | TV1 + TV3 |
+| Đặt giá, lịch sử và concurrency | server/src/main/java/com/btl/team10/server/bidding/PlaceBidService.java; server/src/main/java/com/btl/team10/server/event/; JdbcBidRepository | PlaceBidServiceTest, ConcurrencyBidTest, BidAuditLogTest, BidRealtimeEventTest | TV2 + TV4 |
+| Auto-Bid, Anti-Snipe và settlement | server/src/main/java/com/btl/team10/server/bidding/; JdbcAutoBidRuleRepository, JdbcSettlementRepository, JdbcWalletRepository | AutoBidTest, AntiSnipeAndSchedulerTest, SettlementAndEventOrderTest, AuctionEndToEndFlowTest | TV2 + TV4 |
+| Giao thức TCP/JSON | common/src/main/java/com/btl/team10/common/protocol/; server/src/main/java/com/btl/team10/server/network/; client/src/main/java/com/btl/team10/client/service/NetworkClient.java | ProtocolContractTest, ContractValidationTest, SocketIntegrationTest, NetworkClientTest | TV2 + TV3 |
+| Giao diện và vòng đời client | client/src/main/java/com/btl/team10/client/controller/; client/src/main/java/com/btl/team10/client/navigation/; client/src/main/resources/com/btl/team10/client/ | ClientUiTest, NetworkClientTest; checklist màn hình/DPI/LAN | TV3 |
+| Build, coverage và phát hành | pom.xml; common/pom.xml; server/pom.xml; client/pom.xml; config/checkstyle/; scripts/; .github/workflows/ci.yml | Maven clean verify, JaCoCo, Checkstyle, smoke test JAR và GitHub Actions | TV4 |
 
-## Việc nhóm phải xác nhận trước nộp
+## Các điểm tích hợp cần nắm
 
-| Tài nguyên | Trạng thái xác minh | Cần bổ sung |
-|---|---|---|
-| Baseline Nhóm 8 | Có bản local đối chiếu; chưa có URL/revision/license được xác minh | Owner ghi URL, commit/tag, permission/license, file giữ/adapt/rewrite/drop và reviewer thực sự |
-| client/.../images/login_bg.png, stage_bg.jpg, mc_*.jpg, pedestal.jpg, euro_trophy.jpg, ballon_dor.jpg, messi_goat.jpg | Có trong develop; nguồn/quyền dùng chưa được xác nhận qua repository | TV3 ghi nguồn, tác giả, license/quyền sử dụng và sửa đổi |
-| Nội dung README/report/slide | Tài liệu kỹ thuật đã chỉnh theo code, chưa xác minh quy trình trích dẫn bài nộp | Cả nhóm kiểm quy định môn học và ghi nguồn tham khảo phù hợp |
+- Migration V005 bổ sung cột ảnh cho database cũ. ItemImageUpgradeTest kiểm giữ dữ liệu và chạy nâng cấp lặp lại.
+- UPDATE_ITEM giữ ảnh khi thiếu field, thay ảnh khi có dữ liệu và xóa ảnh khi nhận empty/null; server kiểm Base64 và giới hạn kích thước.
+- SESSION trả số dư và tiền đang giữ, đồng thời gắn lại observer khi client nối lại. Restart server làm hết hiệu lực session lưu trong RAM.
+- Mức đặt giá tối thiểu luôn là currentPriceCents + minIncrementCents. Auto-Bid, ví và settlement tuân theo cùng contract.
+- Domain Entity/User/Item, các subtype, Auction/BidTransaction và ItemFactory được sử dụng trong các luồng server và repository.
+- ClientUiTest chạy FXML/controller với server TCP thật; dependency server chỉ có scope=test trong client, không đi vào client.jar.
+- Hai ảnh mc_present.jpg và mc_hype.jpg phục vụ sân khấu đấu giá; cần giữ trong tài nguyên client khi đóng gói.
 
-Không đánh dấu các hàng này hoàn tất chỉ vì test xanh. Quyền sử dụng/attribution cần thông tin từ chủ sở hữu hoặc bằng chứng có thể xác minh; audit không tự tạo sự đồng ý. Không chứa production credential hay DB runtime trong bản source bàn giao.
+## Nghiệm thu bàn giao
+
+Phân công trong bảng phục vụ review; mỗi thành viên ghi kết quả sau khi thực hiện kiểm tra.
+
+1. TV1 kiểm migration/seed, constraint/index, số dư và sự nhất quán giữa code, ERD, data dictionary.
+2. TV2 kiểm phân quyền, request không hợp lệ, concurrency, session/reconnect và đóng server.
+3. TV3 kiểm giao diện, ảnh, điều hướng, phiên đã đóng, DPI, bàn phím và nội dung dài trên máy thật.
+4. TV4 kiểm CI Windows/Linux, artifact, hướng dẫn chạy, rehearsal và tổng hợp kết quả.
+
+Xem [đối chiếu yêu cầu](requirements-review.md), [kịch bản test nhóm](local-testing.md), [kết quả kiểm thử](verification-results.md) và [báo cáo bàn giao](week-5-check-report.md). Báo cáo/slide cần phản ánh chức năng thực tế, kết quả test và đóng góp của từng thành viên.

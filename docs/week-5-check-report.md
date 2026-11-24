@@ -2,7 +2,7 @@
 
 ## Kết luận
 
-**Sẵn sàng để nhóm chạy thử và review trên nhánh mới.** Bản local đã được đối chiếu với hai PDF cập nhật và qua build/test/coverage/Checkstyle. Điều kiện merge main vẫn cần CI GitHub trên commit của nhóm, review chéo, nguồn tham khảo và nghiệm thu bằng tay.
+**Sẵn sàng để nhóm chạy thử và review trên nhánh mới.** Bản local đã được đối chiếu với hai PDF cập nhật và qua build/test/coverage/Checkstyle. Điều kiện merge main vẫn cần CI GitHub trên commit của nhóm, review chéo và nghiệm thu bằng tay.
 
 - Audit: 2026-11-24, Asia/Bangkok.
 - Repository: https://github.com/vietquanntt-collab/BTL-LTNC-Nhom10.git
@@ -70,7 +70,7 @@ Tiền vẫn là integer cents. Nhóm cần kiểm độ rõ chữ, tương ph�
 | Tuần 2: auth/role, item CRUD, phiên và UI | Repository/management/socket/client/UI tests qua; đăng ký mới là Bidder có ví 0, dùng seed để test tiền. |
 | Tuần 3: bid/history/chart/realtime/concurrency | Bid/audit/event/concurrency/socket/e2e tests qua; một server process sở hữu SQLite. |
 | Tuần 4: Auto-Bid/Anti-Snipe/wallet/settlement | PriorityQueue, cap/tie-break, extension, idempotency và transfer có test; UI bật/tắt Auto-Bid, hủy/đóng phiên. |
-| Tuần 5 TV1: schema/seed/index/ERD/dictionary/source map | 5 migration; replay/rollback/DB upgrade qua; sơ đồ/domain khớp code; attribution cần owner xác nhận. |
+| Tuần 5 TV1: schema/seed/index/ERD/dictionary/source map | 5 migration; replay/rollback/DB upgrade qua; sơ đồ/domain khớp code; bản đồ mã nguồn và phân công kiểm tra đã cập nhật. |
 | Tuần 5 TV2: stress/auth/reconnect/shutdown/error/health/artifact | ServerHardeningTest, management/socket, e2e; không khẳng định stress production hoặc nhiều server process. |
 | Tuần 5 TV3: UI/client artifact | Flow/render/viewport qua; nghiệm thu bằng mắt/DPI/máy khác đang chờ nhóm. |
 | Tuần 5 TV4: CI/runbook/package/rehearsal | Workflow Windows/Linux clean verify + UI/Xvfb, Checkstyle/JaCoCo/artifact; CI remote và rehearsal cần nhóm thực hiện. |
@@ -92,7 +92,7 @@ Smoke test JAR cuối đã qua: server chạy các lệnh HEALTH/auth/ví/phiên
 
 ## 6. Việc nhóm cần xác nhận trước main
 
-1. Nguồn tham khảo/quyền dùng baseline Nhóm 8 và ảnh; owner điền source-map.md bằng URL/revision/license hoặc permission có thật.
+1. Review chức năng và phân công kiểm tra theo source-map.md; xác nhận code, tài liệu và kết quả demo khớp nhau.
 2. GitHub Actions trên commit mới do nhóm push: cả Windows và Linux xanh. Audit local chưa chạy Linux/macOS.
 3. Rehearsal nhiều client/LAN, giao diện/DPI/bàn phím, tên dài/state lỗi; tick checklist sau khi thực hiện.
 4. Review chéo, báo cáo/slide, đóng góp thực tế và demo; từng thành viên phải giải thích được toàn bộ code theo PDF.
