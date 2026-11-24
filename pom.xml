@@ -23,6 +23,40 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>3.6.0</version>
+                <configuration>
+                    <configLocation>${maven.multiModuleProjectDirectory}/config/checkstyle/checkstyle.xml</configLocation>
+                    <encoding>UTF-8</encoding>
+                    <consoleOutput>true</consoleOutput>
+                    <failOnViolation>true</failOnViolation>
+                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                    <includeResources>false</includeResources>
+                    <includeTestResources>false</includeTestResources>
+                    <cacheFile>${project.build.directory}/checkstyle-cachefile</cacheFile>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>check-coding-convention</id>
+                        <phase>validate</phase>
+                        <goals><goal>check</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <executions>
+                    <execution><goals><goal>prepare-agent</goal></goals></execution>
+                    <execution><id>coverage-report</id><phase>verify</phase><goals><goal>report</goal><goal>check</goal></goals></execution>
+                </executions>
+                <configuration><rules><rule><element>BUNDLE</element><limits><limit>
+                    <counter>LINE</counter><value>COVEREDRATIO</value><minimum>0.60</minimum>
+                </limit></limits></rule></rules></configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
                 <version>3.4.0</version>
             </plugin>
