@@ -17,12 +17,16 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Tải tài nguyên hình ảnh cho sân khấu 2D, hỗ trợ cả file bị lặp đuôi (.jpg.jpg),
- * tự động tách nền đen viền ngoài và tự khớp hình minh họa vật phẩm.
+ * tự động tách cả nền đen và nền trắng viền ngoài, đồng thời tự khớp hình minh họa vật phẩm.
  */
 public final class StageAssetLoader {
 
     private static final String IMAGE_DIR = "/com/btl/team10/client/images/";
     private static final Map<String, Image> CACHE = new ConcurrentHashMap<>();
+
+    private static final byte BG_NONE = 0;
+    private static final byte BG_BLACK = 1;
+    private static final byte BG_WHITE = 2;
 
     private StageAssetLoader() {
     }
@@ -125,8 +129,8 @@ public final class StageAssetLoader {
     }
 
     /**
-     * Tách nền đen thuần (#000000) lan từ 4 cạnh ảnh vào trong (giữ nguyên vùng tối bên trong vật thể)
-     * và tự cắt sát vùng có hình ảnh.
+     * Tách cả nền đen thuần (#000000) và nền trắng thuần (#FFFFFF) lan từ 4 cạnh ảnh vào trong,
+     * làm mềm viền răng cưa theo màu nền và cắt gọn sát vùng có hình ảnh.
      */
     public static Image stripOuterBlackAndCrop(Image source) {
         int width = (int) source.getWidth();
@@ -152,45 +156,63 @@ public final class StageAssetLoader {
         }
 
         if (!hasExistingTransparency) {
-            boolean[] bgMask = new boolean[total];
+            byte[] bgType = new byte[total];
             ArrayDeque<Integer> queue = new ArrayDeque<>();
 
             for (int x = 0; x < width; x++) {
-                tryEnqueueBlack(x, 0, width, argb, bgMask, queue);
-                tryEnqueueBlack(x, height - 1, width, argb, bgMask, queue);
+                tryEnqueueBorder(x, 0, width, argb, bgType, queue);
+                tryEnqueueBorder(x, height - 1, width, argb, bgType, queue);
             }
             for (int y = 0; y < height; y++) {
-                tryEnqueueBlack(0, y, width, argb, bgMask, queue);
-                tryEnqueueBlack(width - 1, y, width, argb, bgMask, queue);
+                tryEnqueueBorder(0, y, width, argb, bgType, queue);
+                tryEnqueueBorder(width - 1, y, width, argb, bgType, queue);
             }
 
             while (!queue.isEmpty()) {
                 int idx = queue.poll();
+                byte type = bgType[idx];
                 int x = idx % width;
                 int y = idx / width;
-                if (x > 0) tryEnqueueBlack(x - 1, y, width, argb, bgMask, queue);
-                if (x + 1 < width) tryEnqueueBlack(x + 1, y, width, argb, bgMask, queue);
-                if (y > 0) tryEnqueueBlack(x, y - 1, width, argb, bgMask, queue);
-                if (y + 1 < height) tryEnqueueBlack(x, y + 1, width, argb, bgMask, queue);
+                if (x > 0) tryEnqueueNeighbor(x - 1, y, width, type, argb, bgType, queue);
+                if (x + 1 < width) tryEnqueueNeighbor(x + 1, y, width, type, argb, bgType, queue);
+                if (y > 0) tryEnqueueNeighbor(x, y - 1, width, type, argb, bgType, queue);
+                if (y + 1 < height) tryEnqueueNeighbor(x, y + 1, width, type, argb, bgType, queue);
             }
 
             for (int i = 0; i < total; i++) {
-                if (bgMask[i]) {
+                if (bgType[i] != BG_NONE) {
                     argb[i] = 0x00000000;
                 } else {
                     int x = i % width;
                     int y = i / width;
-                    boolean touchesBg = (x > 0 && bgMask[i - 1])
-                            || (x + 1 < width && bgMask[i + 1])
-                            || (y > 0 && bgMask[i - width])
-                            || (y + 1 < height && bgMask[i + width]);
-                    if (touchesBg) {
-                        int c = argb[i];
-                        int maxCh = Math.max((c >> 16) & 0xFF, Math.max((c >> 8) & 0xFF, c & 0xFF));
-                        if (maxCh < 28) {
+                    boolean touchesBlack = (x > 0 && bgType[i - 1] == BG_BLACK)
+                            || (x + 1 < width && bgType[i + 1] == BG_BLACK)
+                            || (y > 0 && bgType[i - width] == BG_BLACK)
+                            || (y + 1 < height && bgType[i + width] == BG_BLACK);
+                    boolean touchesWhite = (x > 0 && bgType[i - 1] == BG_WHITE)
+                            || (x + 1 < width && bgType[i + 1] == BG_WHITE)
+                            || (y > 0 && bgType[i - width] == BG_WHITE)
+                            || (y + 1 < height && bgType[i + width] == BG_WHITE);
+
+                    int c = argb[i];
+                    int r = (c >> 16) & 0xFF;
+                    int g = (c >> 8) & 0xFF;
+                    int b = c & 0xFF;
+
+                    if (touchesBlack) {
+                        int maxCh = Math.max(r, Math.max(g, b));
+                        if (maxCh < 22) {
                             argb[i] = 0x00000000;
-                        } else if (maxCh < 52) {
-                            int softAlpha = Math.min(255, (maxCh - 24) * 9);
+                        } else if (maxCh < 44) {
+                            int softAlpha = Math.max(0, Math.min(255, (maxCh - 20) * 10));
+                            argb[i] = (softAlpha << 24) | (c & 0x00FFFFFF);
+                        }
+                    } else if (touchesWhite) {
+                        int minCh = Math.min(r, Math.min(g, b));
+                        if (minCh > 236) {
+                            argb[i] = 0x00000000;
+                        } else if (minCh > 212) {
+                            int softAlpha = Math.max(0, Math.min(255, (238 - minCh) * 10));
                             argb[i] = (softAlpha << 24) | (c & 0x00FFFFFF);
                         }
                     }
@@ -230,9 +252,9 @@ public final class StageAssetLoader {
         return output;
     }
 
-    private static void tryEnqueueBlack(int x, int y, int width, int[] argb, boolean[] bgMask, ArrayDeque<Integer> queue) {
+    private static void tryEnqueueBorder(int x, int y, int width, int[] argb, byte[] bgType, ArrayDeque<Integer> queue) {
         int idx = y * width + x;
-        if (bgMask[idx]) {
+        if (bgType[idx] != BG_NONE) {
             return;
         }
         int c = argb[idx];
@@ -240,7 +262,29 @@ public final class StageAssetLoader {
         int g = (c >> 8) & 0xFF;
         int b = c & 0xFF;
         if (r <= 14 && g <= 14 && b <= 14) {
-            bgMask[idx] = true;
+            bgType[idx] = BG_BLACK;
+            queue.add(idx);
+        } else if (r >= 240 && g >= 240 && b >= 240) {
+            bgType[idx] = BG_WHITE;
+            queue.add(idx);
+        }
+    }
+
+    private static void tryEnqueueNeighbor(
+            int x, int y, int width, byte targetType, int[] argb, byte[] bgType, ArrayDeque<Integer> queue) {
+        int idx = y * width + x;
+        if (bgType[idx] != BG_NONE) {
+            return;
+        }
+        int c = argb[idx];
+        int r = (c >> 16) & 0xFF;
+        int g = (c >> 8) & 0xFF;
+        int b = c & 0xFF;
+        if (targetType == BG_BLACK && r <= 14 && g <= 14 && b <= 14) {
+            bgType[idx] = BG_BLACK;
+            queue.add(idx);
+        } else if (targetType == BG_WHITE && r >= 240 && g >= 240 && b >= 240) {
+            bgType[idx] = BG_WHITE;
             queue.add(idx);
         }
     }

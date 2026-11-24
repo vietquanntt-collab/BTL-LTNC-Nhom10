@@ -10,7 +10,14 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
+import java.util.Locale;
+
 public class MainShellController {
+
+    private static final String NAV_ACTIVE_STYLE =
+            "-fx-background-color: rgba(250,204,21,0.12); -fx-text-fill: #fde047; -fx-border-color: #facc15; -fx-border-width: 0 0 0 3; -fx-background-radius: 7; -fx-padding: 0 12; -fx-font-size: 12.5px; -fx-font-weight: bold; -fx-cursor: hand;";
+    private static final String NAV_INACTIVE_STYLE =
+            "-fx-background-color: transparent; -fx-text-fill: #94a3b8; -fx-background-radius: 7; -fx-padding: 0 12; -fx-font-size: 12.5px; -fx-font-weight: bold; -fx-cursor: hand;";
 
     private static MainShellController instance;
 
@@ -34,8 +41,7 @@ public class MainShellController {
         NetworkClient.getInstance().setWalletListener((balance, frozen) ->
                 Platform.runLater(() -> {
                     updateWalletLabels(balance, frozen);
-                    UiMotion.pulse(balanceLabel, 1.07);
-                    UiMotion.pulse(frozenLabel, 1.07);
+                    UiMotion.pulse(balanceLabel, 1.06);
                 }));
         refreshSessionState();
         NavigationManager.getInstance().loadView("/com/btl/team10/client/view/login.fxml");
@@ -51,7 +57,6 @@ public class MainShellController {
         NetworkClient client = NetworkClient.getInstance();
         boolean loggedIn = client.isLoggedIn();
 
-        // Ẩn toàn bộ sidebar khi chưa đăng nhập để màn hình Login bung 100% chiều rộng sân khấu
         if (sidebarBox != null) {
             sidebarBox.setVisible(loggedIn);
             sidebarBox.setManaged(loggedIn);
@@ -67,17 +72,17 @@ public class MainShellController {
             return;
         }
 
-        userAccountLabel.setText("@" + client.account() + " (ID #" + client.userId() + ")");
+        userAccountLabel.setText("@" + client.account());
         String role = client.role() != null ? client.role().toUpperCase() : "BIDDER";
         userRoleBadge.setText(role);
 
-        String badgeColor = switch (role) {
-            case "ADMIN" -> "#7e22ce";
-            case "SELLER" -> "#c2410c";
-            default -> "#2563eb";
+        String badgeStyle = switch (role) {
+            case "ADMIN" -> "-fx-background-color: rgba(192,132,252,0.16); -fx-text-fill: #d8b4fe;";
+            case "SELLER" -> "-fx-background-color: rgba(251,146,60,0.16); -fx-text-fill: #fdba74;";
+            default -> "-fx-background-color: rgba(56,189,248,0.16); -fx-text-fill: #7dd3fc;";
         };
-        userRoleBadge.setStyle("-fx-background-color: " + badgeColor
-                + "; -fx-text-fill: white; -fx-padding: 2 8; -fx-background-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold;");
+        userRoleBadge.setStyle(badgeStyle
+                + " -fx-padding: 2 7; -fx-background-radius: 6; -fx-font-size: 10px; -fx-font-weight: bold;");
 
         boolean isSeller = "SELLER".equals(role);
         boolean isAdmin = "ADMIN".equals(role);
@@ -87,18 +92,26 @@ public class MainShellController {
         navAdminBtn.setVisible(isAdmin);
         navAdminBtn.setManaged(isAdmin);
 
+        setActiveNav(navAuctionsBtn);
         updateWalletLabels(client.balanceCents(), client.frozenCents());
+    }
+
+    private void setActiveNav(Button activeBtn) {
+        if (navAuctionsBtn != null) navAuctionsBtn.setStyle(activeBtn == navAuctionsBtn ? NAV_ACTIVE_STYLE : NAV_INACTIVE_STYLE);
+        if (navSellerBtn != null) navSellerBtn.setStyle(activeBtn == navSellerBtn ? NAV_ACTIVE_STYLE : NAV_INACTIVE_STYLE);
+        if (navAdminBtn != null) navAdminBtn.setStyle(activeBtn == navAdminBtn ? NAV_ACTIVE_STYLE : NAV_INACTIVE_STYLE);
     }
 
     private void updateWalletLabels(long balanceCents, long frozenCents) {
         long available = Math.max(0L, balanceCents - frozenCents);
-        balanceLabel.setText("Khả dụng: " + available + " cents");
-        frozenLabel.setText("Đóng băng: " + frozenCents + " cents");
+        balanceLabel.setText(String.format(Locale.US, "%,d c", available));
+        frozenLabel.setText(String.format(Locale.US, "Đóng băng: %,d c", frozenCents));
     }
 
     @FXML
     private void onNavigateAuctions() {
         hideNotice();
+        setActiveNav(navAuctionsBtn);
         NavigationManager.getInstance().loadView("/com/btl/team10/client/view/AuctionList.fxml");
     }
 
@@ -110,6 +123,7 @@ public class MainShellController {
             return;
         }
         hideNotice();
+        setActiveNav(navSellerBtn);
         NavigationManager.getInstance().loadView(path);
     }
 
@@ -121,6 +135,7 @@ public class MainShellController {
             return;
         }
         hideNotice();
+        setActiveNav(navAdminBtn);
         NavigationManager.getInstance().loadView(path);
     }
 

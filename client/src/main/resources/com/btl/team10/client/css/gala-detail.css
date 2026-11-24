@@ -1,0 +1,73 @@
+/* Nền ScrollPane trong suốt đồng bộ Dark Gala */
+.gala-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+.gala-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+/* Biểu đồ biến động giá phong cách Gala */
+.gala-chart .chart-plot-background {
+    -fx-background-color: rgba(11, 15, 29, 0.78);
+}
+.gala-chart .chart-vertical-grid-lines,
+.gala-chart .chart-horizontal-grid-lines {
+    -fx-stroke: rgba(148, 163, 184, 0.16);
+}
+.gala-chart .axis {
+    -fx-tick-label-fill: #cbd5e1;
+    -fx-font-size: 11px;
+}
+.gala-chart .axis-label {
+    -fx-text-fill: #94a3b8;
+    -fx-font-weight: bold;
+}
+.gala-chart .chart-series-line {
+    -fx-stroke: #facc15;
+    -fx-stroke-width: 2.5px;
+}
+.gala-chart .chart-line-symbol {
+    -fx-background-color: #facc15, #0f172a;
+    -fx-background-insets: 0, 2;
+    -fx-background-radius: 5px;
+    -fx-padding: 4px;
+}
+
+/* Bảng lịch sử lượt đặt giá phong cách Gala */
+.gala-table {
+    -fx-background-color: rgba(11, 15, 29, 0.78);
+    -fx-border-color: rgba(148, 163, 184, 0.25);
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-table-cell-border-color: rgba(148, 163, 184, 0.12);
+}
+.gala-table .column-header-background {
+    -fx-background-color: #161d35;
+}
+.gala-table .column-header {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent rgba(148, 163, 184, 0.15) rgba(250, 204, 21, 0.3) transparent;
+}
+.gala-table .column-header .label {
+    -fx-text-fill: #fde047;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+.gala-table .table-row-cell {
+    -fx-background-color: rgba(15, 21, 38, 0.85);
+    -fx-text-fill: #f8fafc;
+}
+.gala-table .table-row-cell:odd {
+    -fx-background-color: rgba(22, 29, 52, 0.85);
+}
+.gala-table .table-row-cell:selected {
+    -fx-background-color: rgba(245, 158, 11, 0.28);
+}
+.gala-table .table-cell {
+    -fx-text-fill: #f1f5f9;
+    -fx-font-size: 12px;
+}
+.gala-table .placeholder .label {
+    -fx-text-fill: #94a3b8;
+}

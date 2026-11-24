@@ -39,13 +39,13 @@
             <Insets top="24" right="28" bottom="24" left="28"/>
         </padding>
 
-        <VBox fx:id="authCardBox" maxWidth="395" maxHeight="545" spacing="12" alignment="TOP_LEFT"
-              style="-fx-background-color: rgba(15, 19, 36, 0.86); -fx-background-radius: 18; -fx-border-color: linear-gradient(to bottom right, #fde047, #d97706); -fx-border-width: 1.6; -fx-border-radius: 18;">
+        <VBox fx:id="authCardBox" maxWidth="395" maxHeight="455" spacing="13" alignment="TOP_LEFT"
+              style="-fx-background-color: rgba(15, 19, 36, 0.88); -fx-background-radius: 18; -fx-border-color: linear-gradient(to bottom right, #fde047, #d97706); -fx-border-width: 1.6; -fx-border-radius: 18;">
             <effect>
                 <DropShadow color="rgba(0, 0, 0, 0.72)" radius="32" offsetY="12"/>
             </effect>
             <padding>
-                <Insets top="22" right="26" bottom="20" left="26"/>
+                <Insets top="24" right="26" bottom="22" left="26"/>
             </padding>
 
             <!-- Huy hiệu trạng thái trực tiếp -->
@@ -78,7 +78,7 @@
             <!-- Tên đăng nhập -->
             <VBox spacing="4">
                 <Label text="Tên đăng nhập" style="-fx-text-fill: #e2e8f0; -fx-font-size: 12px; -fx-font-weight: bold;"/>
-                <TextField fx:id="usernameField" promptText="Nhập tên tài khoản (vd: bidder1)" prefHeight="38"
+                <TextField fx:id="usernameField" promptText="Nhập tên tài khoản" prefHeight="38"
                            style="-fx-background-color: rgba(255, 255, 255, 0.08); -fx-text-fill: white; -fx-prompt-text-fill: #64748b; -fx-border-color: rgba(148, 163, 184, 0.35); -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 0 12; -fx-font-size: 13px;"/>
             </VBox>
 
@@ -102,20 +102,6 @@
             <Button fx:id="submitButton" text="Vào Khán Phòng Đấu Giá →" onAction="#handleSubmit" defaultButton="true"
                     maxWidth="Infinity" prefHeight="40"
                     style="-fx-background-color: linear-gradient(to right, #f59e0b, #d97706); -fx-text-fill: #0f172a; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;"/>
-
-            <!-- Khu vực điền nhanh tài khoản Demo -->
-            <VBox fx:id="demoQuickBox" spacing="6"
-                  style="-fx-background-color: rgba(255, 255, 255, 0.05); -fx-padding: 8 10; -fx-background-radius: 10; -fx-border-color: rgba(255, 255, 255, 0.10); -fx-border-radius: 10;">
-                <Label text="Đăng nhập nhanh tài khoản mẫu:" style="-fx-text-fill: #94a3b8; -fx-font-size: 11px; -fx-font-weight: bold;"/>
-                <HBox spacing="6">
-                    <Button text="Bidder 1" onAction="#fillDemoBidder" HBox.hgrow="ALWAYS" maxWidth="Infinity" prefHeight="27"
-                            style="-fx-background-color: rgba(56, 189, 248, 0.18); -fx-text-fill: #7dd3fc; -fx-border-color: rgba(56, 189, 248, 0.35); -fx-border-radius: 6; -fx-font-size: 11px; -fx-font-weight: bold; -fx-background-radius: 6; -fx-cursor: hand;"/>
-                    <Button text="Seller" onAction="#fillDemoSeller" HBox.hgrow="ALWAYS" maxWidth="Infinity" prefHeight="27"
-                            style="-fx-background-color: rgba(251, 146, 60, 0.18); -fx-text-fill: #fdba74; -fx-border-color: rgba(251, 146, 60, 0.35); -fx-border-radius: 6; -fx-font-size: 11px; -fx-font-weight: bold; -fx-background-radius: 6; -fx-cursor: hand;"/>
-                    <Button text="Admin" onAction="#fillDemoAdmin" HBox.hgrow="ALWAYS" maxWidth="Infinity" prefHeight="27"
-                            style="-fx-background-color: rgba(192, 132, 252, 0.18); -fx-text-fill: #d8b4fe; -fx-border-color: rgba(192, 132, 252, 0.35); -fx-border-radius: 6; -fx-font-size: 11px; -fx-font-weight: bold; -fx-background-radius: 6; -fx-cursor: hand;"/>
-                </HBox>
-            </VBox>
 
             <Region VBox.vgrow="ALWAYS"/>
 
