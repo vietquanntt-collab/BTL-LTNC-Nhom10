@@ -12,11 +12,12 @@
 
 <BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.btl.team10.client.controller.MainShellController"
-            prefWidth="1120.0" prefHeight="700.0">
+            stylesheets="@../styles/app.css"
+            prefWidth="1280.0" prefHeight="800.0">
 
     <!-- Thanh điều hướng tối giản bên trái -->
     <left>
-        <VBox fx:id="sidebarBox" spacing="16" prefWidth="210.0"
+        <VBox fx:id="sidebarBox" spacing="16" prefWidth="218.0" minWidth="218.0" maxWidth="218.0"
               style="-fx-background-color: #111627; -fx-border-color: rgba(255,255,255,0.08); -fx-border-width: 0 1 0 0;">
             <padding><Insets top="20" right="14" bottom="18" left="14"/></padding>
 
@@ -39,7 +40,7 @@
                 <VBox spacing="10"
                       style="-fx-background-color: rgba(255,255,255,0.04); -fx-background-radius: 12; -fx-border-color: rgba(255,255,255,0.08); -fx-border-radius: 12; -fx-padding: 12;">
                     <HBox alignment="CENTER_LEFT" spacing="8">
-                        <Label fx:id="userAccountLabel" text="Tài khoản" HBox.hgrow="ALWAYS" maxWidth="Infinity"
+                        <Label fx:id="userAccountLabel" text="Tài khoản" wrapText="true" HBox.hgrow="ALWAYS" maxWidth="Infinity"
                                style="-fx-text-fill: #f8fafc; -fx-font-size: 13px; -fx-font-weight: bold;"/>
                         <Label fx:id="userRoleBadge" text="BIDDER"
                                style="-fx-background-color: rgba(56,189,248,0.16); -fx-text-fill: #7dd3fc; -fx-padding: 2 7; -fx-background-radius: 6; -fx-font-size: 10px; -fx-font-weight: bold;"/>
@@ -48,9 +49,9 @@
                     <VBox spacing="3"
                           style="-fx-background-color: rgba(15,23,42,0.55); -fx-padding: 8 10; -fx-background-radius: 8;">
                         <Label text="SỐ DƯ KHẢ DỤNG" style="-fx-text-fill: #64748b; -fx-font-size: 9.5px; -fx-font-weight: bold;"/>
-                        <Label fx:id="balanceLabel" text="0 c"
+                        <Label fx:id="balanceLabel" text="0 cents"
                                style="-fx-text-fill: #4ade80; -fx-font-size: 14px; -fx-font-weight: bold;"/>
-                        <Label fx:id="frozenLabel" text="Đóng băng: 0 c"
+                        <Label fx:id="frozenLabel" text="Đang giữ: 0 cents" wrapText="true"
                                style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;"/>
                     </VBox>
                 </VBox>
@@ -75,6 +76,8 @@
                 <Label fx:id="shellNoticeLabel" text="" wrapText="true" visible="false" managed="false"
                        style="-fx-background-color: rgba(217,119,6,0.2); -fx-text-fill: #fcd34d; -fx-padding: 8 10; -fx-background-radius: 8; -fx-font-size: 11px;"/>
 
+                <Label fx:id="connectionLabel" text="Đã kết nối" style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;"/>
+
                 <!-- Nút đăng xuất tinh gọn -->
                 <Button fx:id="logoutBtn" text="Đăng xuất" onAction="#onLogout"
                         maxWidth="Infinity" prefHeight="34"
@@ -85,7 +88,7 @@
 
     <!-- Khu vực hiển thị nội dung chính -->
     <center>
-        <StackPane fx:id="mainContentArea" style="-fx-background-color: #0e1324;"/>
+        <StackPane fx:id="mainContentArea" minWidth="0" style="-fx-background-color: #0e1324;"/>
     </center>
 
 </BorderPane>

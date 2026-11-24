@@ -10,14 +10,7 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
-import java.util.Locale;
-
 public class MainShellController {
-
-    private static final String NAV_ACTIVE_STYLE =
-            "-fx-background-color: rgba(250,204,21,0.12); -fx-text-fill: #fde047; -fx-border-color: #facc15; -fx-border-width: 0 0 0 3; -fx-background-radius: 7; -fx-padding: 0 12; -fx-font-size: 12.5px; -fx-font-weight: bold; -fx-cursor: hand;";
-    private static final String NAV_INACTIVE_STYLE =
-            "-fx-background-color: transparent; -fx-text-fill: #94a3b8; -fx-background-radius: 7; -fx-padding: 0 12; -fx-font-size: 12.5px; -fx-font-weight: bold; -fx-cursor: hand;";
 
     private static MainShellController instance;
 
@@ -33,6 +26,7 @@ public class MainShellController {
     @FXML private Button navSellerBtn;
     @FXML private Button navAdminBtn;
     @FXML private Label shellNoticeLabel;
+    @FXML private Label connectionLabel;
 
     @FXML
     public void initialize() {
@@ -41,8 +35,16 @@ public class MainShellController {
         NetworkClient.getInstance().setWalletListener((balance, frozen) ->
                 Platform.runLater(() -> {
                     updateWalletLabels(balance, frozen);
-                    UiMotion.pulse(balanceLabel, 1.06);
+                    UiMotion.pulse(balanceLabel, 1.07);
+                    UiMotion.pulse(frozenLabel, 1.07);
                 }));
+        NetworkClient.getInstance().addConnectionListener(connected -> Platform.runLater(() -> {
+            connectionLabel.setText(connected ? "Đã kết nối" : "Đang kết nối lại…");
+            if (connected && !NetworkClient.getInstance().isLoggedIn()) {
+                refreshSessionState();
+                NavigationManager.getInstance().loadView("/com/btl/team10/client/view/login.fxml");
+            }
+        }));
         refreshSessionState();
         NavigationManager.getInstance().loadView("/com/btl/team10/client/view/login.fxml");
     }
@@ -57,6 +59,7 @@ public class MainShellController {
         NetworkClient client = NetworkClient.getInstance();
         boolean loggedIn = client.isLoggedIn();
 
+        // Ẩn toàn bộ sidebar khi chưa đăng nhập để màn hình Login bung 100% chiều rộng sân khấu
         if (sidebarBox != null) {
             sidebarBox.setVisible(loggedIn);
             sidebarBox.setManaged(loggedIn);
@@ -77,9 +80,9 @@ public class MainShellController {
         userRoleBadge.setText(role);
 
         String badgeStyle = switch (role) {
-            case "ADMIN" -> "-fx-background-color: rgba(192,132,252,0.16); -fx-text-fill: #d8b4fe;";
-            case "SELLER" -> "-fx-background-color: rgba(251,146,60,0.16); -fx-text-fill: #fdba74;";
-            default -> "-fx-background-color: rgba(56,189,248,0.16); -fx-text-fill: #7dd3fc;";
+            case "ADMIN" -> "-fx-background-color: #302443; -fx-text-fill: #d8b4fe;";
+            case "SELLER" -> "-fx-background-color: #392c26; -fx-text-fill: #fdba74;";
+            default -> "-fx-background-color: #193447; -fx-text-fill: #7dd3fc;";
         };
         userRoleBadge.setStyle(badgeStyle
                 + " -fx-padding: 2 7; -fx-background-radius: 6; -fx-font-size: 10px; -fx-font-weight: bold;");
@@ -92,50 +95,45 @@ public class MainShellController {
         navAdminBtn.setVisible(isAdmin);
         navAdminBtn.setManaged(isAdmin);
 
-        setActiveNav(navAuctionsBtn);
         updateWalletLabels(client.balanceCents(), client.frozenCents());
-    }
-
-    private void setActiveNav(Button activeBtn) {
-        if (navAuctionsBtn != null) navAuctionsBtn.setStyle(activeBtn == navAuctionsBtn ? NAV_ACTIVE_STYLE : NAV_INACTIVE_STYLE);
-        if (navSellerBtn != null) navSellerBtn.setStyle(activeBtn == navSellerBtn ? NAV_ACTIVE_STYLE : NAV_INACTIVE_STYLE);
-        if (navAdminBtn != null) navAdminBtn.setStyle(activeBtn == navAdminBtn ? NAV_ACTIVE_STYLE : NAV_INACTIVE_STYLE);
+        connectionLabel.setText(client.isConnected() ? "Đã kết nối" : "Đang kết nối lại…");
+        selectNav(navAuctionsBtn);
     }
 
     private void updateWalletLabels(long balanceCents, long frozenCents) {
         long available = Math.max(0L, balanceCents - frozenCents);
-        balanceLabel.setText(String.format(Locale.US, "%,d c", available));
-        frozenLabel.setText(String.format(Locale.US, "Đóng băng: %,d c", frozenCents));
+        balanceLabel.setText(String.format(java.util.Locale.US, "%,d cents", available));
+        frozenLabel.setText(String.format(java.util.Locale.US, "Đang giữ: %,d cents", frozenCents));
     }
 
     @FXML
     private void onNavigateAuctions() {
+        selectNav(navAuctionsBtn);
         hideNotice();
-        setActiveNav(navAuctionsBtn);
         NavigationManager.getInstance().loadView("/com/btl/team10/client/view/AuctionList.fxml");
     }
 
     @FXML
     private void onNavigateSeller() {
+        selectNav(navSellerBtn);
         String path = "/com/btl/team10/client/view/SellerDashboard.fxml";
         if (getClass().getResource(path) == null) {
             showNotice("Màn hình SellerDashboard chưa khả dụng.");
             return;
         }
         hideNotice();
-        setActiveNav(navSellerBtn);
         NavigationManager.getInstance().loadView(path);
     }
 
     @FXML
     private void onNavigateAdmin() {
+        selectNav(navAdminBtn);
         String path = "/com/btl/team10/client/view/AdminDashboard.fxml";
         if (getClass().getResource(path) == null) {
             showNotice("Màn hình AdminDashboard chưa khả dụng.");
             return;
         }
         hideNotice();
-        setActiveNav(navAdminBtn);
         NavigationManager.getInstance().loadView(path);
     }
 
@@ -161,5 +159,17 @@ public class MainShellController {
     private void hideNotice() {
         shellNoticeLabel.setVisible(false);
         shellNoticeLabel.setManaged(false);
+    }
+
+    private void selectNav(Button selected) {
+        for (Button button : new Button[]{navAuctionsBtn, navSellerBtn, navAdminBtn}) {
+            boolean active = button == selected;
+            button.pseudoClassStateChanged(javafx.css.PseudoClass.getPseudoClass("active"), active);
+            button.setStyle("-fx-background-color: " + (active ? "#302c26" : "transparent")
+                    + "; -fx-text-fill: " + (active ? "#fde047" : "#cbd5e1")
+                    + "; -fx-border-color: " + (active ? "#facc15" : "transparent")
+                    + "; -fx-border-width: 0 0 0 3; -fx-background-radius: 7; -fx-padding: 0 12;"
+                    + " -fx-font-size: 12.5px; -fx-font-weight: bold; -fx-cursor: hand;");
+        }
     }
 }

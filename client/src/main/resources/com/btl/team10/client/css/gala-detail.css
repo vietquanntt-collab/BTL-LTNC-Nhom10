@@ -71,3 +71,20 @@
 .gala-table .placeholder .label {
     -fx-text-fill: #94a3b8;
 }
+
+/* Leading/selected bids must remain readable on the dark auction stage. */
+.gala-table .table-row-cell:leading {
+    -fx-background-color: #183f35;
+    -fx-font-weight: bold;
+}
+.gala-table .table-row-cell:leading .table-cell,
+.gala-table .table-row-cell:selected .table-cell {
+    -fx-text-fill: #f1f5f9;
+}
+.gala-table .table-row-cell:leading .text,
+.gala-table .table-row-cell:selected .text {
+    -fx-fill: #f1f5f9;
+}
+.gala-table .filler { -fx-background-color: #161d35; }
+.gala-chart .default-color0.chart-series-line { -fx-stroke: #facc15; }
+.gala-chart .default-color0.chart-line-symbol { -fx-background-color: #facc15, #0f172a; }

@@ -128,7 +128,7 @@ public final class UiMotion {
             return null;
         }
         if (fromValue == toValue) {
-            label.setText(toValue + safeSuffix);
+            label.setText(String.format(java.util.Locale.US, "%,d", toValue) + safeSuffix);
             return null;
         }
 
@@ -138,10 +138,10 @@ public final class UiMotion {
             double progress = (double) i / steps;
             long current = Math.round(fromValue + (toValue - fromValue) * progress);
             timeline.getKeyFrames().add(
-                    new KeyFrame(Duration.millis(26L * i), e -> label.setText(current + safeSuffix))
+                    new KeyFrame(Duration.millis(26L * i), e -> label.setText(String.format(java.util.Locale.US, "%,d", current) + safeSuffix))
             );
         }
-        timeline.setOnFinished(e -> label.setText(toValue + safeSuffix));
+        timeline.setOnFinished(e -> label.setText(String.format(java.util.Locale.US, "%,d", toValue) + safeSuffix));
         pulse(label, 1.10);
         timeline.play();
         return timeline;

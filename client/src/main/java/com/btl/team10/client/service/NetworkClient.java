@@ -20,6 +20,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.lang.reflect.Type;
 import java.net.Socket;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
@@ -36,15 +37,15 @@ import java.util.function.Consumer;
 
 /** Asynchronous multiplexed TCP client supporting request/response and realtime server push events. */
 public final class NetworkClient implements AutoCloseable {
-    private static final NetworkClient INSTANCE = new NetworkClient();
+    private static final class Holder { private static final NetworkClient INSTANCE = new NetworkClient(); }
     private static final Type AUCTION_LIST_TYPE = new TypeToken<List<AuctionDto>>() { }.getType();
     private static final Type BID_LIST_TYPE = new TypeToken<List<BidDto>>() { }.getType();
     private static final Type ITEM_LIST_TYPE = new TypeToken<List<ItemDto>>() { }.getType();
     private static final Type USER_LIST_TYPE = new TypeToken<List<UserDto>>() { }.getType();
 
-    private final String host = System.getProperty("auction.server.host", "127.0.0.1");
-    private final int port = Integer.parseInt(System.getProperty("auction.server.port", "9999"));
-    private final int timeoutMillis = Integer.parseInt(System.getProperty("auction.client.timeout", "5000"));
+    private final String host;
+    private final int port;
+    private final int timeoutMillis;
 
     private final ConcurrentHashMap<String, CompletableFuture<ResponseEnvelope>> pendingRequests = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<Consumer<EventEnvelope>> eventListeners = new CopyOnWriteArrayList<>();
@@ -55,6 +56,8 @@ public final class NetworkClient implements AutoCloseable {
     private volatile PrintWriter writer;
     private volatile Thread readerThread;
     private volatile boolean manualClose = false;
+    private volatile long connectionEpoch;
+    private final CopyOnWriteArrayList<Consumer<Boolean>> connectionListeners = new CopyOnWriteArrayList<>();
 
     private volatile String sessionId;
     private volatile long userId;
@@ -67,10 +70,19 @@ public final class NetworkClient implements AutoCloseable {
     private volatile BiConsumer<Long, Long> walletListener;
 
     private NetworkClient() {
+        this(System.getProperty("auction.server.host", "127.0.0.1"),
+                Integer.getInteger("auction.server.port", 9999),
+                Integer.getInteger("auction.client.timeout", 5000));
+    }
+
+    NetworkClient(String host, int port, int timeoutMillis) {
+        this.host = host;
+        this.port = port;
+        this.timeoutMillis = timeoutMillis;
     }
 
     public static NetworkClient getInstance() {
-        return INSTANCE;
+        return Holder.INSTANCE;
     }
 
     public void addEventListener(Consumer<EventEnvelope> listener) {
@@ -87,6 +99,9 @@ public final class NetworkClient implements AutoCloseable {
     public void setConnectionStateListener(Consumer<Boolean> listener) {
         this.connectionStateListener = listener;
     }
+
+    public void addConnectionListener(Consumer<Boolean> listener) { connectionListeners.addIfAbsent(listener); }
+    public void removeConnectionListener(Consumer<Boolean> listener) { connectionListeners.remove(listener); }
 
     /** Callback cập nhật (balanceCents, frozenCents) khi số dư ví thay đổi. */
     public void setWalletListener(BiConsumer<Long, Long> listener) {
@@ -205,6 +220,12 @@ public final class NetworkClient implements AutoCloseable {
         return new AutoBidResult(auctionId, acceptedMax, acceptedInc, response.message());
     }
 
+    public void cancelAutoBid(long auctionId) throws IOException {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("auctionId", auctionId);
+        request("CANCEL_AUTO_BID", requireSession(), payload, UUID.randomUUID().toString());
+    }
+
     public long createItem(String name, String itemType, String description) throws IOException {
         return createItem(name, itemType, description, null);
     }
@@ -231,9 +252,8 @@ public final class NetworkClient implements AutoCloseable {
         payload.addProperty("name", name);
         payload.addProperty("itemType", itemType);
         payload.addProperty("description", description == null ? "" : description);
-        if (imageBase64 != null && !imageBase64.isBlank()) {
-            payload.addProperty("imageBase64", imageBase64);
-        }
+        // Empty explicitly clears the image; the four-argument overload preserves it.
+        if (imageBase64 != null) payload.addProperty("imageBase64", imageBase64);
         request("UPDATE_ITEM", requireSession(), payload, UUID.randomUUID().toString());
     }
 
@@ -352,31 +372,47 @@ public final class NetworkClient implements AutoCloseable {
             return;
         }
         manualClose = false;
-        socket = new Socket(host, port);
-        reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
-        writer = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8);
-        startReaderLoop();
+        Socket next = new Socket();
+        try {
+            next.connect(new InetSocketAddress(host, port), timeoutMillis);
+            BufferedReader input = new BufferedReader(new InputStreamReader(next.getInputStream(), StandardCharsets.UTF_8));
+            socket = next;
+            long epoch = ++connectionEpoch;
+            reader = input;
+            writer = new PrintWriter(next.getOutputStream(), true, StandardCharsets.UTF_8);
+            startReaderLoop(next, input, epoch);
+        } catch (IOException error) {
+            next.close();
+            throw error;
+        }
     }
 
-    private void startReaderLoop() {
+    private void startReaderLoop(Socket ownedSocket, BufferedReader input, long epoch) {
         Thread thread = new Thread(() -> {
             try {
                 String line;
-                while ((line = reader.readLine()) != null) {
+                while ((line = input.readLine()) != null) {
                     if (line.isBlank()) {
                         continue;
                     }
                     handleIncomingLine(line.trim());
                 }
             } catch (IOException e) {
-                if (!manualClose) {
+                if (!manualClose && socket == ownedSocket) {
                     failAllPending(new IOException("Mất kết nối tới server: " + e.getMessage(), e));
                 }
             } finally {
-                cleanupSocketOnly();
-                if (!manualClose) {
+                boolean reconnect = false;
+                synchronized (this) {
+                    if (socket == ownedSocket) {
+                        failAllPending(new IOException("Mất kết nối tới server"));
+                        cleanupSocketOnly();
+                        reconnect = !manualClose;
+                    }
+                }
+                if (reconnect) {
                     notifyConnectionState(false);
-                    attemptAutoReconnect();
+                    attemptAutoReconnect(epoch);
                 }
             }
         }, "auction-socket-reader");
@@ -446,13 +482,31 @@ public final class NetworkClient implements AutoCloseable {
         }
     }
 
-    private void attemptAutoReconnect() {
+    private void attemptAutoReconnect(long disconnectedEpoch) {
         Thread reconnectThread = new Thread(() -> {
             int maxRetries = 10;
             for (int attempt = 1; attempt <= maxRetries && !manualClose; attempt++) {
                 try {
                     Thread.sleep(Math.min(1000L * attempt, 5000L));
-                    ensureConnected();
+                    synchronized (this) {
+                        if (manualClose || connectionEpoch != disconnectedEpoch) return;
+                        ensureConnected();
+                    }
+                    if (isLoggedIn()) {
+                        // Rebind targeted wallet events and refresh balances after reconnect.
+                        try {
+                            JsonObject data = responseObject(request("SESSION", requireSession(), new JsonObject(), UUID.randomUUID().toString()));
+                            balanceCents = data.get("balanceCents").getAsLong();
+                            frozenCents = data.get("frozenCents").getAsLong();
+                            notifyWalletChanged();
+                        } catch (IOException error) {
+                            if (error.getMessage().contains("AUTHENTICATION_FAILED")) {
+                                clearSession();
+                            } else {
+                                throw error;
+                            }
+                        }
+                    }
                     notifyConnectionState(true);
                     return;
                 } catch (Exception ignored) {
@@ -468,6 +522,7 @@ public final class NetworkClient implements AutoCloseable {
         if (listener != null) {
             listener.accept(connected);
         }
+        for (Consumer<Boolean> subscriber : connectionListeners) subscriber.accept(connected);
     }
 
     private void failAllPending(IOException error) {
@@ -502,14 +557,19 @@ public final class NetworkClient implements AutoCloseable {
     @Override
     public synchronized void close() {
         manualClose = true;
+        connectionEpoch++;
+        clearSession();
+        failAllPending(new IOException("Client closed"));
+        cleanupSocketOnly();
+    }
+
+    private void clearSession() {
         sessionId = null;
         userId = 0L;
         account = null;
         role = null;
         balanceCents = 0L;
         frozenCents = 0L;
-        failAllPending(new IOException("Client closed"));
-        cleanupSocketOnly();
     }
 
     public record LoginResult(String sessionId, long userId, String account, String role,

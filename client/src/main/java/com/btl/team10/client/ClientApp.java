@@ -11,9 +11,11 @@ public class ClientApp extends Application {
     @Override
     public void start(Stage primaryStage) throws Exception {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/btl/team10/client/view/MainShell.fxml"));
-        Scene scene = new Scene(loader.load());
+        Scene scene = new Scene(loader.load(), 1280, 800);
 
-        primaryStage.setTitle("Online Auction System - Client Shell");
+        primaryStage.setTitle("Gala Auction | Nhóm 10");
+        primaryStage.setMinWidth(1100);
+        primaryStage.setMinHeight(720);
         primaryStage.setScene(scene);
         primaryStage.setOnCloseRequest(event -> NetworkClient.getInstance().close());
         primaryStage.show();
