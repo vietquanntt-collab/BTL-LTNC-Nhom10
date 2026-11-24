@@ -27,8 +27,8 @@ public class AuthService {
         if (userOpt.isEmpty() || !PasswordHasher.verify(password, passwordHash)) {
             return Optional.empty();
         }
-        var user = userOpt.get();
-        return Optional.of(sessionManager.createSession(user.userId(), user.account(), user.role().name()));
+        var user = com.btl.team10.server.domain.User.from(userOpt.get());
+        return Optional.of(sessionManager.createSession(user.getId(), user.getAccount(), user.getRole().name()));
     }
 
     public void logout(String token) {

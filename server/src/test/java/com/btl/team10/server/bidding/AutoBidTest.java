@@ -69,7 +69,7 @@ class AutoBidTest {
         ResponseEnvelope setRule = placeBidService.configureAutoBid(
                 "auto-1", "s1", 2L, 100L, 150_000L, 10_000L, true);
         assertTrue(setRule.ok());
-        assertEquals(100_000L, getCurrentPrice(100L));
+        assertEquals(110_000L, getCurrentPrice(100L));
         assertEquals(2L, getWinnerId(100L));
 
         ResponseEnvelope higherBid = placeBidService.placeBid("bid-2", "s2", 3L, 100L, 160_000L);

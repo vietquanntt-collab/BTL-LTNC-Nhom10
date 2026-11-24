@@ -17,6 +17,7 @@
 <StackPane fx:id="loginRoot" xmlns="http://javafx.com/javafx/21"
            xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.btl.team10.client.controller.LoginController"
+           stylesheets="@../css/gala-shell.css" styleClass="gala-auth"
            style="-fx-background-color: #0e1120;">
 
     <!-- Lớp 1: Ảnh nền sân khấu Gala toàn màn hình -->
@@ -39,7 +40,7 @@
             <Insets top="24" right="28" bottom="24" left="28"/>
         </padding>
 
-        <VBox fx:id="authCardBox" maxWidth="395" maxHeight="455" spacing="13" alignment="TOP_LEFT"
+        <VBox fx:id="authCardBox" maxWidth="395" maxHeight="-Infinity" spacing="13" alignment="TOP_LEFT"
               style="-fx-background-color: rgba(15, 19, 36, 0.88); -fx-background-radius: 18; -fx-border-color: linear-gradient(to bottom right, #fde047, #d97706); -fx-border-width: 1.6; -fx-border-radius: 18;">
             <effect>
                 <DropShadow color="rgba(0, 0, 0, 0.72)" radius="32" offsetY="12"/>
@@ -59,15 +60,15 @@
             <!-- Thanh chuyển tab Đăng nhập / Đăng ký -->
             <HBox spacing="6" style="-fx-background-color: rgba(255, 255, 255, 0.08); -fx-padding: 4; -fx-background-radius: 10;">
                 <Button fx:id="loginTabBtn" text="Đăng nhập" onAction="#switchToLogin" HBox.hgrow="ALWAYS" maxWidth="Infinity" prefHeight="32"
-                        style="-fx-background-color: linear-gradient(to right, #f59e0b, #d97706); -fx-text-fill: #0f172a; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;"/>
+                        styleClass="button, gala-auth-tab"/>
                 <Button fx:id="registerTabBtn" text="Đăng ký" onAction="#switchToRegister" HBox.hgrow="ALWAYS" maxWidth="Infinity" prefHeight="32"
-                        style="-fx-background-color: transparent; -fx-text-fill: #cbd5e1; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;"/>
+                        styleClass="button, gala-auth-tab"/>
             </HBox>
 
             <VBox spacing="3">
                 <Label fx:id="formTitleLabel" text="CHÀO MỪNG TRỞ LẠI"
                        style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;"/>
-                <Label fx:id="formSubtitleLabel" text="Đăng nhập để bước vào khán phòng đấu giá trực tiếp"
+                <Label fx:id="formSubtitleLabel" wrapText="true" text="Đăng nhập để bước vào khán phòng đấu giá trực tiếp"
                        style="-fx-font-size: 12px; -fx-text-fill: #94a3b8;"/>
             </VBox>
 

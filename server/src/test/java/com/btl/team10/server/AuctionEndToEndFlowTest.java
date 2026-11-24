@@ -196,7 +196,7 @@ class AuctionEndToEndFlowTest {
             long auctionId = JsonParser.parseString(createAuctionResp.payloadJson()).getAsJsonObject().get("auctionId").getAsLong();
 
             ResponseEnvelope bid1Resp = sendAndReceive(bidder1Out, bidder1In, bidder1Events,
-                    "req-bid-1", bidder1Token, "PLACE_BID", bidPayload(auctionId, 100_000L));
+                    "req-bid-1", bidder1Token, "PLACE_BID", bidPayload(auctionId, 110_000L));
             assertTrue(bid1Resp.ok());
 
             ResponseEnvelope bid2Resp = sendAndReceive(bidder2Out, bidder2In, bidder2Events,

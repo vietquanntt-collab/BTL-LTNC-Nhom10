@@ -39,7 +39,11 @@ public final class DatabaseInitializer {
             for (Path migration : migrationFiles) {
                 String version = migration.getFileName().toString();
                 if (!isApplied(connection, version)) {
-                    SqlScriptRunner.executeFile(connection, migration);
+                    // Some week-5 databases already received this column in V001.
+                    // Older databases still need the additive upgrade; preserve both.
+                    if (!version.equals("V005__item_images.sql") || !hasItemImageColumn(connection)) {
+                        SqlScriptRunner.executeFile(connection, migration);
+                    }
                     recordApplied(connection, version);
                 }
             }
@@ -72,6 +76,18 @@ public final class DatabaseInitializer {
                 throw new IOException("No SQL migration files found in: " + migrations);
             }
             return files;
+        }
+    }
+
+    private static boolean hasItemImageColumn(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement();
+             var columns = statement.executeQuery("PRAGMA table_info(items)")) {
+            while (columns.next()) {
+                if ("image_base64".equalsIgnoreCase(columns.getString("name"))) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 

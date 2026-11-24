@@ -78,7 +78,7 @@ class AntiSnipeAndSchedulerTest {
         });
 
         Instant initialEndAt = getEndAt(100L);
-        assertTrue(placeBidService.placeBid("bid-early", "s1", 2L, 100L, 100_000L).ok());
+        assertTrue(placeBidService.placeBid("bid-early", "s1", 2L, 100L, 110_000L).ok());
 
         assertEquals(initialEndAt, getEndAt(100L));
         assertEquals(0, getExtensionCount(100L));
@@ -90,15 +90,15 @@ class AntiSnipeAndSchedulerTest {
         Instant nearEnd = Instant.now().plusSeconds(12);
         updateEndAt(100L, nearEnd);
 
-        assertTrue(placeBidService.placeBid("snipe-1", "s1", 2L, 100L, 100_000L).ok());
+        assertTrue(placeBidService.placeBid("snipe-1", "s1", 2L, 100L, 110_000L).ok());
         assertEquals(nearEnd.plusSeconds(25), getEndAt(100L));
         assertEquals(1, getExtensionCount(100L));
 
-        assertTrue(placeBidService.placeBid("snipe-2", "s2", 3L, 100L, 110_000L).ok());
+        assertTrue(placeBidService.placeBid("snipe-2", "s2", 3L, 100L, 120_000L).ok());
         assertEquals(nearEnd.plusSeconds(50), getEndAt(100L));
         assertEquals(2, getExtensionCount(100L));
 
-        assertTrue(placeBidService.placeBid("snipe-3", "s1", 2L, 100L, 120_000L).ok());
+        assertTrue(placeBidService.placeBid("snipe-3", "s1", 2L, 100L, 130_000L).ok());
         assertEquals(nearEnd.plusSeconds(50), getEndAt(100L));
         assertEquals(2, getExtensionCount(100L));
     }

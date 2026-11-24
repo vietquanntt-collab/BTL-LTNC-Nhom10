@@ -1,6 +1,10 @@
 package com.btl.team10.client.navigation;
 
 import com.btl.team10.client.controller.AuctionDetailController;
+import com.btl.team10.client.controller.AuctionListController;
+import com.btl.team10.client.controller.LoginController;
+import com.btl.team10.client.controller.SellerDashboardController;
+import com.btl.team10.client.controller.AdminDashboardController;
 import com.btl.team10.client.state.UIState;
 import com.btl.team10.client.util.UiMotion;
 import javafx.fxml.FXMLLoader;
@@ -79,6 +83,10 @@ public class NavigationManager {
         if (currentController instanceof AuctionDetailController detailController) {
             detailController.cleanup();
         }
+        if (currentController instanceof AuctionListController listController) listController.cleanup();
+        if (currentController instanceof LoginController loginController) loginController.cleanup();
+        if (currentController instanceof SellerDashboardController sellerController) sellerController.cleanup();
+        if (currentController instanceof AdminDashboardController adminController) adminController.cleanup();
         currentController = null;
     }
 }

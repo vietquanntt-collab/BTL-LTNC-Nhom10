@@ -18,67 +18,32 @@
 
 <BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.btl.team10.client.controller.AuctionListController"
-            style="-fx-background-color: #eef2f7;">
+            stylesheets="@../styles/app.css">
 
     <!-- Thanh tiêu đề Khán phòng Gala -->
-    <top>
-        <VBox spacing="12" style="-fx-background-color: linear-gradient(to right, #141829, #1f2742); -fx-border-color: rgba(250,204,21,0.28); -fx-border-width: 0 0 1.5 0;">
-            <padding><Insets top="14" right="20" bottom="14" left="20"/></padding>
-
-            <HBox alignment="CENTER_LEFT" spacing="10">
-                <HBox alignment="CENTER_LEFT" spacing="6"
-                      style="-fx-background-color: rgba(74, 222, 128, 0.14); -fx-border-color: rgba(74, 222, 128, 0.4); -fx-border-radius: 12; -fx-background-radius: 12; -fx-padding: 3 10;">
-                    <Circle fx:id="liveHeaderDot" radius="4" fill="#4ade80"/>
-                    <Label text="SÀN TRỰC TUYẾN" style="-fx-text-fill: #86efac; -fx-font-size: 10px; -fx-font-weight: bold;"/>
-                </HBox>
-
-                <Label text="KHÁN PHÒNG ĐẤU GIÁ GALA"
-                       style="-fx-text-fill: #f8fafc; -fx-font-size: 18px; -fx-font-weight: bold;"/>
-
-                <Label fx:id="totalCountBadge" text="0 phiên"
-                       style="-fx-background-color: rgba(250, 204, 21, 0.18); -fx-text-fill: #fde047; -fx-padding: 3 10; -fx-background-radius: 12; -fx-font-size: 11px; -fx-font-weight: bold;"/>
-
-                <Region HBox.hgrow="ALWAYS"/>
-
-                <TextField fx:id="searchField" promptText="Tìm vật phẩm hoặc #ID..." prefWidth="195" prefHeight="32"
-                           style="-fx-background-color: rgba(255,255,255,0.10); -fx-text-fill: white; -fx-prompt-text-fill: #94a3b8; -fx-border-color: rgba(148,163,184,0.35); -fx-border-radius: 7; -fx-background-radius: 7; -fx-padding: 0 10; -fx-font-size: 12px;"/>
-
-                <ComboBox fx:id="statusFilterBox" prefWidth="128" prefHeight="32" onAction="#onFilterChanged"/>
-
-                <Button fx:id="toggleLayoutBtn" text="Dạng bảng" onAction="#onToggleLayout" prefHeight="32"
-                        style="-fx-background-color: rgba(255,255,255,0.12); -fx-text-fill: #e2e8f0; -fx-font-weight: bold; -fx-background-radius: 7; -fx-cursor: hand;"/>
-
-                <Button fx:id="refreshBtn" text="Làm mới" onAction="#onRefresh" prefHeight="32"
-                        style="-fx-background-color: linear-gradient(to right, #f59e0b, #d97706); -fx-text-fill: #0f172a; -fx-font-weight: bold; -fx-background-radius: 7; -fx-cursor: hand;"/>
-            </HBox>
-
-            <!-- 3 thẻ thống kê nhanh (KPI) -->
-            <HBox spacing="12">
-                <VBox spacing="2" HBox.hgrow="ALWAYS"
-                      style="-fx-background-color: rgba(255,255,255,0.06); -fx-border-color: rgba(74,222,128,0.3); -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 8 14;">
-                    <Label text="PHIÊN ĐANG DIỄN RA (LIVE)" style="-fx-text-fill: #94a3b8; -fx-font-size: 10px; -fx-font-weight: bold;"/>
-                    <Label fx:id="kpiLiveLabel" text="0 phiên" style="-fx-text-fill: #4ade80; -fx-font-size: 15px; -fx-font-weight: bold;"/>
-                </VBox>
-
-                <VBox spacing="2" HBox.hgrow="ALWAYS"
-                      style="-fx-background-color: rgba(255,255,255,0.06); -fx-border-color: rgba(250,204,21,0.3); -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 8 14;">
-                    <Label text="TỔNG GIÁ TRỊ SÀN" style="-fx-text-fill: #94a3b8; -fx-font-size: 10px; -fx-font-weight: bold;"/>
-                    <Label fx:id="kpiVolumeLabel" text="0 cents" style="-fx-text-fill: #fde047; -fx-font-size: 15px; -fx-font-weight: bold;"/>
-                </VBox>
-
-                <VBox spacing="2" HBox.hgrow="ALWAYS"
-                      style="-fx-background-color: rgba(255,255,255,0.06); -fx-border-color: rgba(56,189,248,0.3); -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 8 14;">
-                    <Label text="TỔNG SỐ PHIÊN HIỂN THỊ" style="-fx-text-fill: #94a3b8; -fx-font-size: 10px; -fx-font-weight: bold;"/>
-                    <Label fx:id="kpiTotalLabel" text="0 phiên" style="-fx-text-fill: #7dd3fc; -fx-font-size: 15px; -fx-font-weight: bold;"/>
-                </VBox>
-            </HBox>
-        </VBox>
-    </top>
+    <top><VBox spacing="18" styleClass="page-header">
+      <HBox spacing="12" alignment="CENTER_LEFT">
+        <VBox spacing="5" HBox.hgrow="ALWAYS"><Label text="KHÁM PHÁ BỘ SƯU TẬP" styleClass="eyebrow"/><Label text="Phiên đấu giá" styleClass="page-title"/></VBox>
+        <HBox spacing="6" alignment="CENTER_LEFT" styleClass="pill, success-pill"><Circle fx:id="liveHeaderDot" radius="3" fill="#267457"/><Label text="Cập nhật trực tiếp"/></HBox>
+        <Label fx:id="totalCountBadge" text="0 phiên" styleClass="pill"/>
+      </HBox>
+      <HBox spacing="12">
+        <VBox spacing="6" HBox.hgrow="ALWAYS" styleClass="metric"><Label text="ĐANG DIỄN RA" styleClass="eyebrow"/><Label fx:id="kpiLiveLabel" text="0 phiên" styleClass="metric-value"/></VBox>
+        <VBox spacing="6" HBox.hgrow="ALWAYS" styleClass="metric"><Label text="GIÁ TRỊ ĐANG HIỂN THỊ" styleClass="eyebrow"/><Label fx:id="kpiVolumeLabel" text="0 cents" styleClass="metric-value"/></VBox>
+        <VBox spacing="6" HBox.hgrow="ALWAYS" styleClass="metric"><Label text="SỐ PHIÊN TÌM THẤY" styleClass="eyebrow"/><Label fx:id="kpiTotalLabel" text="0 phiên" styleClass="metric-value"/></VBox>
+      </HBox>
+      <HBox spacing="10" alignment="CENTER_LEFT">
+        <TextField fx:id="searchField" promptText="Tìm theo tên vật phẩm hoặc mã phiên…" HBox.hgrow="ALWAYS" minWidth="100"/>
+        <ComboBox fx:id="statusFilterBox" prefWidth="140" onAction="#onFilterChanged"/>
+        <Button fx:id="toggleLayoutBtn" text="Dạng bảng" onAction="#onToggleLayout"/>
+        <Button fx:id="refreshBtn" text="Làm mới" onAction="#onRefresh" styleClass="button, primary"/>
+      </HBox>
+    </VBox></top>
 
     <!-- Khu vực danh sách thẻ / bảng -->
     <center>
-        <VBox spacing="12">
-            <padding><Insets top="14" right="20" bottom="14" left="20"/></padding>
+        <VBox spacing="16" styleClass="page-body">
+
 
             <Label fx:id="statusMessageLabel" visible="false" managed="false" wrapText="true" maxWidth="Infinity"
                    style="-fx-padding: 10 14; -fx-background-radius: 8; -fx-font-weight: bold;"/>
@@ -87,7 +52,7 @@
                 <!-- Chế độ 1: Lưới thẻ trưng bày Gala (Mặc định) -->
                 <ScrollPane fx:id="cardScrollPane" fitToWidth="true"
                             style="-fx-background-color: transparent; -fx-background: transparent;">
-                    <FlowPane fx:id="cardGridPane" hgap="16" vgap="16" prefWrapLength="800">
+                    <FlowPane fx:id="cardGridPane" hgap="16" vgap="16" prefWrapLength="800" minWidth="0">
                         <padding><Insets top="4" right="4" bottom="8" left="4"/></padding>
                     </FlowPane>
                 </ScrollPane>
@@ -108,14 +73,14 @@
             </StackPane>
 
             <HBox alignment="CENTER_RIGHT" spacing="10">
-                <Label text="Mẹo: Nhấp đúp vào thẻ vật phẩm hoặc bấm 'Vào phòng đấu giá' để lên sàn trực tiếp."
+                <Label text="Chọn vật phẩm để xem chi tiết và tham gia."
                        style="-fx-text-fill: #475569; -fx-font-size: 12px;" HBox.hgrow="ALWAYS"/>
                 <Button fx:id="cancelAuctionBtn" text="Hủy phiên đã chọn" onAction="#onCancelAuction"
                         visible="false" managed="false" prefHeight="36"
-                        style="-fx-background-color: #dc2626; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;"/>
-                <Button fx:id="openDetailBtn" text="Xem chi tiết &amp; Đặt giá →" onAction="#onOpenDetail"
+                        styleClass="button, danger"/>
+                <Button fx:id="openDetailBtn" text="Xem chi tiết →" onAction="#onOpenDetail"
                         prefHeight="36"
-                        style="-fx-background-color: #16a34a; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;"/>
+                        styleClass="button, primary"/>
             </HBox>
         </VBox>
     </center>

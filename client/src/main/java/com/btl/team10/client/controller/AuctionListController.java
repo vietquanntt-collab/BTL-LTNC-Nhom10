@@ -87,10 +87,21 @@ public final class AuctionListController {
     private Timeline cardCountdownTimeline;
     private AuctionDto selectedAuction;
     private boolean cardViewMode = true;
+    private boolean disposed;
+    private boolean initializing = true;
+    private int loadGeneration;
+    private javafx.animation.PauseTransition refreshDebounce;
+    private final java.util.function.Consumer<com.btl.team10.common.protocol.EventEnvelope> listEvents = event ->
+            Platform.runLater(() -> { if (!disposed) refreshDebounce.playFromStart(); });
+    private final java.util.function.Consumer<Boolean> reconnectListener = connected ->
+            Platform.runLater(() -> { if (connected && !disposed) loadAuctions(); });
 
     @FXML
     private void initialize() {
-        UiMotion.startLiveBlink(liveHeaderDot);
+        refreshDebounce = new javafx.animation.PauseTransition(javafx.util.Duration.millis(300));
+        refreshDebounce.setOnFinished(e -> loadAuctions());
+        NetworkClient.getInstance().addEventListener(listEvents);
+        NetworkClient.getInstance().addConnectionListener(reconnectListener);
 
         statusFilterBox.setItems(FXCollections.observableArrayList(
                 "ALL", "OPEN", "RUNNING", "FINISHED", "PAID", "CANCELLED"));
@@ -112,7 +123,7 @@ public final class AuctionListController {
         statusCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().status().name()));
         endAtCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(TIME_FMT.format(c.getValue().endAt())));
 
-        auctionTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        auctionTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         auctionTable.setPlaceholder(new Label("Không có phiên đấu giá nào khớp bộ lọc hiện tại."));
         auctionTable.setItems(visibleRows);
 
@@ -136,6 +147,7 @@ public final class AuctionListController {
             return row;
         });
 
+        initializing = false;
         startCardCountdownTimer();
         loadAuctions();
     }
@@ -169,7 +181,7 @@ public final class AuctionListController {
 
     @FXML
     private void onFilterChanged() {
-        loadAuctions();
+        if (!initializing) loadAuctions();
     }
 
     @FXML
@@ -221,12 +233,22 @@ public final class AuctionListController {
     }
 
     private void loadAuctions() {
+        if (disposed) return;
+        int generation = ++loadGeneration;
         String filter = statusFilterBox.getValue();
         refreshBtn.setDisable(true);
         Thread loader = new Thread(() -> {
             try {
                 List<AuctionDto> auctions = NetworkClient.getInstance().listAuctions(filter);
+                // Resolve names before filtering; search must work before opening a card.
+                for (AuctionDto auction : auctions) {
+                    if (!itemCache.containsKey(auction.itemId())) {
+                        var item = NetworkClient.getInstance().getAuctionDetail(auction.auctionId()).item();
+                        if (item != null) itemCache.put(auction.itemId(), item);
+                    }
+                }
                 Platform.runLater(() -> {
+                    if (disposed || generation != loadGeneration) return;
                     refreshBtn.setDisable(false);
                     allFetchedAuctions.clear();
                     allFetchedAuctions.addAll(auctions);
@@ -234,6 +256,7 @@ public final class AuctionListController {
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
+                    if (disposed || generation != loadGeneration) return;
                     refreshBtn.setDisable(false);
                     showBanner("Lỗi tải danh sách phiên: " + e.getMessage(), "#dc2626");
                 });
@@ -300,7 +323,8 @@ public final class AuctionListController {
 
     private VBox buildAuctionCard(AuctionDto auction) {
         VBox card = new VBox(10);
-        card.setPrefWidth(258);
+        card.setPrefWidth(280);
+        card.setMinWidth(280);
         card.setPadding(new Insets(14));
         card.setStyle(defaultCardStyle(false));
         card.setEffect(new DropShadow(14, Color.rgb(15, 23, 42, 0.10)));
@@ -318,7 +342,6 @@ public final class AuctionListController {
 
         if (isLive) {
             Circle liveDot = new Circle(4, Color.web("#16a34a"));
-            UiMotion.startLiveBlink(liveDot);
             statusPill.getChildren().add(liveDot);
         }
         Label statusText = new Label(isLive ? "LIVE • " + auction.status().name() : auction.status().name());
@@ -359,6 +382,8 @@ public final class AuctionListController {
 
         // Hàng 3: Tên vật phẩm & thông số khởi điểm
         Label titleLabel = new Label(cached != null ? cached.name() : "Vật phẩm #" + auction.itemId());
+        titleLabel.setWrapText(true);
+        titleLabel.setMinHeight(42);
         titleLabel.setStyle("-fx-text-fill: #0f172a; -fx-font-size: 15px; -fx-font-weight: bold;");
 
         Label subLabel = new Label("Khởi điểm: " + formatMoney(auction.startPriceCents())
@@ -374,7 +399,7 @@ public final class AuctionListController {
         HBox.setHgrow(priceBox, Priority.ALWAYS);
         Label pCap = new Label("GIÁ HIỆN TẠI");
         pCap.setStyle("-fx-text-fill: #64748b; -fx-font-size: 9px; -fx-font-weight: bold;");
-        Label pVal = new Label(formatMoney(auction.currentPriceCents()) + " c");
+        Label pVal = new Label(formatMoney(auction.currentPriceCents()) + " cents");
         pVal.setStyle("-fx-text-fill: #d97706; -fx-font-size: 15px; -fx-font-weight: bold;");
         priceBox.getChildren().addAll(pCap, pVal);
 
@@ -480,7 +505,7 @@ public final class AuctionListController {
     }
 
     private void startCardCountdownTimer() {
-        cleanup();
+        if (cardCountdownTimeline != null) cardCountdownTimeline.stop();
         cardCountdownTimeline = new Timeline(new KeyFrame(javafx.util.Duration.seconds(1), e -> {
             for (Runnable tick : cardTickers) {
                 tick.run();
@@ -491,6 +516,10 @@ public final class AuctionListController {
     }
 
     public void cleanup() {
+        disposed = true;
+        if (refreshDebounce != null) refreshDebounce.stop();
+        NetworkClient.getInstance().removeEventListener(listEvents);
+        NetworkClient.getInstance().removeConnectionListener(reconnectListener);
         if (cardCountdownTimeline != null) {
             cardCountdownTimeline.stop();
             cardCountdownTimeline = null;

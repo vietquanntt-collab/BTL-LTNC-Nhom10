@@ -95,6 +95,7 @@ public final class AuctionDetailController {
     @FXML private TextField autoBidMaxField;
     @FXML private TextField autoBidIncrementField;
     @FXML private Button setAutoBidButton;
+    @FXML private Button cancelAutoBidButton;
 
     @FXML private LineChart<String, Number> bidHistoryChart;
     @FXML private TableView<BidDto> bidHistoryTable;
@@ -120,6 +121,8 @@ public final class AuctionDetailController {
     private long displayedPriceCents = -1L;
     private boolean confettiCelebrated = false;
     private volatile long lastSequence = 0L;
+    private boolean disposed;
+    private final AtomicBoolean refreshing = new AtomicBoolean();
 
     @FXML
     private void initialize() {
@@ -133,18 +136,14 @@ public final class AuctionDetailController {
             @Override
             protected void updateItem(BidDto item, boolean empty) {
                 super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setStyle("");
-                } else if (item.status() == BidStatus.ACTIVE) {
-                    setStyle("-fx-background-color: #eafaf1; -fx-font-weight: bold;");
-                } else {
-                    setStyle("");
-                }
+                pseudoClassStateChanged(javafx.css.PseudoClass.getPseudoClass("leading"),
+                        !empty && item != null && item.status() == BidStatus.ACTIVE);
             }
         });
 
         bidHistoryTable.setPlaceholder(new Label("Chưa có lượt đặt giá nào trên sàn."));
         bidHistoryTable.setItems(bidRows);
+        bidHistoryTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         bidHistoryChart.getData().add(priceSeries);
 
         UiMotion.attachHoverLift(placeBidButton);
@@ -154,6 +153,7 @@ public final class AuctionDetailController {
 
         NetworkClient.getInstance().addEventListener(realtimeListener);
         NetworkClient.getInstance().setConnectionStateListener(connected -> Platform.runLater(() -> {
+            if (disposed) return;
             if (!connected) {
                 showBanner("Mất kết nối tới server! Đang tự động kết nối lại...", "#f39c12");
                 updateMcSpeech("MẤT TÍN HIỆU",
@@ -223,18 +223,28 @@ public final class AuctionDetailController {
     }
 
     private void refreshDetailFromServer(long auctionId) {
+        if (disposed || !refreshing.compareAndSet(false, true)) return;
         Thread loader = new Thread(() -> {
             try {
                 NetworkClient.AuctionDetailData detail = NetworkClient.getInstance().getAuctionDetail(auctionId);
                 Platform.runLater(() -> {
+                    if (disposed) return;
+                    if (currentAuction != null && detail.auction().version() < currentAuction.version()) return;
+                    if (currentAuction != null && currentAuction.status() == AuctionStatus.PAID
+                            && detail.auction().status() != AuctionStatus.PAID) return;
+                    if (currentAuction != null && currentAuction.status() == AuctionStatus.CANCELLED
+                            && detail.auction().status() != AuctionStatus.CANCELLED) return;
                     this.currentAuction = detail.auction();
                     this.currentItem = detail.item();
-                    applyAuctionState(detail.auction(), detail.item());
                     updateBidHistory(detail.bids());
+                    applyAuctionState(detail.auction(), detail.item());
+                    if (!isAuctionEnded(detail.auction())) startCountdown();
                 });
             } catch (Exception e) {
                 Platform.runLater(() ->
-                        showBanner("Không thể tải chi tiết mới nhất: " + e.getMessage(), "#e74c3c"));
+                        { if (!disposed) showBanner("Không thể tải chi tiết mới nhất: " + e.getMessage(), "#e74c3c"); });
+            } finally {
+                refreshing.set(false);
             }
         }, "auction-detail-loader");
         loader.setDaemon(true);
@@ -265,16 +275,16 @@ public final class AuctionDetailController {
         long targetPrice = auction.currentPriceCents();
         if (displayedPriceCents < 0) {
             displayedPriceCents = targetPrice;
-            currentPriceLabel.setText(targetPrice + " cents");
+            currentPriceLabel.setText(money(targetPrice));
         } else if (targetPrice != displayedPriceCents) {
             priceCounterTimeline = UiMotion.animatePriceCounter(
                     currentPriceLabel, displayedPriceCents, targetPrice, " cents", priceCounterTimeline);
             displayedPriceCents = targetPrice;
         }
 
-        minIncrementLabel.setText("+" + auction.minIncrementCents() + " cents");
+        minIncrementLabel.setText("+" + money(auction.minIncrementCents()));
         long minValid = computeMinValidBid(auction);
-        minNextBidLabel.setText(minValid + " cents");
+        minNextBidLabel.setText(money(minValid));
 
         statusBadgeLabel.setText(auction.status().name());
         boolean isClosed = isAuctionEnded(auction);
@@ -341,8 +351,9 @@ public final class AuctionDetailController {
     private void updateMcSpeech(String mood, String line, String accentHex, boolean excitedPose) {
         mcMoodLabel.setText(mood);
         mcMoodLabel.setStyle("-fx-text-fill: " + accentHex + "; -fx-font-size: 11px; -fx-font-weight: bold;");
+        mcDialogueLabel.setStyle("-fx-text-fill: #f8fafc; -fx-font-size: 13px; -fx-font-weight: bold;");
         mcTypingTimeline = UiMotion.typewriter(mcDialogueLabel, line, mcTypingTimeline);
-        mcSpeechBubble.setStyle("-fx-background-color: rgba(255, 255, 255, 0.97); -fx-padding: 12 16; "
+        mcSpeechBubble.setStyle("-fx-background-color: rgba(16, 22, 41, 0.97); -fx-padding: 12 16; "
                 + "-fx-background-radius: 14; -fx-border-color: " + accentHex + "; -fx-border-width: 2.5; -fx-border-radius: 14;");
 
         Image targetPose = excitedPose ? mcHypeSprite : mcPresentSprite;
@@ -436,10 +447,10 @@ public final class AuctionDetailController {
                 + "; -fx-text-fill: white; -fx-padding: 4 10; -fx-background-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold;");
     }
 
+    private static String money(long cents) { return String.format(java.util.Locale.US, "%,d cents", cents); }
+
     private long computeMinValidBid(AuctionDto auction) {
-        return bidRows.isEmpty() && auction.currentPriceCents() == auction.startPriceCents()
-                ? auction.startPriceCents()
-                : auction.currentPriceCents() + auction.minIncrementCents();
+        return Math.addExact(auction.currentPriceCents(), auction.minIncrementCents());
     }
 
     private boolean isAuctionEnded(AuctionDto auction) {
@@ -498,6 +509,7 @@ public final class AuctionDetailController {
                         NetworkClient.getInstance().placeBid(auctionId, amountCents, clientRequestId);
                 Platform.runLater(() -> {
                     submittingBid.set(false);
+                    if (disposed) return;
                     placeBidButton.setText("Đặt giá ngay");
                     bidAmountField.clear();
                     showBanner("Đặt giá thành công: " + result.amountCents() + " cents!", "#27ae60");
@@ -513,6 +525,7 @@ public final class AuctionDetailController {
             } catch (Exception error) {
                 Platform.runLater(() -> {
                     submittingBid.set(false);
+                    if (disposed) return;
                     placeBidButton.setText("Đặt giá ngay");
                     showBanner("Đặt giá thất bại: " + error.getMessage(), "#e74c3c");
                     UiMotion.shake(bidAmountField);
@@ -573,6 +586,7 @@ public final class AuctionDetailController {
                         NetworkClient.getInstance().setAutoBid(auctionId, maxAmountCents, incrementCents);
                 Platform.runLater(() -> {
                     submittingAutoBid.set(false);
+                    if (disposed) return;
                     setAutoBidButton.setText("Cập nhật Auto-Bid");
                     autoBidStatusLabel.setText("Đang bật • Trần: " + result.maxAmountCents()
                             + " cents | Bước: +" + result.incrementCents() + " cents");
@@ -589,6 +603,7 @@ public final class AuctionDetailController {
             } catch (Exception error) {
                 Platform.runLater(() -> {
                     submittingAutoBid.set(false);
+                    if (disposed) return;
                     setAutoBidButton.setText("Kích hoạt Auto-Bid");
                     showBanner("Cài đặt Auto-Bid thất bại: " + error.getMessage(), "#e74c3c");
                     UiMotion.shake(autoBidMaxField);
@@ -603,7 +618,7 @@ public final class AuctionDetailController {
     }
 
     private void onServerEvent(EventEnvelope event) {
-        if (currentAuction == null || event.auctionId() != currentAuction.auctionId()) {
+        if (disposed || currentAuction == null || event.auctionId() != currentAuction.auctionId()) {
             return;
         }
         if (event.eventType() != EventType.BID_REJECTED) {
@@ -614,6 +629,7 @@ public final class AuctionDetailController {
         }
 
         Platform.runLater(() -> {
+            if (disposed) return;
             JsonObject payload = parsePayload(event.payloadJson());
             switch (event.eventType()) {
                 case BID_ACCEPTED -> {
@@ -648,7 +664,7 @@ public final class AuctionDetailController {
                     long newPrice = payload.has("currentPriceCents")
                             ? payload.get("currentPriceCents").getAsLong()
                             : currentAuction.currentPriceCents();
-                    updatePriceLocally(newPrice, currentAuction.version() + 1);
+                    updatePriceLocally(newPrice, payload.has("auctionVersion") ? payload.get("auctionVersion").getAsLong() : currentAuction.version());
                     setLeadBadge("BẠN ĐÃ BỊ VƯỢT GIÁ (OUTBID)", "#e67e22");
                     showBanner("CẢNH BÁO: Bạn đã bị vượt giá (OUTBID)! Giá hiện tại là " + newPrice + " cents.", "#e67e22");
                     playStageHighlight();
@@ -677,7 +693,7 @@ public final class AuctionDetailController {
                             currentAuction.auctionId(), currentAuction.itemId(), currentAuction.startPriceCents(),
                             currentAuction.currentPriceCents(), currentAuction.minIncrementCents(),
                             currentAuction.startAt(), newEndAt, currentAuction.status(),
-                            currentAuction.version() + 1, nextExtensions,
+                            payload.has("auctionVersion") ? payload.get("auctionVersion").getAsLong() : currentAuction.version(), nextExtensions,
                             currentAuction.winnerId(), currentAuction.closedAt(), currentAuction.createdAt());
                     applyAuctionState(currentAuction, null);
                     startCountdown();
@@ -695,7 +711,7 @@ public final class AuctionDetailController {
                             currentAuction.auctionId(), currentAuction.itemId(), currentAuction.startPriceCents(),
                             currentAuction.currentPriceCents(), currentAuction.minIncrementCents(),
                             currentAuction.startAt(), currentAuction.endAt(), AuctionStatus.CANCELLED,
-                            currentAuction.version() + 1, currentAuction.extensionCount(),
+                            currentAuction.version(), currentAuction.extensionCount(),
                             null, event.occurredAt(), currentAuction.createdAt());
                     applyAuctionState(currentAuction, null);
                     stopCountdown();
@@ -713,12 +729,13 @@ public final class AuctionDetailController {
                             currentAuction.auctionId(), currentAuction.itemId(), currentAuction.startPriceCents(),
                             Math.max(currentAuction.currentPriceCents(), finalPrice), currentAuction.minIncrementCents(),
                             currentAuction.startAt(), currentAuction.endAt(), nextStatus,
-                            currentAuction.version() + 1, currentAuction.extensionCount(),
+                            currentAuction.version(), currentAuction.extensionCount(),
                             winnerId, event.occurredAt(), currentAuction.createdAt());
                     applyAuctionState(currentAuction, null);
                     playStageHighlight();
                     String winnerText = (winnerId != null) ? " Người thắng: Bidder #" + winnerId + "." : " Không có người thắng.";
                     showBanner("Phiên đấu giá đã kết thúc (" + nextStatus.name() + ")!" + winnerText, "#2c3e50");
+                    refreshDetailFromServer(currentAuction.auctionId());
                 }
                 case ERROR -> {
                     String msg = payload.has("message") ? payload.get("message").getAsString() : "Lỗi từ server.";
@@ -753,7 +770,7 @@ public final class AuctionDetailController {
             priceSeries.getData().add(new XYChart.Data<>(TIME_FMT.format(bid.bidTime()), bid.amountCents()));
         }
         if (currentAuction != null) {
-            minNextBidLabel.setText(computeMinValidBid(currentAuction) + " cents");
+            minNextBidLabel.setText(money(computeMinValidBid(currentAuction)));
             updateLeadStatusBadge();
         }
     }
@@ -783,7 +800,7 @@ public final class AuctionDetailController {
         countdownTimeline = new Timeline(new KeyFrame(javafx.util.Duration.seconds(1), e -> updateCountdownTick()));
         countdownTimeline.setCycleCount(Timeline.INDEFINITE);
         updateCountdownTick();
-        countdownTimeline.play();
+        if (countdownTimeline != null) countdownTimeline.play();
     }
 
     private void updateCountdownTick() {
@@ -793,7 +810,7 @@ public final class AuctionDetailController {
         Duration remaining = Duration.between(Instant.now(), currentAuction.endAt());
         if (remaining.isNegative() || remaining.isZero() || isAuctionEnded(currentAuction)) {
             countdownLabel.setText("00:00:00 (Đã đóng)");
-            countdownLabel.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #e74c3c;");
+            countdownLabel.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #fb7185;");
             setBidControlsEnabled(false);
             stopCountdown();
             return;
@@ -804,10 +821,10 @@ public final class AuctionDetailController {
         long seconds = totalSeconds % 60;
         countdownLabel.setText(String.format("%02d:%02d:%02d", hours, minutes, seconds));
         if (totalSeconds <= 60) {
-            countdownLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #e74c3c;");
+            countdownLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #fb7185;");
             UiMotion.pulse(countdownLabel, 1.07);
         } else {
-            countdownLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #2980b9;");
+            countdownLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #7dd3fc;");
         }
     }
 
@@ -819,13 +836,15 @@ public final class AuctionDetailController {
     }
 
     private void setBidControlsEnabled(boolean enabled) {
-        enabled = enabled && "BIDDER".equalsIgnoreCase(NetworkClient.getInstance().role());
+        enabled = enabled && NetworkClient.getInstance().isConnected()
+                && "BIDDER".equalsIgnoreCase(NetworkClient.getInstance().role());
         bidAmountField.setDisable(!enabled);
         quickFillButton.setDisable(!enabled);
-        placeBidButton.setDisable(!enabled);
+        placeBidButton.setDisable(!enabled || submittingBid.get());
         autoBidMaxField.setDisable(!enabled);
         autoBidIncrementField.setDisable(!enabled);
-        setAutoBidButton.setDisable(!enabled);
+        setAutoBidButton.setDisable(!enabled || submittingAutoBid.get());
+        cancelAutoBidButton.setDisable(!enabled || submittingAutoBid.get());
     }
 
     private void showBanner(String message, String hexColor) {
@@ -848,6 +867,7 @@ public final class AuctionDetailController {
     }
 
     public void cleanup() {
+        disposed = true;
         stopCountdown();
         stopStageFloatAnimation();
         if (mcTypingTimeline != null) {
@@ -866,5 +886,27 @@ public final class AuctionDetailController {
     private void handleBack() {
         cleanup();
         NavigationManager.getInstance().loadView("/com/btl/team10/client/view/AuctionList.fxml");
+    }
+
+    @FXML private void handleCancelAutoBid() {
+        if (currentAuction == null || !submittingAutoBid.compareAndSet(false, true)) return;
+        long id = currentAuction.auctionId();
+        setAutoBidButton.setDisable(true);
+        cancelAutoBidButton.setDisable(true);
+        Thread worker = new Thread(() -> {
+            try {
+                NetworkClient.getInstance().cancelAutoBid(id);
+                Platform.runLater(() -> { if (!disposed) {
+                    autoBidStatusLabel.setText("Đã tắt Auto-Bid");
+                    showBanner("Đã tắt đặt giá tự động cho phiên này.", "#285eaa");
+                }});
+            } catch (Exception error) {
+                Platform.runLater(() -> { if (!disposed) showBanner(error.getMessage(), "#a32836"); });
+            } finally {
+                submittingAutoBid.set(false);
+                Platform.runLater(() -> { if (!disposed) setBidControlsEnabled(!isAuctionEnded(currentAuction)); });
+            }
+        }, "auction-cancel-autobid");
+        worker.setDaemon(true); worker.start();
     }
 }

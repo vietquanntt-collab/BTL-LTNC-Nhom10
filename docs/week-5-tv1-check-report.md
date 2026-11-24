@@ -1,34 +1,12 @@
-# TV1 week 5 check report
+# TV1 tuần 5 · cập nhật tích hợp
 
-## Scope
+Cập nhật ngày 2026-11-24 trong checkout BTL-week5-check, nền develop 8af20c4, đã tích hợp giao diện PR #36 (abe5265). [Báo cáo toàn nhóm](week-5-check-report.md) và [đối chiếu hai PDF mới](requirements-review.md) là kết quả hiện tại.
 
-This report closes the TV1 week 5 deliverables on develop commit 033612a: migration/seed replay, constraints and indexes, final ERD/data dictionary and source map.
+- Có 5 migration V001–V005; V005 nâng cấp cột ảnh cho DB tuần 4, tương thích DB đầu tuần 5 đã có cột. ItemImageUpgradeTest kiểm giữ dữ liệu và upgrade lặp lại.
+- RepositoryIntegrationTest kiểm migration/seed chạy lại, rollback, constraint/index. ERD/data dictionary phản ánh unique theo phạm vi composite và schema thật.
+- Domain Entity/User/Item + subtype, Auction/BidTransaction và ItemFactory đã được tích hợp vào auth/authorization, item insert/row mapping và bid policy; 7 DomainTest kiểm hierarchy/Factory. Class diagram/ADR-004 đã cập nhật.
+- Contract dùng payloadJson; SESSION trả số dư và rebind observer khi reconnect; UPDATE ảnh thiếu field giữ ảnh, empty/null xóa. Mức bid tối thiểu luôn là currentPrice + minIncrement.
+- Source map giữ file baseline để đối chiếu; attribution và quyền ảnh cần owner cung cấp bằng chứng.
+- Build đầy đủ JDK21, Checkstyle và gate coverage qua: common 24 test/87.86%, server 66 test/81.28%, client 8 test/68.57%. Tổng 98, không failure/error/skip với -Ui.
 
-## Final database contract
-
-- SQLite is the local source of truth; every connection enables foreign keys.
-- Money is integer cents and wallets enforce 0 <= frozen_cents <= balance_cents.
-- Auction status is OPEN -> RUNNING -> FINISHED -> PAID; authorized cancellation goes to CANCELLED.
-- auctions.item_id is unique, so an item has at most one listing.
-- (auction_id, bidder_id, client_request_id) makes bid retries idempotent.
-- bid_history is append-only per auction version.
-- (auction_id, sequence) orders events; settlements.auction_id and settlements.request_id prevent repeated settlement effects.
-- schema_migrations.version controls migration replay; seed uses INSERT OR IGNORE and derived demo winner/hold values.
-
-## TV1 completion matrix
-
-| Deliverable | Evidence |
-|---|---|
-| Migration from empty DB | DatabaseInitializer, RepositoryIntegrationTest |
-| Migration replay | RepositoryIntegrationTest.migrationsSeedAndCoreRepositoriesWorkTogether |
-| Rollback on bad migration | RepositoryIntegrationTest.failedMigrationRollsBackEarlierSchemaChanges |
-| Constraints/indexes | database/migrations/*.sql, RepositoryIntegrationTest.finalSchemaExposesExpectedConstraintsAndIndexes |
-| Final ERD | docs/architecture/erd-v1.mmd |
-| Final data dictionary | database/data-dictionary.md |
-| Reuse attribution | docs/source-map.md |
-| Clean-build evidence | mvnw -B verify, .github/workflows/ci.yml |
-
-## Remaining team checks
-
-The new TV1 schema test passed with 3 tests and no failures in a writable temporary copy. OneDrive locks target output in the handoff folder, so full local verification should be run from a normal writable clone or after closing OneDrive-held build files. TV2/TV3/TV4 still run their week 5 hardening, UI rehearsal and release artifact checks. This TV1 change does not claim that the full final submission rubric is complete.
-
+Chỉ thay đổi bản local. Người dùng tự tạo nhánh, commit và push theo git-handoff.md. Không đánh dấu CI remote/review chéo/rehearsal đã xong trước khi nhóm thực hiện.

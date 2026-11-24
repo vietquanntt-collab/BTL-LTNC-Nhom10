@@ -1,5 +1,6 @@
 param(
-    [switch]$Clean
+    [switch]$Clean,
+    [switch]$Ui
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,11 +23,13 @@ try {
     $env:JAVA_HOME = Resolve-Java21Home
     # OneDrive có thể đang giữ file trong target. Vì vậy mặc định verify không
     # xóa target; dùng -Clean khi muốn dọn build output sau khi đã đóng Java/Maven.
-    if ($Clean) {
-        & $wrapper -B clean verify
-    } else {
-        & $wrapper -B verify
-    }
+    $buildArguments = @('-B')
+    if ($Clean) { $buildArguments += 'clean' }
+    # Full JavaFX coverage needs -Ui; headless package still runs JUnit/Checkstyle.
+    $buildArguments += $(if ($Ui) { 'verify' } else { 'package' })
+    if (-not $Ui) { Write-Host 'Headless package: JavaFX acceptance and coverage gate require -Ui.' }
+    if ($Ui) { $buildArguments += '-DrunUiTests=true' }
+    & $wrapper @buildArguments
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }

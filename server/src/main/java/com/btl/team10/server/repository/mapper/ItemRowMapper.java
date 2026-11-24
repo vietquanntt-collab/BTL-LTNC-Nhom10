@@ -12,7 +12,7 @@ public final class ItemRowMapper {
     }
 
     public static ItemDto map(ResultSet result) throws SQLException {
-        return new ItemDto(
+        ItemDto data = new ItemDto(
                 result.getLong("item_id"),
                 result.getLong("seller_id"),
                 result.getString("name"),
@@ -21,5 +21,6 @@ public final class ItemRowMapper {
                 result.getString("image_base64"),
                 ResultSetValues.requiredInstant(result, "created_at"),
                 ResultSetValues.requiredInstant(result, "updated_at"));
+        return com.btl.team10.server.domain.ItemFactory.from(data).toDto();
     }
 }

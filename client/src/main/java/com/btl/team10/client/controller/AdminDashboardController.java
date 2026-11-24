@@ -40,6 +40,7 @@ public final class AdminDashboardController {
 
     private final ObservableList<UserDto> userRows = FXCollections.observableArrayList();
     private final ObservableList<AuctionDto> auctionRows = FXCollections.observableArrayList();
+    private boolean disposed;
 
     @FXML
     private void initialize() {
@@ -64,6 +65,8 @@ public final class AdminDashboardController {
         auctionTable.setPlaceholder(new Label("Chưa có phiên đấu giá nào trong hệ thống."));
         userTable.setItems(userRows);
         auctionTable.setItems(auctionRows);
+        userTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        auctionTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
         auctionTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, selected) -> {
             boolean cancellable = selected != null
@@ -90,11 +93,13 @@ public final class AdminDashboardController {
             try {
                 NetworkClient.getInstance().cancelAuction(selected.auctionId());
                 Platform.runLater(() -> {
+                    if (disposed) return;
                     showBanner("Admin đã hủy phiên đấu giá #" + selected.auctionId() + ".", "#27ae60");
                     loadAllData();
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
+                    if (disposed) return;
                     showBanner("Hủy phiên thất bại: " + e.getMessage(), "#e74c3c");
                     cancelAuctionBtn.setDisable(false);
                 });
@@ -111,6 +116,7 @@ public final class AdminDashboardController {
                 List<UserDto> users = NetworkClient.getInstance().adminListUsers();
                 List<AuctionDto> auctions = NetworkClient.getInstance().listAuctions("ALL");
                 Platform.runLater(() -> {
+                    if (disposed) return;
                     refreshAllBtn.setDisable(false);
                     userRows.setAll(users);
                     auctionRows.setAll(auctions);
@@ -118,6 +124,7 @@ public final class AdminDashboardController {
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
+                    if (disposed) return;
                     refreshAllBtn.setDisable(false);
                     showBanner("Không thể tải dữ liệu quản trị: " + e.getMessage(), "#e74c3c");
                 });
@@ -139,4 +146,6 @@ public final class AdminDashboardController {
         adminFeedbackLabel.setVisible(false);
         adminFeedbackLabel.setManaged(false);
     }
+
+    public void cleanup() { disposed = true; }
 }

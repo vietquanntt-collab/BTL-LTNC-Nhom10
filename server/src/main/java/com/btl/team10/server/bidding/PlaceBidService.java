@@ -137,9 +137,7 @@ public final class PlaceBidService {
                 long currentlyFrozenForAuction = (auction.winnerId != null && auction.winnerId == bidderId)
                         ? auction.currentPriceCents : 0L;
                 long available = wallet.balanceCents() - wallet.frozenCents() + currentlyFrozenForAuction;
-                long minRequired = auction.winnerId == null
-                        ? auction.startPriceCents
-                        : auction.currentPriceCents + auction.minIncrementCents;
+                long minRequired = auction.rules().minimumBidCents();
                 if (available < Math.min(maxAmountCents, minRequired)) {
                     connection.rollback();
                     return ResponseEnvelope.failure(requestId, "SET_AUTO_BID",
@@ -169,7 +167,7 @@ public final class PlaceBidService {
                 connection.commit();
                 publishAll(pendingEvents);
                 return response;
-            } catch (SQLException e) {
+            } catch (SQLException | RuntimeException e) {
                 connection.rollback();
                 throw e;
             } finally {
@@ -220,9 +218,7 @@ public final class PlaceBidService {
                     return reject(requestId, auctionId, bidderId, ErrorCode.FORBIDDEN, "Seller cannot bid on own auction");
                 }
 
-                long minRequired = auction.winnerId == null
-                        ? auction.startPriceCents
-                        : auction.currentPriceCents + auction.minIncrementCents;
+                long minRequired = auction.rules().minimumBidCents();
                 if (amountCents < minRequired) {
                     connection.rollback();
                     return reject(requestId, auctionId, bidderId, ErrorCode.BID_TOO_LOW,
@@ -264,7 +260,7 @@ public final class PlaceBidService {
                 connection.commit();
                 publishAll(pendingEvents);
                 return response;
-            } catch (SQLException e) {
+            } catch (SQLException | RuntimeException e) {
                 connection.rollback();
                 throw e;
             } finally {
@@ -390,7 +386,7 @@ public final class PlaceBidService {
                     .thenComparing(AutoBidRuleDto::registeredAt)
                     .thenComparingLong(AutoBidRuleDto::ruleId);
 
-            List<AutoBidRuleDto> eligible = new ArrayList<>();
+            java.util.PriorityQueue<AutoBidRuleDto> eligible = new java.util.PriorityQueue<>(rulePriority);
             for (AutoBidRuleDto rule : activeRules) {
                 if (rule.bidderId() == auction.sellerId) {
                     continue;
@@ -413,8 +409,7 @@ public final class PlaceBidService {
                 return;
             }
 
-            eligible.sort(rulePriority);
-            AutoBidRuleDto topRule = eligible.get(0);
+            AutoBidRuleDto topRule = eligible.remove();
             long minNext = requiredNextBidForRule(auction, topRule);
 
             AutoBidRuleDto bestCompetitor = null;
@@ -424,8 +419,8 @@ public final class PlaceBidService {
                     bestCompetitor = leaderRule.get();
                 }
             }
-            if (eligible.size() > 1) {
-                AutoBidRuleDto secondEligible = eligible.get(1);
+            if (!eligible.isEmpty()) {
+                AutoBidRuleDto secondEligible = eligible.peek();
                 if (bestCompetitor == null || rulePriority.compare(secondEligible, bestCompetitor) < 0) {
                     bestCompetitor = secondEligible;
                 }
@@ -462,11 +457,8 @@ public final class PlaceBidService {
     }
 
     private long requiredNextBidForRule(AuctionState auction, AutoBidRuleDto rule) {
-        if (auction.winnerId == null) {
-            return auction.startPriceCents;
-        }
         long effectiveIncrement = Math.max(auction.minIncrementCents, rule.incrementCents());
-        return auction.currentPriceCents + effectiveIncrement;
+        return Math.addExact(auction.currentPriceCents, effectiveIncrement);
     }
 
     private void recordBalanceChanged(long auctionId, WalletDto wallet, String nowIso,
@@ -691,7 +683,13 @@ public final class PlaceBidService {
             int extensionCount,
             Long winnerId,
             long sellerId
-    ) {}
+    ) {
+        com.btl.team10.server.domain.Auction rules() {
+            return new com.btl.team10.server.domain.Auction(auctionId,
+                    com.btl.team10.common.model.AuctionStatus.valueOf(status),
+                    Instant.parse(startAt), Instant.parse(endAt), currentPriceCents, minIncrementCents);
+        }
+    }
 
     private record PendingEvent(Long targetUserId, EventType type, long auctionId, long sequence, String payloadJson) {
         static PendingEvent toAll(EventType type, long auctionId, long sequence, String payloadJson) {

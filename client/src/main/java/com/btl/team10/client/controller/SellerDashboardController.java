@@ -58,6 +58,7 @@ public final class SellerDashboardController {
 
     private final ObservableList<ItemDto> itemRows = FXCollections.observableArrayList();
     private String selectedImageBase64;
+    private boolean disposed;
 
     @FXML
     private void initialize() {
@@ -73,6 +74,7 @@ public final class SellerDashboardController {
         itemDescCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().description()));
 
         itemTable.setItems(itemRows);
+        itemTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         itemTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, selected) -> {
             boolean hasSelection = selected != null;
             updateItemBtn.setDisable(!hasSelection);
@@ -97,7 +99,7 @@ public final class SellerDashboardController {
 
     @FXML
     private void onPresetEuro() {
-        applyPreset("euro_trophy", "Cúp Vô Địch UEFA Euro", "OTHER",
+        applyPreset("euro_trophy", "Cúp Vô Địch UEFA Euro", "FIGURE",
                 "Phiên bản trưng bày mạ bạc khắc biểu tượng Giải vô địch bóng đá châu Âu UEFA.");
     }
 
@@ -173,6 +175,7 @@ public final class SellerDashboardController {
 
     @FXML
     private void onClearForm() {
+        auctionItemIdField.clear();
         itemTable.getSelectionModel().clearSelection();
         itemNameField.clear();
         itemTypeField.clear();
@@ -196,6 +199,7 @@ public final class SellerDashboardController {
             try {
                 long newItemId = NetworkClient.getInstance().createItem(name, type, desc, imagePayload);
                 Platform.runLater(() -> {
+                    if (disposed) return;
                     createItemBtn.setDisable(false);
                     auctionItemIdField.setText(String.valueOf(newItemId));
                     showSuccess("Đã tạo vật phẩm mới thành công (ID #" + newItemId + ").");
@@ -203,6 +207,7 @@ public final class SellerDashboardController {
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
+                    if (disposed) return;
                     createItemBtn.setDisable(false);
                     showError("Tạo vật phẩm thất bại: " + e.getMessage());
                 });
@@ -225,17 +230,20 @@ public final class SellerDashboardController {
             showError("Tên vật phẩm và phân loại không được để trống.");
             return;
         }
+        String imagePayload = selectedImageBase64 == null ? "" : selectedImageBase64;
         updateItemBtn.setDisable(true);
         Thread thread = new Thread(() -> {
             try {
-                NetworkClient.getInstance().updateItem(selected.itemId(), name, type, desc);
+                NetworkClient.getInstance().updateItem(selected.itemId(), name, type, desc, imagePayload);
                 Platform.runLater(() -> {
+                    if (disposed) return;
                     updateItemBtn.setDisable(false);
                     showSuccess("Đã cập nhật thông tin vật phẩm #" + selected.itemId() + ".");
                     loadItems();
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
+                    if (disposed) return;
                     updateItemBtn.setDisable(false);
                     showError("Cập nhật vật phẩm thất bại: " + e.getMessage());
                 });
@@ -256,12 +264,14 @@ public final class SellerDashboardController {
             try {
                 NetworkClient.getInstance().deleteItem(selected.itemId());
                 Platform.runLater(() -> {
+                    if (disposed) return;
                     onClearForm();
                     showSuccess("Đã xóa vật phẩm #" + selected.itemId() + ".");
                     loadItems();
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
+                    if (disposed) return;
                     deleteItemBtn.setDisable(false);
                     showError("Xóa vật phẩm thất bại: " + e.getMessage());
                 });
@@ -287,8 +297,8 @@ public final class SellerDashboardController {
             return;
         }
 
-        if (startPrice <= 0 || minIncrement <= 0 || durationHours <= 0) {
-            showError("Giá khởi điểm, bước giá và thời lượng phải lớn hơn 0.");
+        if (itemId <= 0 || startPrice < 0 || minIncrement <= 0 || durationHours < 1 || durationHours > 720) {
+            showError("ID và bước giá phải dương; giá khởi điểm không âm; thời lượng từ 1 đến 720 giờ.");
             return;
         }
 
@@ -298,12 +308,14 @@ public final class SellerDashboardController {
                 long auctionId = NetworkClient.getInstance()
                         .createAuction(itemId, startPrice, minIncrement, durationHours);
                 Platform.runLater(() -> {
+                    if (disposed) return;
                     createAuctionBtn.setDisable(false);
                     showSuccess("Đã mở phiên đấu giá #" + auctionId + " thành công!");
                     NavigationManager.getInstance().loadView("/com/btl/team10/client/view/AuctionList.fxml");
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
+                    if (disposed) return;
                     createAuctionBtn.setDisable(false);
                     showError("Mở phiên đấu giá thất bại: " + e.getMessage());
                 });
@@ -317,9 +329,9 @@ public final class SellerDashboardController {
         Thread loader = new Thread(() -> {
             try {
                 List<ItemDto> items = NetworkClient.getInstance().listItems();
-                Platform.runLater(() -> itemRows.setAll(items));
+                Platform.runLater(() -> { if (!disposed) itemRows.setAll(items); });
             } catch (Exception e) {
-                Platform.runLater(() -> showError("Không thể tải danh sách vật phẩm: " + e.getMessage()));
+                Platform.runLater(() -> { if (!disposed) showError("Không thể tải danh sách vật phẩm: " + e.getMessage()); });
             }
         }, "seller-list-items");
         loader.setDaemon(true);
@@ -344,4 +356,6 @@ public final class SellerDashboardController {
         feedbackLabel.setVisible(false);
         feedbackLabel.setManaged(false);
     }
+
+    public void cleanup() { disposed = true; }
 }

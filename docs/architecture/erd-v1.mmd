@@ -31,6 +31,8 @@ erDiagram
         TEXT description
         TEXT item_type
         TEXT image_base64
+        TEXT created_at
+        TEXT updated_at
     }
     AUCTIONS {
         INTEGER auction_id PK
@@ -45,6 +47,7 @@ erDiagram
         INTEGER extension_count
         INTEGER winner_id FK
         TEXT closed_at
+        TEXT created_at
     }
     BIDS {
         INTEGER bid_id PK
@@ -53,16 +56,19 @@ erDiagram
         INTEGER amount_cents
         TEXT bid_time
         TEXT status
-        TEXT client_request_id UK
+        TEXT client_request_id "unique with auction_id and bidder_id"
     }
     BID_HISTORY {
         INTEGER history_id PK
-        INTEGER bid_id FK
+        INTEGER bid_id FK,UK
         INTEGER auction_id FK
         INTEGER bidder_id FK
-        INTEGER auction_version UK
+        INTEGER auction_version "unique with auction_id"
         INTEGER amount_cents
+        TEXT bid_time
         TEXT status
+        TEXT client_request_id
+        TEXT recorded_at
     }
     AUTO_BID_RULES {
         INTEGER rule_id PK
@@ -70,6 +76,7 @@ erDiagram
         INTEGER bidder_id FK
         INTEGER max_amount_cents
         INTEGER increment_cents
+        TEXT registered_at
         INTEGER active
     }
     SETTLEMENTS {
@@ -84,7 +91,7 @@ erDiagram
     AUCTION_EVENTS {
         INTEGER event_id PK
         INTEGER auction_id FK
-        INTEGER sequence UK
+        INTEGER sequence "unique with auction_id"
         TEXT event_type
         TEXT payload_json
         TEXT occurred_at
@@ -95,4 +102,3 @@ erDiagram
         TEXT response_json
         TEXT created_at
     }
-

@@ -29,3 +29,9 @@ data/*.sqlite3
 # OS
 Thumbs.db
 Desktop.ini
+
+# SQLite sidecars and locally assembled release
+*.db-wal
+*.db-shm
+*.db-journal
+release-bundle/
