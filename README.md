@@ -180,4 +180,4 @@ java -jar client/target/client.jar
 - [Protocol thực tế](docs/contracts/protocol-v1.md)
 - [Quyết định kiến trúc bản bàn giao](docs/adr/ADR-004-release-contract.md)
 - [Class diagram](docs/architecture/class-diagram.mmd), [ERD](docs/architecture/erd-v1.mmd), [data dictionary](database/data-dictionary.md)
-- [Source map và các mục cần chủ sở hữu xác nhận](docs/source-map.md)
+- [Bản đồ mã nguồn và phân công kiểm tra](docs/source-map.md)

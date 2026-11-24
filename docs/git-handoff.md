@@ -120,7 +120,7 @@ Chạy java -jar server/target/server.jar và java -jar client/target/client.jar
 
 1. Mở PR feature/week5-check vào develop. Đợi GitHub Actions Windows/Linux xanh và review chéo các thay đổi.
 2. Cả nhóm chạy checklist local-testing.md; TV3 nghiệm thu giao diện/DPI; TV1 kiểm DB/số dư; TV2 kiểm auth/socket; TV4 kiểm CI/artifact và rehearsal.
-3. Bổ sung nguồn tham khảo/ảnh, báo cáo/slide và đóng góp thực tế theo source-map.md và requirements-review.md.
+3. Hoàn thiện báo cáo/slide, ghi đóng góp thực tế và rà soát phạm vi chức năng theo source-map.md và requirements-review.md.
 4. Khi nghiệm thu xong, nhóm tự merge PR vào develop, đợi CI của develop rồi mở PR develop vào main.
 
 Nếu develop có thay đổi mới sau mốc đã review, tích hợp và test lại trên nhánh feature trước PR. Không reset/force-push develop hoặc main.
