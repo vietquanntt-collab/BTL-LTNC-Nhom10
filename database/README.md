@@ -1,61 +1,35 @@
-# Database local
+# SQLite local và nâng cấp dữ liệu
 
-## Week 5 release checklist
+Server tự chạy DatabaseInitializer trước khi nhận kết nối; không cần cài SQLite CLI hoặc DB cloud. Mỗi kết nối bật foreign_keys, tiền dùng integer cents và thời gian ISO-8601 UTC.
 
-TV1's final database evidence is in:
+Có **5 migration** được ghi trong schema_migrations, theo thứ tự tên file:
 
-- `docs/architecture/erd-v1.mmd`
-- `database/data-dictionary.md`
-- `docs/source-map.md`
-- `docs/week-5-tv1-check-report.md`
+1. V001__core_schema.sql: users, wallets, items, auctions, bids.
+2. V002__advanced_schema.sql: auto_bid_rules, settlements, auction_events, request_receipts.
+3. V003__bid_history.sql: audit lịch sử bid và index.
+4. V004__week4_settlement_request.sql: request idempotency cho settlement.
+5. V005__item_images.sql: thêm image_base64 cho database cũ.
 
-The release check starts from a new SQLite file, applies all four migrations, applies the seed twice and verifies that `schema_migrations` has exactly four rows and demo counts do not duplicate.
+Tên migration là định danh đã áp dụng, nên giữ nguyên tên V004 dù có chữ week4. Không đổi tên/xóa migration cũ. Các file chức năng Java/CSS/FXML có tên dùng lâu dài.
 
-SQLite là đường chạy mặc định của repository đích. Chạy migration theo thứ tự:
+Một số bản develop đầu tuần 5 đã thêm image_base64 trực tiếp vào V001. DatabaseInitializer kiểm tra cột trước V005: nếu đã có cột thì chỉ ghi nhận migration, nếu chưa thì ALTER TABLE. Cả database tuần 4 và database đầu tuần 5 đều nâng cấp được, không xóa dữ liệu. ItemImageUpgradeTest tái hiện database cũ và kiểm tra chạy lại an toàn.
 
-1. `migrations/V001__core_schema.sql`
-2. `migrations/V002__advanced_schema.sql`
-3. `migrations/V003__bid_history.sql`
-4. `migrations/V004__week4_settlement_request.sql` (settlement request idempotency; migration identifier)
-5. `seed/V001__demo_seed.sql`
+Chạy từ thư mục gốc có database/migrations:
 
-Ví dụ với SQLite CLI:
+~~~powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .scripts
+un-server.ps1
+~~~
 
-```bash
-sqlite3 data/auction.db < database/migrations/V001__core_schema.sql
-sqlite3 data/auction.db < database/migrations/V002__advanced_schema.sql
-sqlite3 data/auction.db < database/migrations/V003__bid_history.sql
-sqlite3 data/auction.db < database/migrations/V004__week4_settlement_request.sql
-sqlite3 data/auction.db < database/seed/V001__demo_seed.sql
-```
+Database mặc định data/auction.db. Để thử một database mới mà giữ dữ liệu cũ:
 
-Ứng dụng server phải bật foreign key cho từng connection:
+~~~powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .scripts
+un-server.ps1 -Port 10000 -DatabasePath data/test-fresh.db
+~~~
 
-```sql
-PRAGMA foreign_keys = ON;
-```
+Seed chứa 4 tài khoản demo trong README. Seed dùng INSERT OR IGNORE và chỉ khởi tạo giá phiên mẫu khi version=0; test kiểm tra chạy migration/seed lại không nhân bản dữ liệu. Seed demo không phải công cụ phục hồi dữ liệu đã bị sửa/xóa thủ công. Không dùng seed cho dữ liệu production.
 
-Các migration V001–V003 có thể chạy lại an toàn nhờ `CREATE TABLE IF NOT EXISTS`,
-còn V004 dùng `ALTER TABLE` và phải được chạy qua `DatabaseInitializer` để
-`schema_migrations` ngăn chạy lặp. Nếu dùng SQLite CLI thủ công, chỉ chạy V004
-một lần trên database đã có V001–V003. Seed demo nên chạy một lần trên DB sạch.
-Không commit file `*.db`; thư mục `data/` chỉ là runtime.
+Ảnh item: Base64 tối đa 512 KiB. UPDATE_ITEM thiếu imageBase64 thì giữ ảnh cũ; chuỗi rỗng hoặc null thì xóa ảnh. Vật phẩm đã có auction không được sửa/xóa. Kiểm thử NetworkClientTest đi qua route thật để kiểm tra thay/giữ/xóa ảnh.
 
-`V003__bid_history.sql` bổ sung lịch sử các bid đã được chấp nhận theo phiên bản
-optimistic của auction. Server tự chạy migration theo thứ tự tên file, vì vậy
-không cần chạy thủ công khi dùng `DatabaseInitializer`.
-
-Migration `V004__week4_settlement_request.sql` bổ sung khóa request của settlement và index
-để retry cùng một yêu cầu chỉ đọc lại kết quả đã ghi. Migration cũng gán khóa ổn
-định cho các settlement cũ nếu database đã tồn tại từ tuần 3.
-
-## Tài khoản demo local
-
-| Account | Password | Role | Balance |
-|---|---|---|---:|
-| `admin` | `admin123` | ADMIN | 0 |
-| `seller` | `seller123` | SELLER | 0 |
-| `bidder1` | `bidder123` | BIDDER | 2,000,000 cents |
-| `bidder2` | `bidder123` | BIDDER | 2,000,000 cents |
-
-Password trong seed là PBKDF2-HMAC-SHA256 có salt riêng cho từng tài khoản. Đây là dữ liệu demo local, không phải credential production.
+Không commit data/*.db, WAL/SHM, cache hoặc target/. Xem [data dictionary](data-dictionary.md), [ERD](../docs/architecture/erd-v1.mmd) và [báo cáo bàn giao](../docs/week-5-check-report.md).

@@ -1,65 +1,142 @@
 classDiagram
+    class Entity {
+      <<abstract>>
+      -long id
+      +getId() long
+      +printInfo()* String
+    }
     class User {
       <<abstract>>
-      +long id
-      +String account
-      +Role role
+      -String account
+      +getRole()* Role
+      +canBid() boolean
+      +canCreateItem() boolean
+      +canManage(ownerId)* boolean
     }
     class Bidder
     class Seller
     class Admin
+    class Item {
+      <<abstract>>
+      -long sellerId
+      -String name
+      +getType()* ItemType
+      +getCategoryLabel()* String
+      +toDto() ItemDto
+    }
+    class Card
+    class Figure
+    class Poster
+    class Auction {
+      -AuctionStatus status
+      +minimumBidCents() long
+      +isAcceptingBids(now) boolean
+    }
+    class BidTransaction {
+      +toDto() BidDto
+    }
+    class ItemFactory {
+      <<abstract>>
+      +forType(type)$ ItemFactory
+      +createDraft(command) Item
+      +restore(dto) Item
+      #createItem()* Item
+    }
+    class CardFactory
+    class FigureFactory
+    class PosterFactory
+    Entity <|-- User
     User <|-- Bidder
     User <|-- Seller
     User <|-- Admin
-
-    class Item {
-      <<abstract>>
-      +long id
-      +long sellerId
-      +ItemType type
-      +String name
-      +String description
-    }
-    class Figure
-    class Poster
-    class Card
+    Entity <|-- Item
+    Item <|-- Card
     Item <|-- Figure
     Item <|-- Poster
-    Item <|-- Card
-
-    class Auction {
-      +long id
-      +long itemId
-      +AuctionStatus status
-      +long startPriceCents
-      +long currentPriceCents
-      +long minIncrementCents
-      +long version
-      +int extensionCount
+    Entity <|-- Auction
+    Entity <|-- BidTransaction
+    ItemFactory <|-- CardFactory
+    ItemFactory <|-- FigureFactory
+    ItemFactory <|-- PosterFactory
+    CardFactory ..> Card : creates
+    FigureFactory ..> Figure : creates
+    PosterFactory ..> Poster : creates
+    class UserDto {
+      <<record>>
     }
-    class Bid {
-      +long id
-      +long auctionId
-      +long bidderId
-      +long amountCents
-      +BidStatus status
-      +String clientRequestId
+    class ItemDto {
+      <<record>>
     }
-    class AutoBidRule {
-      +long auctionId
-      +long bidderId
-      +long maxAmountCents
-      +long incrementCents
+    class AuctionDto {
+      <<record>>
     }
-    class Settlement {
-      +long auctionId
-      +long winnerId
-      +long winningAmountCents
-      +long sellerId
+    class BidDto {
+      <<record>>
     }
-    Seller "1" --> "many" Item : owns
-    Item "1" --> "0..1" Auction : listed in
-    Auction "1" --> "many" Bid : records
-    Bidder "1" --> "many" Bid : places
-    Auction "1" --> "many" AutoBidRule : has
-    Auction "1" --> "0..1" Settlement : settles
+    class WalletDto {
+      <<record>>
+    }
+    class AutoBidRuleDto {
+      <<record>>
+    }
+    class SettlementDto {
+      <<record>>
+    }
+    class NetworkClient {
+      +getInstance()$ NetworkClient
+    }
+    class NavigationManager {
+      +getInstance()$ NavigationManager
+    }
+    class AuctionDetailController
+    class ClientHandler
+    class AuthService
+    class SessionManager
+    class PlaceBidService
+    class SettlementService
+    class AuctionExpirationScheduler
+    class ItemRepository {
+      <<interface>>
+    }
+    class JdbcItemRepository
+    class ItemRowMapper
+    class BidRowMapper
+    class WalletRepository {
+      <<interface>>
+    }
+    class JdbcWalletRepository
+    class EventPublisher
+    class AuctionEventObserver {
+      <<interface>>
+    }
+    class SocketClientObserver
+    ItemRepository <|.. JdbcItemRepository
+    WalletRepository <|.. JdbcWalletRepository
+    AuctionEventObserver <|.. SocketClientObserver
+    AuctionDetailController --> NetworkClient
+    AuctionDetailController --> NavigationManager
+    NetworkClient ..> AuctionDto
+    ClientHandler --> AuthService
+    AuthService --> SessionManager
+    AuthService ..> User : resolves subtype
+    ClientHandler ..> User : authorization policy
+    ClientHandler --> ItemRepository
+    ClientHandler --> PlaceBidService
+    ClientHandler --> SettlementService
+    JdbcItemRepository ..> ItemFactory : creates draft
+    ItemRowMapper ..> ItemFactory : restores subtype
+    BidRowMapper ..> BidTransaction
+    PlaceBidService ..> Auction : minimum bid policy
+    PlaceBidService --> WalletRepository
+    PlaceBidService --> EventPublisher
+    SettlementService --> EventPublisher
+    AuctionExpirationScheduler --> SettlementService
+    EventPublisher o-- AuctionEventObserver : observers
+    User ..> UserDto
+    Item ..> ItemDto
+    BidTransaction ..> BidDto
+    ItemDto "1" -- "0..1" AuctionDto : itemId
+    AuctionDto "1" -- "0..*" BidDto : auctionId
+    AuctionDto "1" -- "0..*" AutoBidRuleDto : auctionId
+    AuctionDto "1" -- "0..1" SettlementDto : auctionId
+    UserDto "1" -- "1" WalletDto : userId

@@ -1,5 +1,7 @@
 # ADR-003: Password, demo account và cấu hình local
 
+> Historical design. Current implemented contract and corrections: [ADR-004](ADR-004-release-contract.md).
+
 - **Status:** Accepted
 - **Date:** 2026-10-22
 - **Owner:** TV1

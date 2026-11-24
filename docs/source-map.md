@@ -1,25 +1,35 @@
-# Source map and attribution - week 5 TV1
+# Source map và attribution
 
-This file records the origin and adaptation of reusable components. The project package is com.btl.team10; source code used by the application is the code in this repository.
+Bản audit bắt đầu từ develop 8af20c4 của vietquanntt-collab/BTL-LTNC-Nhom10, đã tích hợp giao diện PR #36 (abe5265) và kiểm tra lại ngày 2026-11-24. Hai ảnh mc_present.jpg/mc_hype.jpg vẫn được giữ vì controller sử dụng; PR #36 xóa ảnh nhưng chưa bỏ các tham chiếu runtime. Các owner dưới là phân công trong kế hoạch; không tự suy ra ai đã viết từng dòng hoặc đã review. Lịch sử commit/PR của nhóm là bằng chứng tác giả cần giữ.
 
-| Area | Repository files | Origin | Adaptation in this project | Evidence |
+## Đối chiếu với baseline được cung cấp
+
+Có thư mục tham khảo BTL_Nhom8/BTL_Nhom8 tại máy audit, chứa package com.btl.n8. Đây là bản file local không có Git remote/revision ở thư mục đã kiểm tra; chưa xác minh license, quyền dùng hay dòng mã nào đã sao chép. Bảng dưới chỉ nêu nguồn đối chiếu cụ thể và thay đổi đích, không khẳng định mọi mã đích là tác phẩm mới hoặc đã được cho phép.
+
+| Khu vực | File baseline để đối chiếu (trong src/main/java/com/btl/n8/) | File đích | Thay đổi/evidence | Owner review |
 |---|---|---|---|---|
-| Build and modules | pom.xml, mvnw, common/, server/, client/ | New project structure based on the team plan | Multi-module Java 21 build and module boundaries | mvnw -B verify |
-| Shared contract | common/src/main/java/com/btl/team10/common/ | New contract informed by the team protocol | Immutable records, validation, JSON envelopes, versioned enums and error codes | common contract tests |
-| Core schema | database/migrations/V001__core_schema.sql | Adapted local auction schema | SQLite constraints, foreign keys, integer cents, version and state fields | RepositoryIntegrationTest |
-| Advanced schema | V002 and V004 migrations | Adapted week 4 data design | Auto-Bid, settlement, event sequence, receipt and settlement request idempotency | repository and socket tests |
-| Bid history | V003__bid_history.sql | New week 3 audit layer | Append-only history keyed by auction version and request id | BidAuditLogTest |
-| Server persistence | server/src/main/java/.../repository/ | JDBC repository boundary | Prepared statements, transactions, optimistic wallet updates and row mappers | repository integration tests |
-| Server policy | server/src/main/java/.../bidding/ | New server-side policy layer | Auto-Bid, Anti-Snipe, scheduler, settlement and event ordering outside client | policy and e2e tests |
-| Client | client/src/main/java and resources | Adapted JavaFX auction UI | Network-only client, role dashboards, loading/error/reconnect states | client compile and runbook |
-| Test/release | server/src/test, .github/workflows, scripts | New regression and release checks | Socket management tests, clean verify, JDK 21 detection and local scripts | CI and build.ps1 |
+| User/session | Service/UserService.java, Network/ServerSessionManager.java | server/.../session/AuthService.java, SessionManager.java | PBKDF2, session token, role server; SessionManagerTest, ManagementSocketIntegrationTest | TV2 |
+| Item/repository | Connection/ItemDAO.java, ItemDAOImpl.java, Model/Mapper/ItemMapper.java | server/.../repository/ItemRepository.java, JdbcItemRepository.java, mapper/ItemRowMapper.java | SQLite local, prepared statement, ownership, ảnh, khóa item đã list; repository/socket/client tests | TV1 + TV2 |
+| Bid/concurrency | Service/BidService.java | server/.../bidding/PlaceBidService.java | integer cents, transaction/version, frozen wallet, receipt/history; ConcurrencyBidTest, BidAuditLogTest | TV2 + TV4 |
+| Advanced | Controller/AutoBidManager.java, Service/AutoBidService.java, Network/SettlementHandler.java | server/.../bidding/, repository/ | policy server, AntiSnipePolicy, settlement idempotency; AutoBidTest, AntiSnipeAndSchedulerTest, SettlementAndEventOrderTest | TV2 + TV4 |
+| Domain design | Model/Entity/User.java, Item.java, Model/Factory/ItemFactory.java | server/.../domain/ | Entity/User/Item hierarchy, Auction, BidTransaction và Factory Method đã được tích hợp; DomainTest và regression DB/socket kiểm chứng. | TV1 |
+| Network/UI | Network/ClientHandler.java, RequestHandler.java, các controller/FXML baseline | client/.../service/NetworkClient.java, controller/, resources/ | protocol v1 payloadJson, UI qua socket, lifecycle/role; NetworkClientTest, ClientUiTest | TV2 + TV3 |
+| Build/test | pom.xml, src/test/java/com/btl/n8/Service/*Test.java | root/common/server/client POM, tests, .github/workflows/ci.yml | Java21 multimodule, regression DB/socket/UI và native JAR; clean verify | TV4 |
 
-No production credential, runtime database, target output or generated cache is part of the source map. If external source is retained, add permission and attribution details before submission.
+## Thay đổi trong đợt bàn giao
 
-## Week 5 owner review
+- Migration V005 và DatabaseInitializer xử lý database trước/sau khi có cột ảnh. ItemImageUpgradeTest là regression mới cho đường nâng cấp.
+- ClientHandler/JdbcItemRepository/NetworkClient lưu, giữ hoặc xóa ảnh đúng contract. SESSION rebind ví khi reconnect; server socket và client tests kiểm chứng.
+- CSS, FXML và LoginController được chỉnh trong bản audit; giữ tài nguyên sân khấu do develop cung cấp. Điều chỉnh lifecycle, countdown đóng phiên, Auto-Bid off, tìm kiếm tên và đóng gói client.
+- Regression client dùng server dependency scope=test, không đưa server vào client production.
+- Các tài liệu/sơ đồ cập nhật theo hai PDF mới; domain hierarchy/Factory, Checkstyle và JaCoCo có code/test thực tế.
 
-- TV1 owns common, database, docs/architecture and contract portions of docs.
-- TV2 reviews transaction and authorization effects of schema changes.
-- TV4 reviews migration, constraint tests and CI evidence.
-- Any breaking protocol or schema change requires an ADR and a versioned adapter.
+## Việc nhóm phải xác nhận trước nộp
 
+| Tài nguyên | Trạng thái xác minh | Cần bổ sung |
+|---|---|---|
+| Baseline Nhóm 8 | Có bản local đối chiếu; chưa có URL/revision/license được xác minh | Owner ghi URL, commit/tag, permission/license, file giữ/adapt/rewrite/drop và reviewer thực sự |
+| client/.../images/login_bg.png, stage_bg.jpg, mc_*.jpg, pedestal.jpg, euro_trophy.jpg, ballon_dor.jpg, messi_goat.jpg | Có trong develop; nguồn/quyền dùng chưa được xác nhận qua repository | TV3 ghi nguồn, tác giả, license/quyền sử dụng và sửa đổi |
+| Nội dung README/report/slide | Tài liệu kỹ thuật đã chỉnh theo code, chưa xác minh quy trình trích dẫn bài nộp | Cả nhóm kiểm quy định môn học và ghi nguồn tham khảo phù hợp |
+
+Không đánh dấu các hàng này hoàn tất chỉ vì test xanh. Quyền sử dụng/attribution cần thông tin từ chủ sở hữu hoặc bằng chứng có thể xác minh; audit không tự tạo sự đồng ý. Không chứa production credential hay DB runtime trong bản source bàn giao.

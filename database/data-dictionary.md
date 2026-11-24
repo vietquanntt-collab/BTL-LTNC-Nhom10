@@ -27,7 +27,7 @@ The schema is applied in filename order by DatabaseInitializer. Migration filena
 | Object | Protection |
 |---|---|
 | `users.account` UNIQUE COLLATE NOCASE | Prevents duplicate accounts with different case |
-| `auctions.item_id` UNIQUE | Prevents two active listings for one item |
+| `auctions.item_id` UNIQUE | Prevents a second listing for one item, including after a closed listing |
 | `bids(auction_id, bidder_id, client_request_id)` UNIQUE | Makes a bidder retry idempotent |
 | `auto_bid_rules(auction_id, bidder_id)` UNIQUE | One rule per bidder and auction |
 | `settlements.auction_id` UNIQUE | One settlement per auction |
@@ -46,12 +46,12 @@ All foreign keys are enabled per SQLite connection. Money, wallet, status, item 
 
 | From | Event/condition | To |
 |---|---|---|
-| `OPEN` | start time reached | `RUNNING` |
-| `RUNNING` | end time reached | `FINISHED` |
+| `OPEN` | first accepted bid inside start/end window | `RUNNING` |
+| `OPEN`/`RUNNING` | end time reached | `FINISHED` |
 | `FINISHED` | settlement transaction committed | `PAID` |
 | `OPEN`/`RUNNING` | authorized cancellation | `CANCELLED` |
 
-No code may place a bid unless the auction is `RUNNING`. No code may settle an auction that is already `PAID` or has a row in `settlements`.
+PlaceBidService accepts OPEN/RUNNING inside the start/end window and sets RUNNING on accepted bid. Settlement retry returns the recorded result without another payment. See ADR-004 for the implemented contract.
 
 ## Integrity checks required in repository tests
 
@@ -68,3 +68,7 @@ minimum increment, conditionally updates `current_price_cents` and `version`,
 inserts the bid, and appends `bid_history` in one transaction. A stale version
 returns a conflict and a repeated `(auction_id, bidder_id, client_request_id)`
 returns the original result without inserting a second bid.
+
+## Item images (V005)
+
+image_base64 is optional Base64, at most 512 KiB decoded at the socket boundary. V005 upgrades old databases while preserving existing rows. UPDATE_ITEM without the field preserves it; empty/null clears it. See ItemImageUpgradeTest and NetworkClientTest.
