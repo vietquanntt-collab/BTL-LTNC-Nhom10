@@ -13,8 +13,14 @@ public interface ItemRepository {
 
     List<ItemDto> findBySeller(long sellerId) throws SQLException;
 
-    boolean update(long itemId, long sellerId, String name, String description, ItemType itemType)
-            throws SQLException;
+    default boolean update(long itemId, long sellerId, String name, String description, ItemType itemType)
+            throws SQLException {
+        return update(itemId, sellerId, name, description, itemType,
+                findById(itemId).map(ItemDto::imageBase64).orElse(null));
+    }
+
+    boolean update(long itemId, long sellerId, String name, String description, ItemType itemType,
+                   String imageBase64) throws SQLException;
 
     boolean delete(long itemId, long sellerId) throws SQLException;
 

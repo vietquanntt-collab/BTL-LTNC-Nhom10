@@ -58,17 +58,18 @@ public final class JdbcItemRepository implements ItemRepository {
         if (command == null) {
             throw new ValidationException("command", "must not be null");
         }
+        var item = com.btl.team10.server.domain.ItemFactory.forType(command.itemType()).createDraft(command);
         try (PreparedStatement statement = connection.prepareStatement(
                 "INSERT INTO items(seller_id, name, description, item_type, image_base64) VALUES (?, ?, ?, ?, ?)",
                 Statement.RETURN_GENERATED_KEYS)) {
-            statement.setLong(1, command.sellerId());
-            statement.setString(2, command.name().trim());
-            statement.setString(3, command.description());
-            statement.setString(4, command.itemType().name());
-            if (command.imageBase64() == null || command.imageBase64().isBlank()) {
+            statement.setLong(1, item.getSellerId());
+            statement.setString(2, item.getName());
+            statement.setString(3, item.getDescription());
+            statement.setString(4, item.getType().name());
+            if (item.getImageBase64() == null || item.getImageBase64().isBlank()) {
                 statement.setNull(5, java.sql.Types.VARCHAR);
             } else {
-                statement.setString(5, command.imageBase64());
+                statement.setString(5, item.getImageBase64());
             }
             statement.executeUpdate();
             try (ResultSet keys = statement.getGeneratedKeys()) {
@@ -82,7 +83,7 @@ public final class JdbcItemRepository implements ItemRepository {
 
     @Override
     public synchronized boolean update(long itemId, long sellerId, String name,
-                                       String description, ItemType itemType) throws SQLException {
+                                       String description, ItemType itemType, String imageBase64) throws SQLException {
         requirePositive(itemId, "itemId");
         requirePositive(sellerId, "sellerId");
         if (name == null || name.isBlank() || name.trim().length() > 200) {
@@ -92,15 +93,16 @@ public final class JdbcItemRepository implements ItemRepository {
             throw new ValidationException("itemType", "must not be null");
         }
         try (PreparedStatement statement = connection.prepareStatement(
-                "UPDATE items SET name = ?, description = ?, item_type = ?,"
+                "UPDATE items SET name = ?, description = ?, item_type = ?, image_base64 = ?,"
                         + " updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
                         + " WHERE item_id = ? AND seller_id = ?"
                         + " AND NOT EXISTS (SELECT 1 FROM auctions WHERE auctions.item_id = items.item_id)")) {
             statement.setString(1, name.trim());
             statement.setString(2, description == null ? "" : description.trim());
             statement.setString(3, itemType.name());
-            statement.setLong(4, itemId);
-            statement.setLong(5, sellerId);
+            statement.setString(4, imageBase64);
+            statement.setLong(5, itemId);
+            statement.setLong(6, sellerId);
             return statement.executeUpdate() == 1;
         }
     }

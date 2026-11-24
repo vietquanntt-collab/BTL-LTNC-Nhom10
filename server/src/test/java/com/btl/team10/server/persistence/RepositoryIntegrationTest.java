@@ -36,7 +36,7 @@ class RepositoryIntegrationTest {
             DatabaseInitializer.initialize(connection, databaseRoot, true);
             DatabaseInitializer.initialize(connection, databaseRoot, true);
 
-            assertEquals(4, count(connection, "schema_migrations"));
+            assertEquals(5, count(connection, "schema_migrations"));
             assertEquals(4, count(connection, "users"));
             assertEquals(4, count(connection, "wallets"));
             assertEquals(1, count(connection, "items"));
@@ -91,7 +91,7 @@ class RepositoryIntegrationTest {
     void finalSchemaExposesExpectedConstraintsAndIndexes() throws Exception {
         try (Connection connection = DatabaseConnectionFactory.open("jdbc:sqlite::memory:")) {
             DatabaseInitializer.initialize(connection, databaseRoot(), false);
-            assertEquals(4, count(connection, "schema_migrations"));
+            assertEquals(5, count(connection, "schema_migrations"));
 
             assertTrue(indexHasColumn(connection, "users", "account"));
             assertTrue(indexHasColumn(connection, "auctions", "item_id"));

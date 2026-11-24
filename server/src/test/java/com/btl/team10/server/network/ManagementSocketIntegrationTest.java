@@ -196,7 +196,7 @@ class ManagementSocketIntegrationTest {
             long id = createAuction(seller, sellerToken, createItem(seller, sellerToken, "Cancel"));
             assertTrue(bidder.send("SET_AUTO_BID", bidderToken, object("auctionId", id,
                     "maxAmountCents", 2000, "incrementCents", 100)).ok());
-            assertEquals(1000, scalarLong("SELECT frozen_cents FROM wallets WHERE user_id = 3"));
+            assertEquals(1100, scalarLong("SELECT frozen_cents FROM wallets WHERE user_id = 3"));
             assertEquals(ErrorCode.FORBIDDEN, other.send("CANCEL_AUCTION", otherToken,
                     object("auctionId", id)).errorCode());
             assertEquals(ErrorCode.FORBIDDEN, bidder.send("CANCEL_AUCTION", bidderToken,
@@ -232,7 +232,7 @@ class ManagementSocketIntegrationTest {
             String bidderToken = bidder.login("bidder1", "bidder123");
             long emptyId = createAuction(seller, sellerToken, createItem(seller, sellerToken, "No bid"));
             long wonId = createAuction(seller, sellerToken, createItem(seller, sellerToken, "Retry"));
-            assertTrue(bidder.send("PLACE_BID", bidderToken, object("auctionId", wonId, "amountCents", 1000)).ok());
+            assertTrue(bidder.send("PLACE_BID", bidderToken, object("auctionId", wonId, "amountCents", 1100)).ok());
             AuctionExpirationScheduler scheduler = new AuctionExpirationScheduler(connection,
                     new EventPublisher(), server.databaseLock(), settlements);
             synchronized (server.databaseLock()) {
@@ -249,13 +249,13 @@ class ManagementSocketIntegrationTest {
                 assertEquals(0, scalarLong("SELECT COUNT(*) FROM auction_events WHERE auction_id = " + wonId
                         + " AND event_type = 'AUCTION_SETTLED'"));
                 try (var sql = connection.createStatement()) {
-                    sql.executeUpdate("UPDATE wallets SET frozen_cents = 1000 WHERE user_id = 3");
+                    sql.executeUpdate("UPDATE wallets SET frozen_cents = 1100 WHERE user_id = 3");
                 }
                 scheduler.closeExpiredAuctions();
                 scheduler.closeExpiredAuctions();
                 assertEquals("PAID", scalarString("SELECT status FROM auctions WHERE auction_id = " + wonId));
-                assertEquals(1999000, scalarLong("SELECT balance_cents FROM wallets WHERE user_id = 3"));
-                assertEquals(1000, scalarLong("SELECT balance_cents FROM wallets WHERE user_id = 2"));
+                assertEquals(1998900, scalarLong("SELECT balance_cents FROM wallets WHERE user_id = 3"));
+                assertEquals(1100, scalarLong("SELECT balance_cents FROM wallets WHERE user_id = 2"));
                 assertEquals(1, scalarLong("SELECT COUNT(*) FROM auction_events WHERE auction_id = " + wonId
                         + " AND event_type = 'AUCTION_SETTLED'"));
             }
@@ -278,6 +278,23 @@ class ManagementSocketIntegrationTest {
             assertTrue(peer.send("LOGOUT", token, object()).ok());
             assertEquals(ErrorCode.AUTHENTICATION_FAILED, peer.send("LIST_ITEMS", token, object()).errorCode());
             assertTrue(peer.send("LOGIN", null, object("account", "seller", "password", "seller123")).ok());
+        }
+    }
+
+    @Test
+    void sessionResumeRefreshesWalletAndRebindsTargetedEvents() throws Exception {
+        String token;
+        try (Peer original = new Peer()) { token = original.login("bidder2", "bidder123"); }
+        try (Peer resumed = new Peer(); Peer bidder = new Peer()) {
+            var wallet = resumed.send("SESSION", token, object());
+            assertTrue(wallet.ok());
+            assertEquals(110000, payload(wallet).get("frozenCents").getAsLong());
+            assertEquals(2000000, payload(wallet).get("balanceCents").getAsLong());
+            assertEquals(ErrorCode.AUTHENTICATION_FAILED, resumed.send("SESSION", "expired-token", object()).errorCode());
+            String bidderToken = bidder.login("bidder1", "bidder123");
+            assertTrue(bidder.send("PLACE_BID", bidderToken, object("auctionId", 1, "amountCents", 115000)).ok());
+            var event = resumed.readEvent(EventType.BALANCE_CHANGED);
+            assertEquals(0, JsonParser.parseString(event.payloadJson()).getAsJsonObject().get("frozenCents").getAsLong());
         }
     }
 
@@ -392,4 +409,3 @@ class ManagementSocketIntegrationTest {
         }
     }
 }
-

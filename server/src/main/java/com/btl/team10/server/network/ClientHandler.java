@@ -181,6 +181,7 @@ public final class ClientHandler implements Runnable {
                 case "REGISTER" -> register(request, payload);
                 case "LOGIN" -> login(request, payload);
                 case "LOGOUT" -> logout(request);
+                case "SESSION" -> sessionInfo(request);
                 case "LIST_AUCTIONS" -> listAuctions(request, payload);
                 case "GET_AUCTION" -> getAuction(request, payload);
                 case "CREATE_ITEM" -> createItem(request, payload);
@@ -216,6 +217,16 @@ public final class ClientHandler implements Runnable {
         result.addProperty("serverTime", Instant.now().toString());
         result.addProperty("activeConnections", activeConnectionsSupplier.getAsInt());
         result.addProperty("openAuctions", auctionRepository.findActiveAuctions().size());
+        return success(request, request.sessionId(), result.toString());
+    }
+
+    private String sessionInfo(RequestEnvelope request) throws SQLException {
+        var session = requireSession(request, null);
+        var user = authService.findUser(session.userId()).orElseThrow(
+                () -> new RequestFailure(ErrorCode.AUTHENTICATION_FAILED, "Session expired; please log in again"));
+        JsonObject result = new JsonObject();
+        result.addProperty("balanceCents", user.balanceCents());
+        result.addProperty("frozenCents", user.frozenCents());
         return success(request, request.sessionId(), result.toString());
     }
 
@@ -294,6 +305,7 @@ public final class ClientHandler implements Runnable {
         JsonObject result = new JsonObject();
         result.add("auction", JsonParser.parseString(JsonCodec.toJson(auction)));
         result.add("item", JsonParser.parseString(JsonCodec.toJson(item)));
+        result.addProperty("categoryLabel", com.btl.team10.server.domain.ItemFactory.from(item).getCategoryLabel());
         if (placeBidService != null) {
             result.add("bids", JsonParser.parseString(JsonCodec.toJson(
                     placeBidService.listBidsByAuction(auctionId))));
@@ -308,7 +320,7 @@ public final class ClientHandler implements Runnable {
         CreateItemCommand command = new CreateItemCommand(
                 session.userId(), requiredString(payload, "name"), optionalString(payload, "description"),
                 itemType(requiredString(payload, "itemType")),
-                optionalString(payload, "imageBase64"));
+                itemImage(payload));
         JsonObject result = new JsonObject();
         result.addProperty("itemId", itemRepository.insert(command));
         return success(request, request.sessionId(), result.toString());
@@ -326,7 +338,7 @@ public final class ClientHandler implements Runnable {
         }
         var item = itemRepository.findById(positiveLong(payload, "itemId")).orElseThrow(
                 () -> new RequestFailure(ErrorCode.NOT_FOUND, "Item does not exist"));
-        if (!"ADMIN".equals(session.role()) && item.sellerId() != session.userId()) {
+        if (!domainUser(session).canManage(item.sellerId())) {
             throw new RequestFailure(ErrorCode.FORBIDDEN, "Seller does not own this item");
         }
         return item;
@@ -338,7 +350,8 @@ public final class ClientHandler implements Runnable {
         String description = payload.has("description") ? optionalString(payload, "description") : item.description();
         ItemType type = payload.has("itemType")
                 ? itemType(requiredString(payload, "itemType")) : item.itemType();
-        if (!itemRepository.update(item.itemId(), item.sellerId(), name, description, type)) {
+        String image = payload.has("imageBase64") ? itemImage(payload) : item.imageBase64();
+        if (!itemRepository.update(item.itemId(), item.sellerId(), name, description, type, image)) {
             throw new RequestFailure(ErrorCode.CONFLICT, "Items linked to an auction cannot be edited");
         }
         return success(request, request.sessionId(), "{}");
@@ -481,10 +494,22 @@ public final class ClientHandler implements Runnable {
         if (clientObserver != null) {
             clientObserver.bindUser(session.userId());
         }
-        if (role != null && !role.equalsIgnoreCase(session.role())) {
+        var user = domainUser(session);
+        boolean authorized = role == null || switch (role.toUpperCase(Locale.ROOT)) {
+            case "BIDDER" -> user.canBid();
+            case "SELLER" -> user.canCreateItem();
+            case "ADMIN" -> user.getRole() == com.btl.team10.common.model.Role.ADMIN;
+            default -> false;
+        };
+        if (!authorized) {
             throw new RequestFailure(ErrorCode.FORBIDDEN, "Role " + role + " is required");
         }
         return session;
+    }
+
+    private static com.btl.team10.server.domain.User domainUser(SessionManager.UserSession session) {
+        return com.btl.team10.server.domain.User.of(session.userId(), session.account(),
+                com.btl.team10.common.model.Role.valueOf(session.role()));
     }
 
     private String handlePipe(String line) {
@@ -571,6 +596,24 @@ public final class ClientHandler implements Runnable {
             throw new RequestFailure(ErrorCode.VALIDATION_ERROR, "password must not be blank");
         }
         return password;
+    }
+
+    private static String itemImage(JsonObject payload) {
+        String image = optionalString(payload, "imageBase64");
+        if (image == null || image.isBlank()) {
+            return null;
+        }
+        if (image.length() > 699052) {
+            throw new RequestFailure(ErrorCode.VALIDATION_ERROR, "Image must be at most 512 KB");
+        }
+        try {
+            if (java.util.Base64.getDecoder().decode(image).length > 512 * 1024) {
+                throw new IllegalArgumentException();
+            }
+        } catch (IllegalArgumentException error) {
+            throw new RequestFailure(ErrorCode.VALIDATION_ERROR, "Image must be valid Base64, at most 512 KB");
+        }
+        return image;
     }
 
     private static ItemType itemType(String value) {

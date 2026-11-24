@@ -75,15 +75,32 @@ class PlaceBidServiceTest {
             }
         });
 
-        ResponseEnvelope r1 = placeBidService.placeBid("req-1", "s1", 2L, 100L, 100_000L);
+        ResponseEnvelope r1 = placeBidService.placeBid("req-1", "s1", 2L, 100L, 110_000L);
         assertTrue(r1.ok());
-        assertEquals(100_000L, getFrozenCents(2L));
+        assertEquals(110_000L, getFrozenCents(2L));
 
         ResponseEnvelope r2 = placeBidService.placeBid("req-2", "s2", 3L, 100L, 120_000L);
         assertTrue(r2.ok());
         assertEquals(0L, getFrozenCents(2L));
         assertEquals(120_000L, getFrozenCents(3L));
         assertTrue(bidder1Events.stream().anyMatch(e -> e.contains("\"OUTBID\"")));
+    }
+
+    @Test
+    void firstBidMustExceedCurrentPriceByAtLeastOneFullIncrement() throws Exception {
+        for (long amount : new long[] {100_000L, 109_999L}) {
+            ResponseEnvelope rejected = placeBidService.placeBid(
+                    "first-low-" + amount, "s1", 2L, 100L, amount);
+            assertFalse(rejected.ok());
+            assertEquals(ErrorCode.BID_TOO_LOW, rejected.errorCode());
+            assertEquals(100_000L, getCurrentPrice(100L));
+            assertEquals(0L, getFrozenCents(2L));
+        }
+        ResponseEnvelope accepted = placeBidService.placeBid(
+                "first-minimum", "s1", 2L, 100L, 110_000L);
+        assertTrue(accepted.ok());
+        assertEquals(110_000L, getCurrentPrice(100L));
+        assertEquals(110_000L, getFrozenCents(2L));
     }
 
     @Test
@@ -126,13 +143,13 @@ class PlaceBidServiceTest {
             }
         });
 
-        // Bidder 1 sets auto-bid up to 200,000 with increment 10,000 -> immediately bids startPrice 100,000
+        // Bidder 1 sets auto-bid up to 200,000 with increment 10,000 -> immediately bids startPrice + increment = 110,000
         ResponseEnvelope rule1 = placeBidService.configureAutoBid(
                 "req-auto-1", "s1", 2L, 100L, 200_000L, 10_000L, true);
         assertTrue(rule1.ok());
-        assertEquals(100_000L, getCurrentPrice(100L));
+        assertEquals(110_000L, getCurrentPrice(100L));
         assertEquals(2L, getWinnerId(100L));
-        assertEquals(100_000L, getFrozenCents(2L));
+        assertEquals(110_000L, getFrozenCents(2L));
 
         // Bidder 2 manually bids 120,000 -> Bidder 1 automatically counters to 130,000
         ResponseEnvelope manual = placeBidService.placeBid("req-manual-2", "s2", 3L, 100L, 120_000L);
@@ -177,20 +194,20 @@ class PlaceBidServiceTest {
         }
 
         // 1st bid in window -> extended by 20s (extension_count = 1)
-        assertTrue(strictAntiSnipeService.placeBid("req-snipe-1", "s1", 2L, 100L, 100_000L).ok());
+        assertTrue(strictAntiSnipeService.placeBid("req-snipe-1", "s1", 2L, 100L, 110_000L).ok());
         Instant afterFirst = getEndAt(100L);
         assertEquals(nearEnd.plusSeconds(20), afterFirst);
         assertEquals(1, getExtensionCount(100L));
         assertTrue(broadcastEvents.stream().anyMatch(e -> e.contains("\"AUCTION_EXTENDED\"")));
 
         // 2nd bid in window -> extended by 20s (extension_count = 2 == maxExtensions)
-        assertTrue(strictAntiSnipeService.placeBid("req-snipe-2", "s2", 3L, 100L, 110_000L).ok());
+        assertTrue(strictAntiSnipeService.placeBid("req-snipe-2", "s2", 3L, 100L, 120_000L).ok());
         Instant afterSecond = getEndAt(100L);
         assertEquals(nearEnd.plusSeconds(40), afterSecond);
         assertEquals(2, getExtensionCount(100L));
 
         // 3rd bid -> maxExtensions reached, end_at must NOT extend further
-        assertTrue(strictAntiSnipeService.placeBid("req-snipe-3", "s1", 2L, 100L, 120_000L).ok());
+        assertTrue(strictAntiSnipeService.placeBid("req-snipe-3", "s1", 2L, 100L, 130_000L).ok());
         assertEquals(afterSecond, getEndAt(100L));
         assertEquals(2, getExtensionCount(100L));
     }

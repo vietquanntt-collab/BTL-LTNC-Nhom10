@@ -12,13 +12,13 @@ public final class BidRowMapper {
     }
 
     public static BidDto map(ResultSet result) throws SQLException {
-        return new BidDto(
+        return new com.btl.team10.server.domain.BidTransaction(new BidDto(
                 result.getLong("bid_id"),
                 result.getLong("auction_id"),
                 result.getLong("bidder_id"),
                 result.getLong("amount_cents"),
                 ResultSetValues.requiredInstant(result, "bid_time"),
                 ResultSetValues.requiredEnum(result, "status", BidStatus.class),
-                result.getString("client_request_id"));
+                result.getString("client_request_id"))).toDto();
     }
 }
