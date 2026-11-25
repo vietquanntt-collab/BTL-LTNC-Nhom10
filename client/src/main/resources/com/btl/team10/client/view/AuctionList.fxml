@@ -2,7 +2,6 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
-<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TableColumn?>
@@ -11,7 +10,7 @@
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.shape.Circle?>
@@ -20,68 +19,96 @@
             fx:controller="com.btl.team10.client.controller.AuctionListController"
             stylesheets="@../styles/app.css">
 
-    <!-- Thanh tiêu đề Khán phòng Gala -->
-    <top><VBox spacing="18" styleClass="page-header">
-      <HBox spacing="12" alignment="CENTER_LEFT">
-        <VBox spacing="5" HBox.hgrow="ALWAYS"><Label text="KHÁM PHÁ BỘ SƯU TẬP" styleClass="eyebrow"/><Label text="Phiên đấu giá" styleClass="page-title"/></VBox>
-        <HBox spacing="6" alignment="CENTER_LEFT" styleClass="pill, success-pill"><Circle fx:id="liveHeaderDot" radius="3" fill="#267457"/><Label text="Cập nhật trực tiếp"/></HBox>
-        <Label fx:id="totalCountBadge" text="0 phiên" styleClass="pill"/>
-      </HBox>
-      <HBox spacing="12">
-        <VBox spacing="6" HBox.hgrow="ALWAYS" styleClass="metric"><Label text="ĐANG DIỄN RA" styleClass="eyebrow"/><Label fx:id="kpiLiveLabel" text="0 phiên" styleClass="metric-value"/></VBox>
-        <VBox spacing="6" HBox.hgrow="ALWAYS" styleClass="metric"><Label text="GIÁ TRỊ ĐANG HIỂN THỊ" styleClass="eyebrow"/><Label fx:id="kpiVolumeLabel" text="0 cents" styleClass="metric-value"/></VBox>
-        <VBox spacing="6" HBox.hgrow="ALWAYS" styleClass="metric"><Label text="SỐ PHIÊN TÌM THẤY" styleClass="eyebrow"/><Label fx:id="kpiTotalLabel" text="0 phiên" styleClass="metric-value"/></VBox>
-      </HBox>
-      <HBox spacing="10" alignment="CENTER_LEFT">
-        <TextField fx:id="searchField" promptText="Tìm theo tên vật phẩm hoặc mã phiên…" HBox.hgrow="ALWAYS" minWidth="100"/>
-        <ComboBox fx:id="statusFilterBox" prefWidth="140" onAction="#onFilterChanged"/>
-        <Button fx:id="toggleLayoutBtn" text="Dạng bảng" onAction="#onToggleLayout"/>
-        <Button fx:id="refreshBtn" text="Làm mới" onAction="#onRefresh" styleClass="button, primary"/>
-      </HBox>
-    </VBox></top>
+    <!-- Header: Tiêu đề + Tìm kiếm + Hàng Filter Pills + Dải Live Gala Ticker -->
+    <top>
+        <VBox spacing="12" styleClass="page-header">
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label text="Phiên đấu giá" styleClass="page-title"/>
+                <HBox spacing="6" alignment="CENTER_LEFT" styleClass="pill, success-pill">
+                    <Circle fx:id="liveHeaderDot" radius="3.5" fill="#16a34a"/>
+                    <Label text="Trực tiếp" style="-fx-text-fill: #15803d; -fx-font-size: 11px;"/>
+                </HBox>
+                <Label fx:id="totalCountBadge" text="0 phiên" styleClass="muted"
+                       style="-fx-font-size: 12.5px; -fx-font-weight: bold;"/>
+            </HBox>
 
-    <!-- Khu vực danh sách thẻ / bảng -->
-    <center>
-        <VBox spacing="16" styleClass="page-body">
-
-
-            <Label fx:id="statusMessageLabel" visible="false" managed="false" wrapText="true" maxWidth="Infinity"
-                   style="-fx-padding: 10 14; -fx-background-radius: 8; -fx-font-weight: bold;"/>
-
-            <StackPane VBox.vgrow="ALWAYS">
-                <!-- Chế độ 1: Lưới thẻ trưng bày Gala (Mặc định) -->
-                <ScrollPane fx:id="cardScrollPane" fitToWidth="true"
-                            style="-fx-background-color: transparent; -fx-background: transparent;">
-                    <FlowPane fx:id="cardGridPane" hgap="16" vgap="16" prefWrapLength="800" minWidth="0">
-                        <padding><Insets top="4" right="4" bottom="8" left="4"/></padding>
-                    </FlowPane>
-                </ScrollPane>
-
-                <!-- Chế độ 2: Bảng chi tiết (ẩn mặc định, bật bằng nút 'Dạng bảng') -->
-                <TableView fx:id="auctionTable" visible="false" managed="false"
-                           style="-fx-background-radius: 10; -fx-border-color: #cbd5e1; -fx-border-radius: 10;">
-                    <columns>
-                        <TableColumn fx:id="idCol" text="ID Phiên" prefWidth="80"/>
-                        <TableColumn fx:id="itemCol" text="Vật phẩm" prefWidth="150"/>
-                        <TableColumn fx:id="startPriceCol" text="Giá khởi điểm" prefWidth="120"/>
-                        <TableColumn fx:id="currentPriceCol" text="Giá hiện tại" prefWidth="120"/>
-                        <TableColumn fx:id="incrementCol" text="Bước giá" prefWidth="105"/>
-                        <TableColumn fx:id="statusCol" text="Trạng thái" prefWidth="115"/>
-                        <TableColumn fx:id="endAtCol" text="Thời điểm kết thúc" prefWidth="165"/>
-                    </columns>
-                </TableView>
-            </StackPane>
-
-            <HBox alignment="CENTER_RIGHT" spacing="10">
-                <Label text="Chọn vật phẩm để xem chi tiết và tham gia."
-                       style="-fx-text-fill: #475569; -fx-font-size: 12px;" HBox.hgrow="ALWAYS"/>
-                <Button fx:id="cancelAuctionBtn" text="Hủy phiên đã chọn" onAction="#onCancelAuction"
-                        visible="false" managed="false" prefHeight="36"
-                        styleClass="button, danger"/>
-                <Button fx:id="openDetailBtn" text="Xem chi tiết →" onAction="#onOpenDetail"
-                        prefHeight="36"
+            <!-- Thanh tìm kiếm & chuyển chế độ -->
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <TextField fx:id="searchField" promptText="Tìm tên vật phẩm hoặc mã phiên..."
+                           HBox.hgrow="ALWAYS" minWidth="120"/>
+                <Button fx:id="toggleLayoutBtn" text="Dạng bảng" onAction="#onToggleLayout"
+                        styleClass="button, ghost-btn"/>
+                <Button fx:id="refreshBtn" text="Làm mới" onAction="#onRefresh"
                         styleClass="button, primary"/>
             </HBox>
+
+            <!-- Hàng nút lọc nhanh dạng Chip (Filter Pills) -->
+            <FlowPane fx:id="filterChipsPane" hgap="8" vgap="8">
+                <Button fx:id="chipAllBtn" text="Tất cả (0)" onAction="#onSelectFilterAll"
+                        styleClass="button, filter-chip, filter-chip-active"/>
+                <Button fx:id="chipLiveBtn" text="Đang diễn ra (0)" onAction="#onSelectFilterLive"
+                        styleClass="button, filter-chip"/>
+                <Button fx:id="chipOpenBtn" text="Sắp mở (0)" onAction="#onSelectFilterOpen"
+                        styleClass="button, filter-chip"/>
+                <Button fx:id="chipEndedBtn" text="Đã kết thúc (0)" onAction="#onSelectFilterEnded"
+                        styleClass="button, filter-chip"/>
+            </FlowPane>
+
+            <!-- Dải thông báo sự kiện trực tiếp (Live Gala Ticker) -->
+            <HBox alignment="CENTER_LEFT" spacing="10"
+                  style="-fx-background-color: #fdf2f8; -fx-border-color: #fbcfe8; -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 6 12;">
+                <Label text="LIVE GALA"
+                       style="-fx-background-color: #db2777; -fx-text-fill: white; -fx-padding: 2 8; -fx-background-radius: 6; -fx-font-size: 10px; -fx-font-weight: bold;"/>
+                <Pane fx:id="tickerViewport" HBox.hgrow="ALWAYS" prefHeight="20" minHeight="20" maxHeight="20" minWidth="0">
+                    <Label fx:id="liveTickerLabel"
+                           text="Chào mừng đến với sàn đấu giá Plushie Gala • Theo dõi biến động giá trực tiếp!"
+                           style="-fx-text-fill: #831843; -fx-font-size: 12px; -fx-font-weight: bold;"/>
+                </Pane>
+            </HBox>
         </VBox>
+    </top>
+
+    <!-- Nội dung chính có lớp họa tiết nền mờ 5% -->
+    <center>
+        <StackPane fx:id="hallCenterStack" style="-fx-background-color: #fff5f8;">
+            <!-- Lớp họa tiết nền chìm siêu nhẹ -->
+            <Pane fx:id="hallPatternPane" minWidth="0" minHeight="0" prefWidth="0" prefHeight="0" mouseTransparent="true"/>
+
+            <VBox spacing="14" styleClass="page-body">
+                <Label fx:id="statusMessageLabel" visible="false" managed="false" wrapText="true" maxWidth="Infinity"
+                       style="-fx-padding: 10 14; -fx-background-radius: 8; -fx-font-weight: bold;"/>
+
+                <StackPane VBox.vgrow="ALWAYS">
+                    <ScrollPane fx:id="cardScrollPane" fitToWidth="true"
+                                style="-fx-background-color: transparent; -fx-background: transparent;">
+                        <FlowPane fx:id="cardGridPane" hgap="20" vgap="20" prefWrapLength="840" minWidth="0">
+                            <padding><Insets top="2" right="2" bottom="10" left="2"/></padding>
+                        </FlowPane>
+                    </ScrollPane>
+
+                    <TableView fx:id="auctionTable" visible="false" managed="false">
+                        <columns>
+                            <TableColumn fx:id="idCol" text="ID" prefWidth="75"/>
+                            <TableColumn fx:id="itemCol" text="Vật phẩm" prefWidth="170"/>
+                            <TableColumn fx:id="startPriceCol" text="Khởi điểm" prefWidth="115"/>
+                            <TableColumn fx:id="currentPriceCol" text="Giá hiện tại" prefWidth="115"/>
+                            <TableColumn fx:id="incrementCol" text="Bước giá" prefWidth="100"/>
+                            <TableColumn fx:id="statusCol" text="Trạng thái" prefWidth="110"/>
+                            <TableColumn fx:id="endAtCol" text="Kết thúc" prefWidth="160"/>
+                        </columns>
+                    </TableView>
+                </StackPane>
+
+                <!-- Thanh hành động đáy (chỉ hiện ở Dạng bảng hoặc cho Seller/Admin hủy phiên) -->
+                <HBox fx:id="bottomActionBar" alignment="CENTER_RIGHT" spacing="10" visible="false" managed="false">
+                    <Label text="Nhấp đúp vào dòng bất kỳ để mở phòng đấu giá."
+                           styleClass="muted" style="-fx-font-size: 12px;" HBox.hgrow="ALWAYS"/>
+                    <Button fx:id="cancelAuctionBtn" text="Hủy phiên đã chọn" onAction="#onCancelAuction"
+                            visible="false" managed="false" prefHeight="34" styleClass="button, danger"/>
+                    <Button fx:id="openDetailBtn" text="Xem chi tiết →" onAction="#onOpenDetail"
+                            prefHeight="34" styleClass="button, primary"/>
+                </HBox>
+            </VBox>
+        </StackPane>
     </center>
 </BorderPane>

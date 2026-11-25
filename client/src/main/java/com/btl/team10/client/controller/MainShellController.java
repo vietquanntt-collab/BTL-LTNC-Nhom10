@@ -165,10 +165,10 @@ public class MainShellController {
         for (Button button : new Button[]{navAuctionsBtn, navSellerBtn, navAdminBtn}) {
             boolean active = button == selected;
             button.pseudoClassStateChanged(javafx.css.PseudoClass.getPseudoClass("active"), active);
-            button.setStyle("-fx-background-color: " + (active ? "#302c26" : "transparent")
-                    + "; -fx-text-fill: " + (active ? "#fde047" : "#cbd5e1")
-                    + "; -fx-border-color: " + (active ? "#facc15" : "transparent")
-                    + "; -fx-border-width: 0 0 0 3; -fx-background-radius: 7; -fx-padding: 0 12;"
+            button.setStyle("-fx-background-color: " + (active ? "rgba(244,114,182,0.24)" : "transparent")
+                    + "; -fx-text-fill: " + (active ? "#ffffff" : "#f9a8d4")
+                    + "; -fx-border-color: " + (active ? "#f472b6" : "transparent")
+                    + "; -fx-border-width: 0 0 0 3; -fx-background-radius: 8; -fx-padding: 0 12;"
                     + " -fx-font-size: 12.5px; -fx-font-weight: bold; -fx-cursor: hand;");
         }
     }

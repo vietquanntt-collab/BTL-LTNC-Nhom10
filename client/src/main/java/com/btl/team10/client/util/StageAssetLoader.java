@@ -16,8 +16,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Tải tài nguyên hình ảnh cho sân khấu 2D, hỗ trợ cả file bị lặp đuôi (.jpg.jpg),
- * tự động tách cả nền đen và nền trắng viền ngoài, đồng thời tự khớp hình minh họa vật phẩm.
+ * Tải tài nguyên hình ảnh cho sân khấu 2D, hỗ trợ tự động tách nền đen/trắng
+ * viền ngoài và tự khớp hình minh họa vật phẩm đấu giá.
  */
 public final class StageAssetLoader {
 
@@ -80,9 +80,10 @@ public final class StageAssetLoader {
         }
     }
 
+    /** Chỉ ánh xạ các vật phẩm dùng để đấu giá (không dùng item_1..item_5 của sảnh đăng nhập). */
     public static Image resolveItemStageImage(ItemDto item) {
         if (item == null) {
-            return loadCutoutSprite("euro_trophy");
+            return loadCutoutSprite("pink_panther");
         }
         Image uploaded = decodeAndCutoutBase64(item.imageBase64());
         if (uploaded != null) {
@@ -92,6 +93,15 @@ public final class StageAssetLoader {
         String text = ((item.name() == null ? "" : item.name()) + " "
                 + (item.description() == null ? "" : item.description())).toLowerCase(Locale.ROOT);
 
+        if (text.contains("báo hồng") || text.contains("panther") || text.contains("pink panther")) {
+            return loadCutoutSprite("pink_panther");
+        }
+        if (text.contains("doraemon hồng") || text.contains("pink doraemon") || text.contains("ôm tim")) {
+            return loadCutoutSprite("doraemon_pink");
+        }
+        if (text.contains("doraemon") || text.contains("mèo máy")) {
+            return loadCutoutSprite("doraemon_blue");
+        }
         if (text.contains("bóng vàng") || text.contains("ballon") || text.contains("fifa") || text.contains("quả bóng")) {
             return loadCutoutSprite("ballon_dor");
         }
@@ -104,12 +114,12 @@ public final class StageAssetLoader {
 
         ItemType type = item.itemType();
         if (type == ItemType.FIGURE) {
-            return loadCutoutSprite("ballon_dor");
+            return loadCutoutSprite("doraemon_pink");
         }
         if (type == ItemType.POSTER) {
-            return loadCutoutSprite("messi_goat");
+            return loadCutoutSprite("doraemon_blue");
         }
-        return loadCutoutSprite("euro_trophy");
+        return loadCutoutSprite("pink_panther");
     }
 
     private static byte[] readResourceBytes(String baseName) {
@@ -173,10 +183,18 @@ public final class StageAssetLoader {
                 byte type = bgType[idx];
                 int x = idx % width;
                 int y = idx / width;
-                if (x > 0) tryEnqueueNeighbor(x - 1, y, width, type, argb, bgType, queue);
-                if (x + 1 < width) tryEnqueueNeighbor(x + 1, y, width, type, argb, bgType, queue);
-                if (y > 0) tryEnqueueNeighbor(x, y - 1, width, type, argb, bgType, queue);
-                if (y + 1 < height) tryEnqueueNeighbor(x, y + 1, width, type, argb, bgType, queue);
+                if (x > 0) {
+                    tryEnqueueNeighbor(x - 1, y, width, type, argb, bgType, queue);
+                }
+                if (x + 1 < width) {
+                    tryEnqueueNeighbor(x + 1, y, width, type, argb, bgType, queue);
+                }
+                if (y > 0) {
+                    tryEnqueueNeighbor(x, y - 1, width, type, argb, bgType, queue);
+                }
+                if (y + 1 < height) {
+                    tryEnqueueNeighbor(x, y + 1, width, type, argb, bgType, queue);
+                }
             }
 
             for (int i = 0; i < total; i++) {
@@ -228,10 +246,18 @@ public final class StageAssetLoader {
             for (int x = 0; x < width; x++) {
                 int alpha = (argb[y * width + x] >>> 24) & 0xFF;
                 if (alpha > 12) {
-                    if (x < minX) minX = x;
-                    if (x > maxX) maxX = x;
-                    if (y < minY) minY = y;
-                    if (y > maxY) maxY = y;
+                    if (x < minX) {
+                        minX = x;
+                    }
+                    if (x > maxX) {
+                        maxX = x;
+                    }
+                    if (y < minY) {
+                        minY = y;
+                    }
+                    if (y > maxY) {
+                        maxY = y;
+                    }
                 }
             }
         }
@@ -252,7 +278,8 @@ public final class StageAssetLoader {
         return output;
     }
 
-    private static void tryEnqueueBorder(int x, int y, int width, int[] argb, byte[] bgType, ArrayDeque<Integer> queue) {
+    private static void tryEnqueueBorder(
+            int x, int y, int width, int[] argb, byte[] bgType, ArrayDeque<Integer> queue) {
         int idx = y * width + x;
         if (bgType[idx] != BG_NONE) {
             return;
