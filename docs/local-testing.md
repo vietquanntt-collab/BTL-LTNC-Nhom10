@@ -45,7 +45,7 @@ Các ô dưới để nhóm tự tick sau khi thao tác trên máy của mình, 
 | Kiểm tra | Thao tác và kết quả cần thấy | Người kiểm tra |
 |---|---|---|
 | [ ] Đăng nhập/đăng ký | Mật khẩu sai báo lỗi, xác nhận mật khẩu sai không gửi; tài khoản mới là BIDDER ví 0; không có menu Seller/Admin. | TV2 + TV3 |
-| [ ] Seller CRUD | Chọn preset Cúp Euro, tạo được FIGURE có ảnh; sửa tên, đổi ảnh, bỏ ảnh; tải lại đúng. Xóa được vật phẩm chưa có auction. | TV1 + TV3 |
+| [ ] Seller CRUD | Chọn preset Báo Hồng (hoặc Doraemon Hồng / Doraemon Xanh), tạo được FIGURE có ảnh; sửa tên, đổi ảnh, bỏ ảnh; tải lại đúng. Xóa được vật phẩm chưa có auction. | TV1 + TV3 |
 | [ ] Mở phiên | Tạo item mới; mở phiên giá 100000, bước 5000, 1 giờ; có mã phiên mới. Phiên có thể ở OPEN tới lượt bid hợp lệ đầu tiên. | TV2 |
 | [ ] Hạn chế sau mở phiên | Sửa/xóa item đã mở phiên bị từ chối; Seller khác không được sửa hoặc hủy item/phiên của người khác (có test socket). | TV2 + TV4 |
 | [ ] Realtime | Hai Bidder mở cùng mã phiên mới. Bidder1 trả 105000; Bidder2 trả 110000. Cả hai thấy giá/lịch sử/biểu đồ, bidder1 được giải phóng hold của phiên, bidder2 giữ 110000. | TV3 + TV4 |
