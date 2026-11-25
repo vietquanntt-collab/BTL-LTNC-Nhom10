@@ -69,7 +69,7 @@ public final class AuctionListController {
     private static final String FILTER_ENDED = "ENDED";
 
     @FXML private Circle liveHeaderDot;
-    @FXML private Label totalCountBadge;
+    @FXML private Label kpiTotalLabel;
     @FXML private TextField searchField;
     @FXML private Button toggleLayoutBtn;
     @FXML private Button refreshBtn;
@@ -419,24 +419,49 @@ public final class AuctionListController {
         Thread loader = new Thread(() -> {
             try {
                 List<AuctionDto> auctions = NetworkClient.getInstance().listAuctions("ALL");
-                for (AuctionDto auction : auctions) {
-                    NetworkClient.AuctionDetailData detail =
-                            NetworkClient.getInstance().getAuctionDetail(auction.auctionId());
-                    if (detail.item() != null) {
-                        itemCache.put(auction.itemId(), detail.item());
-                    }
-                    List<BidDto> bids = detail.bids();
-                    bidCountCache.put(auction.auctionId(), bids != null ? bids.size() : 0);
-                }
                 Platform.runLater(() -> {
                     if (disposed || generation != loadGeneration) {
                         return;
                     }
-                    refreshBtn.setDisable(false);
                     allFetchedAuctions.clear();
                     allFetchedAuctions.addAll(auctions);
                     syncTickerWithLatestAuctions(auctions);
                     applySearchFilter();
+                });
+
+                boolean metadataUpdated = false;
+                for (AuctionDto auction : auctions) {
+                    if (disposed || generation != loadGeneration) {
+                        return;
+                    }
+                    NetworkClient.AuctionDetailData detail =
+                            NetworkClient.getInstance().getAuctionDetail(auction.auctionId());
+                    if (detail.item() != null) {
+                        itemCache.put(auction.itemId(), detail.item());
+                        metadataUpdated = true;
+                    }
+                    List<BidDto> bids = detail.bids();
+                    int count = bids != null ? bids.size() : 0;
+                    Integer prevCount = bidCountCache.put(auction.auctionId(), count);
+                    if (prevCount == null || prevCount != count) {
+                        metadataUpdated = true;
+                    }
+                }
+
+                if (metadataUpdated) {
+                    Platform.runLater(() -> {
+                        if (disposed || generation != loadGeneration) {
+                            return;
+                        }
+                        syncTickerWithLatestAuctions(allFetchedAuctions);
+                        applySearchFilter();
+                    });
+                }
+
+                Platform.runLater(() -> {
+                    if (!disposed && generation == loadGeneration) {
+                        refreshBtn.setDisable(false);
+                    }
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
@@ -534,7 +559,7 @@ public final class AuctionListController {
         }
 
         visibleRows.setAll(filtered);
-        totalCountBadge.setText(filtered.size() + " phiên");
+        kpiTotalLabel.setText(filtered.size() + " phiên");
 
         updateSelectionState(null);
         rebuildCardGrid(filtered);
@@ -567,7 +592,6 @@ public final class AuctionListController {
         ItemDto cached = itemCache.get(auction.itemId());
         int bidCount = bidCountCache.getOrDefault(auction.auctionId(), 0);
 
-        // Hàng 1: Trạng thái + Mã phiên & loại vật phẩm
         HBox topRow = new HBox(6);
         topRow.setAlignment(Pos.CENTER_LEFT);
 
@@ -593,10 +617,10 @@ public final class AuctionListController {
         metaTag.setStyle("-fx-text-fill: #9d5c7c; -fx-font-size: 11px;");
         topRow.getChildren().addAll(spacer, metaTag);
 
-        // Hàng 2: Khung ảnh + Huy hiệu góc (HOT / MỚI LÊN SÀN / SỐ LƯỢT TRẢ GIÁ)
         StackPane artworkBox = new StackPane();
         artworkBox.setPrefHeight(148);
-        artworkBox.setStyle("-fx-background-color: linear-gradient(to bottom right, #fdf2f8, #fce7f3); -fx-background-radius: 12;");
+        artworkBox.setStyle("-fx-background-color: linear-gradient(to bottom right, #fdf2f8, #fce7f3); "
+                + "-fx-background-radius: 12;");
 
         ImageView itemImg = new ImageView();
         itemImg.setFitWidth(116);
@@ -608,7 +632,6 @@ public final class AuctionListController {
             itemImg.setImage(sprite);
         }
 
-        // Huy hiệu góc trên bên trái: HOT nếu nhiều lượt trả giá hoặc vừa gia hạn, MỚI LÊN SÀN nếu chưa có lượt trả
         String cornerText = (bidCount >= 3 || auction.extensionCount() > 0)
                 ? "HOT"
                 : (isLive ? "MỚI LÊN SÀN" : "ĐÃ CHỐT");
@@ -617,20 +640,20 @@ public final class AuctionListController {
                 : (isLive ? "#db2777" : "#9d5c7c");
         Label cornerBadge = new Label(cornerText);
         cornerBadge.setStyle("-fx-background-color: " + cornerBg
-                + "; -fx-text-fill: white; -fx-padding: 2 8; -fx-background-radius: 7; -fx-font-size: 10px; -fx-font-weight: bold;");
+                + "; -fx-text-fill: white; -fx-padding: 2 8; -fx-background-radius: 7; "
+                + "-fx-font-size: 10px; -fx-font-weight: bold;");
         StackPane.setAlignment(cornerBadge, Pos.TOP_LEFT);
         StackPane.setMargin(cornerBadge, new Insets(8, 0, 0, 8));
 
-        // Huy hiệu góc dưới bên phải: Số lượt trả giá
         Label bidCountBadge = new Label(bidCount + " lượt trả giá");
         bidCountBadge.setStyle("-fx-background-color: rgba(255, 255, 255, 0.92); -fx-text-fill: #831843; "
-                + "-fx-padding: 2 8; -fx-background-radius: 7; -fx-font-size: 10.5px; -fx-font-weight: bold;");
+                + "-fx-padding: 2 8; -fx-background-radius: 7; "
+                + "-fx-font-size: 10.5px; -fx-font-weight: bold;");
         StackPane.setAlignment(bidCountBadge, Pos.BOTTOM_RIGHT);
         StackPane.setMargin(bidCountBadge, new Insets(0, 8, 8, 0));
 
         artworkBox.getChildren().addAll(itemImg, cornerBadge, bidCountBadge);
 
-        // Hiệu ứng hover: Thẻ nâng nhẹ đồng thời gấu bông phóng to 1.07x và nghiêng nhẹ 4 độ
         UiMotion.attachHoverLift(card);
         card.hoverProperty().addListener((obs, wasHovered, isHovered) -> {
             ScaleTransition scale = new ScaleTransition(javafx.util.Duration.millis(180), itemImg);
@@ -643,7 +666,6 @@ public final class AuctionListController {
             new ParallelTransition(scale, rotate).play();
         });
 
-        // Hàng 3: Tên vật phẩm + Thông số phụ
         VBox infoBox = new VBox(3);
         Label titleLabel = new Label(cached != null ? cached.name() : "Gấu bông #" + auction.itemId());
         titleLabel.setWrapText(true);
@@ -654,7 +676,6 @@ public final class AuctionListController {
         subLabel.setStyle("-fx-text-fill: #834463; -fx-font-size: 11.5px;");
         infoBox.getChildren().addAll(titleLabel, subLabel);
 
-        // Hàng 4: Giá hiện tại & Đồng hồ đếm ngược
         HBox metricsRow = new HBox(8);
         metricsRow.setAlignment(Pos.BOTTOM_LEFT);
         metricsRow.setPadding(new Insets(4, 0, 0, 0));
@@ -686,7 +707,6 @@ public final class AuctionListController {
         tick.run();
         cardTickers.add(tick);
 
-        // Hàng 5: Nút hành động
         Button enterBtn = new Button(isLive ? "Tham gia đấu giá →" : "Xem chi tiết");
         enterBtn.setMaxWidth(Double.MAX_VALUE);
         enterBtn.setPrefHeight(35);
@@ -769,7 +789,8 @@ public final class AuctionListController {
     private void showBanner(String text, String color) {
         statusMessageLabel.setText(text);
         statusMessageLabel.setStyle("-fx-background-color: " + color
-                + "; -fx-text-fill: white; -fx-padding: 10 14; -fx-background-radius: 8; -fx-font-weight: bold;");
+                + "; -fx-text-fill: white; -fx-padding: 10 14; "
+                + "-fx-background-radius: 8; -fx-font-weight: bold;");
         statusMessageLabel.setVisible(true);
         statusMessageLabel.setManaged(true);
     }

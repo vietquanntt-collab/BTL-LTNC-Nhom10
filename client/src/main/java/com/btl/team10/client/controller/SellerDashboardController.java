@@ -115,24 +115,6 @@ public final class SellerDashboardController {
                 "Mèo máy Doraemon xanh dương kinh điển chất liệu bông nhung siêu êm ái.");
     }
 
-    @FXML
-    private void onPresetEuro() {
-        applyPreset("euro_trophy", "Cúp Vô Địch UEFA Euro", "FIGURE",
-                "Phiên bản trưng bày mạ bạc khắc biểu tượng Giải vô địch bóng đá châu Âu UEFA.");
-    }
-
-    @FXML
-    private void onPresetBallonDor() {
-        applyPreset("ballon_dor", "Quả Bóng Vàng FIFA Ballon d'Or", "FIGURE",
-                "Tượng Quả Bóng Vàng chế tác tinh xảo trên khối đế khoáng thạch sang trọng.");
-    }
-
-    @FXML
-    private void onPresetMessiGoat() {
-        applyPreset("messi_goat", "Áo Phông Phiên Bản GOAT 10 Messi", "POSTER",
-                "Áo kỷ niệm phiên bản giới hạn in họa tiết GOAT số 10 dành cho nhà sưu tầm bóng đá.");
-    }
-
     private void applyPreset(String spriteName, String title, String type, String desc) {
         itemTable.getSelectionModel().clearSelection();
         itemNameField.setText(title);

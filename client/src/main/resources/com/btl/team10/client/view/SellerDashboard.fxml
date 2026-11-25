@@ -96,8 +96,6 @@
                                     style="-fx-background-color: #fce7f3; -fx-text-fill: #9d174d; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;"/>
                             <Button text="Doraemon Xanh" onAction="#onPresetDoraemonBlue"
                                     style="-fx-background-color: #e0f2fe; -fx-text-fill: #0369a1; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;"/>
-                            <Button text="Cúp Euro" onAction="#onPresetEuro"
-                                    style="-fx-background-color: #fef3c7; -fx-text-fill: #92400e; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;"/>
                         </FlowPane>
 
                         <Label fx:id="imageFileLabel" text="PNG hoặc JPG · Tối đa 512 KB"

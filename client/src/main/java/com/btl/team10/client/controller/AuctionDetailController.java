@@ -625,6 +625,7 @@ public final class AuctionDetailController {
                             "#2980b9", false);
                     if (!isAuctionEnded(currentAuction)) {
                         setAutoBidButton.setDisable(false);
+                        cancelAutoBidButton.setDisable(false);
                     }
                 });
             } catch (Exception error) {
@@ -926,7 +927,8 @@ public final class AuctionDetailController {
                 NetworkClient.getInstance().cancelAutoBid(id);
                 Platform.runLater(() -> {
                     if (!disposed) {
-                        autoBidStatusLabel.setText("Chưa kích hoạt trên phiên này");
+                        setAutoBidButton.setText("Kích hoạt Auto-Bid");
+                        autoBidStatusLabel.setText("Đã tắt đặt giá tự động");
                         autoBidStatusLabel.setStyle("-fx-text-fill: #834463; -fx-font-size: 11.5px;");
                         showBanner("Đã tắt đặt giá tự động cho phiên này.", "#285eaa");
                     }
