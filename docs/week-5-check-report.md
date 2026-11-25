@@ -4,10 +4,10 @@
 
 **Sẵn sàng để nhóm chạy thử và review trên nhánh mới.** Bản local đã được đối chiếu với hai PDF cập nhật và qua build/test/coverage/Checkstyle. Điều kiện merge main vẫn cần CI GitHub trên commit của nhóm, review chéo và nghiệm thu bằng tay.
 
-- Audit: 2026-11-24, Asia/Bangkok.
+- Audit cập nhật: 2026-11-25, Asia/Bangkok.
 - Repository: https://github.com/vietquanntt-collab/BTL-LTNC-Nhom10.git
-- Checkout ban đầu: develop **8af20c451630f95b81cdf7afdafdd855bd2aae7e** (PR #35). Đã tích hợp giao diện PR #36 và đối chiếu GitHub ngày 2026-11-24: develop ở **abe5265a0e9d309b7c4b0699ff3bc8317473029b**; main ở b2708346c6cb7febb791f3ea37816fb8e52dff36.
-- Checkout độc lập: BTL-week5-check. Mọi thay đổi bàn giao chưa stage/commit/push; không merge hoặc tạo tag.
+- Nền đối chiếu mới nhất: develop **f957216** (đã merge PR #38 và PR #42 Plushie Gala); main ở b2708346c6cb7febb791f3ea37816fb8e52dff36.
+- Bản hoàn thiện trước khi merge main nằm trên nhánh `fix/pre-main-polish` (chưa commit/push, chờ nhóm review & mở PR vào `develop` → `main`).
 - Căn cứ chính: 2026-BTL.pdf (10 trang) và Hướng dẫn BTL LTNC-2026.pdf (7 trang) đã được cập nhật tại thư mục cha. [Ma trận đối chiếu và hash PDF](requirements-review.md). Kế hoạch 5 tuần nội bộ là phạm vi milestone; lịch môn học trong hướng dẫn là tuần 6–15.
 
 ## 1. Kết quả kiểm thử cuối
@@ -18,14 +18,14 @@ Windows x64, Temurin JDK 21.0.13, Maven Wrapper 3.8.5. Chạy từ gốc thư m�
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/build.ps1 -Clean -Ui
 ~~~
 
-**BUILD SUCCESS** lúc 09:39:36 +07 ngày 2026-11-24; khoảng 83 giây với dependency cache. Số liệu lấy từ XML Surefire và JaCoCo của lượt clean verify cuối, sau khi tích hợp UI PR #36, domain và regression giá đầu tiên.
+**BUILD SUCCESS** lúc 22:52:28 +07 ngày 2026-11-25; khoảng 40 giây với dependency cache. Số liệu lấy từ XML Surefire và JaCoCo của lượt clean verify cuối, sau khi tích hợp giao diện Plushie Gala (PR #42) và hoàn thiện polish ảnh/bố cục UI.
 
 | Module | Test | Failure | Error | Skipped | Line coverage |
 |---|---:|---:|---:|---:|---:|
 | common | 24 | 0 | 0 | 0 | 87.86% (275/313) |
 | server | 66 | 0 | 0 | 0 | 81.28% (1811/2228) |
-| client | 8 | 0 | 0 | 0 | 68.57% (1440/2100) |
-| **Tổng** | **98** | **0** | **0** | **0** | **từng module ≥60%** |
+| client | 9 | 0 | 0 | 0 | 69.30% (1695/2446) |
+| **Tổng** | **99** | **0** | **0** | **0** | **từng module ≥60%** |
 
 Checkstyle ở validate: **0 violation** trên root/common/server/client; kiểm source và test theo bộ baseline ở config/checkstyle/checkstyle.xml. Bộ này enforce naming, thứ tự modifier và vệ sinh file, chưa phải toàn bộ Google Java Style. JaCoCo 0.8.12 đặt gate line coverage 60% cho từng module; không loại class sản phẩm khỏi phép đo. [Chi tiết từng suite](verification-results.md).
 
@@ -37,7 +37,8 @@ Client có 4 test socket và 4 test JavaFX. Luồng FXML/controller/server TCP t
 
 | Vấn đề | Thay đổi và bằng chứng |
 |---|---|
-| Preset Cúp Euro gửi OTHER trái enum/schema | Đổi thành FIGURE; ClientUiTest tạo item thật, đọc lại ảnh qua server. |
+| Preset vật phẩm mẫu (PR #42 Plushie Gala) | Đổi sang Báo Hồng / Doraemon Hồng / Doraemon Xanh (`FIGURE`), chuẩn hóa tên file `mc_present.jpg`/`mc_hype.jpg`, bỏ fallback tới ảnh đã xóa và thêm regression test ảnh trong `ClientUiTest`. |
+| Lỗi hiển thị UI nhỏ sau PR #42 | Clip vùng hạt rơi ở màn hình đăng nhập (hết dải trắng trên cùng), cố định `minWidth` cho nhãn `LIVE GALA` (hết cắt `...`), và xếp dọc biểu đồ + bảng lịch sử full-width ở chi tiết phiên để không cắt chữ cột. |
 | DB tuần 4 thiếu image_base64 | Migration V005 kiểm cột trước ALTER; ItemImageUpgradeTest giữ item cũ và chạy upgrade lại an toàn. |
 | Seller update ảnh không lưu, bỏ ảnh không tác dụng | Đồng bộ client/server/repository: thiếu field giữ ảnh, có ảnh thay ảnh, empty/null xóa; regression socket/client. |
 | Server thiếu kiểm Base64/kích thước ảnh | Giới hạn decoded 512 KiB; từ chối sai Base64/vượt giới hạn; regression socket. |
@@ -83,8 +84,8 @@ Windows build cuối tạo server/target/server.jar và client/target/client.jar
 
 | Artifact | Byte | SHA-256 |
 |---|---:|---|
-| server.jar | 13998397 | 1e562f3ff2c397182af0a5e8e43de9557a044089dcff04e5658a042c3a4aeb4c |
-| client.jar | 19304567 | 3285f7897a37573a4891c259803bef80697573d3fd8cc4227ab7bfcf4f48c856 |
+| server.jar | 13998394 | 86c3c7ccf719dcd25a5c1f8f9298151ff42560450ff2c9b73e667ea4457c6081 |
+| client.jar | 10906089 | 5275e40387d4701b97e2b943f2dc897e3666425d212f768f5cdb6a8e8b29a55b |
 
 Hash chỉ áp dụng lần build cuối trên; build lại có thể tạo hash khác. Xuất gói mới bằng scripts/package-release.ps1 theo README. Không gửi DB test hoặc commit target/cache/release-bundle vào source Git. JAR client có native riêng cho OS build.
 

@@ -1,8 +1,8 @@
-# Gala Auction · Nhóm 10
+# Plushie Gala Auction · Nhóm 10
 
-Ứng dụng đấu giá Java 21: JavaFX/FXML ở client, TCP/JSON và SQLite local ở server. Có đăng ký/đăng nhập, phân quyền Admin/Seller/Bidder, quản lý vật phẩm, đặt giá realtime, Auto-Bid, Anti-Snipe, lịch sử/biểu đồ, hủy phiên và tất toán ví.
+Ứng dụng đấu giá Java 21: JavaFX/FXML ở client, TCP/JSON và SQLite local ở server. Có đăng ký/đăng nhập, phân quyền Admin/Seller/Bidder, quản lý vật phẩm (kèm ảnh), đặt giá realtime, Auto-Bid, Anti-Snipe, lịch sử/biểu đồ, hủy phiên và tất toán ví.
 
-Bản bàn giao tuần 5 bắt đầu từ develop **8af20c4**, đã tích hợp và kiểm tra phần giao diện PR #36 ở **abe5265** ngày 2026-11-24. Lượt clean verify có UI cuối: **98 test**, 0 failure/error/skipped; Checkstyle 0 violation; line coverage từng module trên 60%. Xem [báo cáo kiểm tra](docs/week-5-check-report.md) để biết kết quả kiểm thử và các việc nhóm cần xác nhận trước khi đưa lên main. [Hướng dẫn test](docs/local-testing.md) và [hướng dẫn tự commit/push](docs/git-handoff.md) nằm trong thư mục docs.
+Bản chuẩn bị merge `main` trên nền `develop` (**f957216**, đã tích hợp giao diện Plushie Gala ở PR #42 và hoàn thiện polish UI/tài nguyên ngày 2026-11-25). Lượt clean verify có UI cuối: **99 test**, 0 failure/error/skipped; Checkstyle 0 violation; line coverage từng module trên 60%. Xem [báo cáo kiểm tra](docs/week-5-check-report.md) để biết kết quả kiểm thử và checklist nghiệm thu trước khi đưa lên `main`. [Hướng dẫn test](docs/local-testing.md) và [hướng dẫn tự commit/push](docs/git-handoff.md) nằm trong thư mục docs.
 
 ## 1. Chuẩn bị
 
@@ -103,7 +103,7 @@ Database mới có phiên mẫu #1 giá 110,000 cents, bidder2 đang dẫn đầ
 ## 5. Test nhanh trước khi nhóm review
 
 1. Mở 4 client: Seller, Admin và hai Bidder. Kiểm tra menu đúng vai trò.
-2. Seller tạo vật phẩm (có thể chọn mẫu Cúp Euro), sửa tên/ảnh khi chưa mở phiên, rồi mở phiên.
+2. Seller tạo vật phẩm (có thể chọn mẫu gấu bông Báo Hồng / Doraemon Hồng / Doraemon Xanh), sửa tên/ảnh khi chưa mở phiên, rồi mở phiên.
 3. Hai Bidder cùng vào **một mã phiên**, đặt giá qua lại. Kiểm tra giá, lịch sử, biểu đồ và số dư cập nhật.
 4. Bật Auto-Bid, thử đối thủ trả giá và tắt Auto-Bid. Không vượt giá trần.
 5. Admin hủy phiên khác đang mở; xem người dẫn đầu được giải phóng tiền đang giữ.

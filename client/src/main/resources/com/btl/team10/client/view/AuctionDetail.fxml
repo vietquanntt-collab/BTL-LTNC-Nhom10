@@ -138,15 +138,15 @@
                             </children>
                         </StackPane>
 
-                        <!-- Khối phân tích hợp nhất: Biểu đồ & Lịch sử đặt giá đặt cạnh nhau -->
-                        <HBox spacing="14"
+                        <!-- Khối phân tích hợp nhất: Biểu đồ trên, Lịch sử đặt giá full-width bên dưới -->
+                        <VBox spacing="14"
                               style="-fx-background-color: #ffffff; -fx-padding: 14 16; -fx-background-radius: 14; -fx-border-color: #f5d0e3; -fx-border-radius: 14;">
 
-                            <VBox spacing="6" HBox.hgrow="ALWAYS" prefWidth="280" minWidth="220">
+                            <VBox spacing="6">
                                 <Label text="Biểu đồ biến động giá"
                                        style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #4a0e2e;"/>
-                                <LineChart prefHeight="220" fx:id="bidHistoryChart" styleClass="gala-chart"
-                                           animated="false" legendVisible="false" VBox.vgrow="ALWAYS">
+                                <LineChart prefHeight="210" fx:id="bidHistoryChart" styleClass="gala-chart"
+                                           animated="false" legendVisible="false">
                                     <xAxis>
                                         <CategoryAxis fx:id="chartTimeAxis" label="Thời gian"/>
                                     </xAxis>
@@ -156,21 +156,21 @@
                                 </LineChart>
                             </VBox>
 
-                            <Separator orientation="VERTICAL"/>
+                            <Separator/>
 
-                            <VBox spacing="6" HBox.hgrow="ALWAYS" prefWidth="300" minWidth="240">
+                            <VBox spacing="6">
                                 <Label text="Lịch sử đặt giá"
                                        style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #4a0e2e;"/>
-                                <TableView prefHeight="220" fx:id="bidHistoryTable" styleClass="gala-table" VBox.vgrow="ALWAYS">
+                                <TableView prefHeight="200" fx:id="bidHistoryTable" styleClass="gala-table">
                                     <columns>
-                                        <TableColumn fx:id="bidderCol" text="Bidder" prefWidth="65"/>
-                                        <TableColumn fx:id="amountCol" text="Số tiền" prefWidth="95"/>
-                                        <TableColumn fx:id="timeCol" text="Thời gian" prefWidth="80"/>
-                                        <TableColumn fx:id="statusCol" text="Trạng thái" prefWidth="85"/>
+                                        <TableColumn fx:id="bidderCol" text="Bidder" prefWidth="95"/>
+                                        <TableColumn fx:id="amountCol" text="Số tiền" prefWidth="140"/>
+                                        <TableColumn fx:id="timeCol" text="Thời gian" prefWidth="125"/>
+                                        <TableColumn fx:id="statusCol" text="Trạng thái" prefWidth="150"/>
                                     </columns>
                                 </TableView>
                             </VBox>
-                        </HBox>
+                        </VBox>
                     </VBox>
 
                     <!-- CỘT PHẢI: Thông tin vật phẩm + Đặt giá thủ công + Auto-Bid -->

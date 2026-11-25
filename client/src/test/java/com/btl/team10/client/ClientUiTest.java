@@ -14,8 +14,10 @@ import javafx.scene.paint.Color;
 import com.btl.team10.client.util.StageAssetLoader;
 import com.btl.team10.common.dto.AuctionDto;
 import com.btl.team10.common.dto.BidDto;
+import com.btl.team10.common.dto.ItemDto;
 import com.btl.team10.common.model.AuctionStatus;
 import com.btl.team10.common.model.BidStatus;
+import com.btl.team10.common.model.ItemType;
 import java.time.Instant;
 import javafx.scene.layout.*;
 import org.junit.jupiter.api.*;
@@ -150,6 +152,26 @@ class ClientUiTest {
                 assertTrue(((Button)root.lookup("#cancelAutoBidButton")).isDisabled());
                 assertTrue(((HBox)root.lookup("#winnerBannerBox")).isVisible());
                 detail.cleanup();
+            }
+            return null;
+        });
+    }
+
+    @Test void stageAssetFallbackAlwaysResolvesPackagedSprites() throws Exception {
+        fx(() -> {
+            assertNotNull(StageAssetLoader.loadCutoutSprite("mc_present"), "mc_present.jpg must load");
+            assertNotNull(StageAssetLoader.loadCutoutSprite("mc_hype"), "mc_hype.jpg must load");
+            Instant now = Instant.now();
+            ItemDto[] samples = {
+                    new ItemDto(1, 2, "Cúp Euro", "legacy title", ItemType.FIGURE, null, now, now),
+                    new ItemDto(2, 2, "Quả bóng vàng", "legacy title", ItemType.CARD, null, now, now),
+                    new ItemDto(3, 2, "Áo Messi", "legacy title", ItemType.POSTER, null, now, now),
+                    new ItemDto(4, 2, "Gấu Bông Báo Hồng", "plushie", ItemType.FIGURE, null, now, now)
+            };
+            for (ItemDto sample : samples) {
+                var sprite = StageAssetLoader.resolveItemStageImage(sample);
+                assertNotNull(sprite, "Stage fallback must resolve for " + sample.name());
+                assertFalse(sprite.isError(), "Stage fallback must not error for " + sample.name());
             }
             return null;
         });
