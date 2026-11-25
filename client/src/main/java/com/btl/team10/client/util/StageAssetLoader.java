@@ -102,15 +102,6 @@ public final class StageAssetLoader {
         if (text.contains("doraemon") || text.contains("mèo máy")) {
             return loadCutoutSprite("doraemon_blue");
         }
-        if (text.contains("bóng vàng") || text.contains("ballon") || text.contains("fifa") || text.contains("quả bóng")) {
-            return loadCutoutSprite("ballon_dor");
-        }
-        if (text.contains("messi") || text.contains("goat") || text.contains("áo") || text.contains("shirt")) {
-            return loadCutoutSprite("messi_goat");
-        }
-        if (text.contains("euro") || text.contains("cúp") || text.contains("cup") || text.contains("uefa")) {
-            return loadCutoutSprite("euro_trophy");
-        }
 
         ItemType type = item.itemType();
         if (type == ItemType.FIGURE) {
@@ -123,10 +114,7 @@ public final class StageAssetLoader {
     }
 
     private static byte[] readResourceBytes(String baseName) {
-        String[] extensions = {
-                ".png", ".jpg", ".jpeg", ".JPG", ".PNG", ".JPEG",
-                ".jpg.jpg", ".jpg.png", ".png.jpg", ".jpeg.png"
-        };
+        String[] extensions = {".png", ".jpg", ".jpeg", ".JPG", ".PNG", ".JPEG"};
         for (String ext : extensions) {
             try (InputStream is = StageAssetLoader.class.getResourceAsStream(IMAGE_DIR + baseName + ext)) {
                 if (is != null) {

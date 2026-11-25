@@ -109,6 +109,10 @@ public final class LoginController {
         if (ambientParticlesPane == null) {
             return;
         }
+        Rectangle particlesClip = new Rectangle();
+        particlesClip.widthProperty().bind(ambientParticlesPane.widthProperty());
+        particlesClip.heightProperty().bind(ambientParticlesPane.heightProperty());
+        ambientParticlesPane.setClip(particlesClip);
         ambientParticlesPane.getChildren().clear();
         fallingItems.clear();
 

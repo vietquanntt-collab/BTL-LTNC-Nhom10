@@ -57,7 +57,7 @@
             <!-- Dải thông báo sự kiện trực tiếp (Live Gala Ticker) -->
             <HBox alignment="CENTER_LEFT" spacing="10"
                   style="-fx-background-color: #fdf2f8; -fx-border-color: #fbcfe8; -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 6 12;">
-                <Label text="LIVE GALA"
+                <Label text="LIVE GALA" minWidth="-Infinity"
                        style="-fx-background-color: #db2777; -fx-text-fill: white; -fx-padding: 2 8; -fx-background-radius: 6; -fx-font-size: 10px; -fx-font-weight: bold;"/>
                 <Pane fx:id="tickerViewport" HBox.hgrow="ALWAYS" prefHeight="20" minHeight="20" maxHeight="20" minWidth="0">
                     <Label fx:id="liveTickerLabel"
