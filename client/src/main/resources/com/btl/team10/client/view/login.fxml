@@ -18,32 +18,32 @@
            xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.btl.team10.client.controller.LoginController"
            stylesheets="@../css/gala-shell.css" styleClass="gala-auth"
-           style="-fx-background-color: #0e1120;">
+           style="-fx-background-color: #fce7f3;">
 
-    <!-- Lớp 1: Ảnh nền sân khấu Gala toàn màn hình -->
+    <!-- Lớp 1: Ảnh nền ren nơ pastel hồng toàn màn hình -->
     <Pane fx:id="bgPane" minWidth="0" minHeight="0" prefWidth="0" prefHeight="0" mouseTransparent="true">
         <children>
             <ImageView fx:id="loginBgView" preserveRatio="false"/>
         </children>
     </Pane>
 
-    <!-- Lớp 2: Hạt ánh sáng vàng kim bay lơ lửng tạo chiều sâu không gian -->
+    <!-- Lớp 2: Phủ sương hồng kem nhẹ làm nổi bật vật phẩm rơi và thẻ trung tâm -->
+    <Region mouseTransparent="true"
+            style="-fx-background-color: radial-gradient(center 50% 50%, radius 75%, rgba(255,245,248,0.18), rgba(244,114,182,0.28));"/>
+
+    <!-- Lớp 3: 5 vật phẩm nhỏ rơi từ trên xuống (mouseTransparent để không chặn thao tác bấm nút) -->
     <Pane fx:id="ambientParticlesPane" minWidth="0" minHeight="0" prefWidth="0" prefHeight="0" mouseTransparent="true"/>
 
-    <!-- Lớp 3: Phủ tối viền nhẹ làm nổi bật vùng trung tâm -->
-    <Region mouseTransparent="true"
-            style="-fx-background-color: radial-gradient(center 50% 50%, radius 72%, rgba(10,13,26,0.12), rgba(8,10,20,0.58));"/>
-
-    <!-- Lớp 4: Thẻ Đăng nhập / Đăng ký phong cách Dark Gala Glass -->
+    <!-- Lớp 4: Thẻ Đăng nhập / Đăng ký -->
     <StackPane alignment="CENTER">
         <padding>
-            <Insets top="24" right="28" bottom="24" left="28"/>
+            <Insets top="20" right="28" bottom="20" left="28"/>
         </padding>
 
-        <VBox fx:id="authCardBox" maxWidth="395" maxHeight="-Infinity" spacing="13" alignment="TOP_LEFT"
-              style="-fx-background-color: rgba(15, 19, 36, 0.88); -fx-background-radius: 18; -fx-border-color: linear-gradient(to bottom right, #fde047, #d97706); -fx-border-width: 1.6; -fx-border-radius: 18;">
+        <VBox fx:id="authCardBox" maxWidth="400" maxHeight="-Infinity" spacing="12" alignment="TOP_LEFT"
+              style="-fx-background-color: rgba(255, 250, 252, 0.94); -fx-background-radius: 22; -fx-border-color: linear-gradient(to bottom right, #f472b6, #db2777); -fx-border-width: 2; -fx-border-radius: 22;">
             <effect>
-                <DropShadow color="rgba(0, 0, 0, 0.72)" radius="32" offsetY="12"/>
+                <DropShadow color="rgba(190, 24, 93, 0.24)" radius="28" offsetY="10"/>
             </effect>
             <padding>
                 <Insets top="24" right="26" bottom="22" left="26"/>
@@ -51,65 +51,74 @@
 
             <!-- Huy hiệu trạng thái trực tiếp -->
             <HBox alignment="CENTER_LEFT" spacing="7"
-                  style="-fx-background-color: rgba(250, 204, 21, 0.12); -fx-border-color: rgba(250, 204, 21, 0.35); -fx-border-radius: 20; -fx-background-radius: 20; -fx-padding: 4 12;">
-                <Circle fx:id="liveStatusDot" radius="4" fill="#4ade80"/>
-                <Label text="SÀN ĐẤU GIÁ GALA • TRỰC TUYẾN"
-                       style="-fx-text-fill: #fde047; -fx-font-size: 10px; -fx-font-weight: bold;"/>
+                  style="-fx-background-color: #fce7f3; -fx-border-color: #f9a8d4; -fx-border-radius: 20; -fx-background-radius: 20; -fx-padding: 4 12;">
+                <Circle fx:id="liveStatusDot" radius="4" fill="#16a34a"/>
+                <Label text="PLUSHIE GALA • ĐẤU GIÁ GẤU BÔNG"
+                       style="-fx-text-fill: #be185d; -fx-font-size: 10px; -fx-font-weight: bold;"/>
             </HBox>
 
-            <!-- Thanh chuyển tab Đăng nhập / Đăng ký -->
-            <HBox spacing="6" style="-fx-background-color: rgba(255, 255, 255, 0.08); -fx-padding: 4; -fx-background-radius: 10;">
-                <Button fx:id="loginTabBtn" text="Đăng nhập" onAction="#switchToLogin" HBox.hgrow="ALWAYS" maxWidth="Infinity" prefHeight="32"
-                        styleClass="button, gala-auth-tab"/>
-                <Button fx:id="registerTabBtn" text="Đăng ký" onAction="#switchToRegister" HBox.hgrow="ALWAYS" maxWidth="Infinity" prefHeight="32"
-                        styleClass="button, gala-auth-tab"/>
-            </HBox>
-
+            <!-- Tiêu đề chào mừng -->
             <VBox spacing="3">
-                <Label fx:id="formTitleLabel" text="CHÀO MỪNG TRỞ LẠI"
-                       style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #f8fafc;"/>
-                <Label fx:id="formSubtitleLabel" wrapText="true" text="Đăng nhập để bước vào khán phòng đấu giá trực tiếp"
-                       style="-fx-font-size: 12px; -fx-text-fill: #94a3b8;"/>
+                <Label fx:id="formTitleLabel" text="Chào mừng đến với Plushie Gala"
+                       style="-fx-font-size: 19px; -fx-font-weight: bold; -fx-text-fill: #4a0e2e;"/>
+                <Label fx:id="formSubtitleLabel" wrapText="true"
+                       text="Chọn Đăng nhập hoặc Đăng ký bên dưới để bắt đầu."
+                       style="-fx-font-size: 12px; -fx-text-fill: #834463;"/>
             </VBox>
+
+            <!-- Hai nút chọn chế độ: luôn hiển thị ngay từ đầu -->
+            <HBox spacing="8"
+                  style="-fx-background-color: #fdf2f8; -fx-border-color: #fbcfe8; -fx-border-radius: 12; -fx-padding: 5; -fx-background-radius: 12;">
+                <Button fx:id="loginTabBtn" text="Đăng nhập" onAction="#switchToLogin"
+                        HBox.hgrow="ALWAYS" maxWidth="Infinity" prefHeight="36"
+                        styleClass="button, gala-auth-tab"/>
+                <Button fx:id="registerTabBtn" text="Đăng ký" onAction="#switchToRegister"
+                        HBox.hgrow="ALWAYS" maxWidth="Infinity" prefHeight="36"
+                        styleClass="button, gala-auth-tab"/>
+            </HBox>
 
             <!-- Khung thông báo lỗi hoặc đăng ký thành công -->
             <Label fx:id="feedbackLabel" visible="false" managed="false" wrapText="true" maxWidth="Infinity"
-                   style="-fx-padding: 8 12; -fx-background-radius: 8; -fx-font-size: 12px; -fx-font-weight: bold;"/>
+                   style="-fx-padding: 8 12; -fx-background-radius: 10; -fx-font-size: 12px; -fx-font-weight: bold;"/>
 
-            <!-- Tên đăng nhập -->
-            <VBox spacing="4">
-                <Label text="Tên đăng nhập" style="-fx-text-fill: #e2e8f0; -fx-font-size: 12px; -fx-font-weight: bold;"/>
-                <TextField fx:id="usernameField" promptText="Nhập tên tài khoản" prefHeight="38"
-                           style="-fx-background-color: rgba(255, 255, 255, 0.08); -fx-text-fill: white; -fx-prompt-text-fill: #64748b; -fx-border-color: rgba(148, 163, 184, 0.35); -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 0 12; -fx-font-size: 13px;"/>
+            <!-- Khu vực nhập thông tin: ẨN mặc định, chỉ mở ra khi nhấn 1 trong 2 nút trên -->
+            <VBox fx:id="formFieldsContainer" spacing="11" visible="false" managed="false">
+                <!-- Tên đăng nhập -->
+                <VBox spacing="4">
+                    <Label text="Tên đăng nhập" style="-fx-text-fill: #6b2146; -fx-font-size: 12px; -fx-font-weight: bold;"/>
+                    <TextField fx:id="usernameField" promptText="Nhập tên tài khoản" prefHeight="36"
+                               style="-fx-background-color: #fff5f8; -fx-text-fill: #3b0d24; -fx-prompt-text-fill: #b47b96; -fx-border-color: #f9a8d4; -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 0 12; -fx-font-size: 13px;"/>
+                </VBox>
+
+                <!-- Mật khẩu -->
+                <VBox spacing="4">
+                    <Label text="Mật khẩu" style="-fx-text-fill: #6b2146; -fx-font-size: 12px; -fx-font-weight: bold;"/>
+                    <PasswordField fx:id="passwordField" promptText="Nhập mật khẩu (tối thiểu 6 ký tự)" prefHeight="36"
+                                   style="-fx-background-color: #fff5f8; -fx-text-fill: #3b0d24; -fx-prompt-text-fill: #b47b96; -fx-border-color: #f9a8d4; -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 0 12; -fx-font-size: 13px;"/>
+                </VBox>
+
+                <!-- Xác nhận mật khẩu (chỉ hiện khi chọn Đăng ký) -->
+                <VBox fx:id="confirmGroup" spacing="4" visible="false" managed="false">
+                    <Label text="Xác nhận mật khẩu" style="-fx-text-fill: #6b2146; -fx-font-size: 12px; -fx-font-weight: bold;"/>
+                    <PasswordField fx:id="confirmPasswordField" promptText="Nhập lại mật khẩu để xác nhận" prefHeight="36"
+                                   style="-fx-background-color: #fff5f8; -fx-text-fill: #3b0d24; -fx-prompt-text-fill: #b47b96; -fx-border-color: #f9a8d4; -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 0 12; -fx-font-size: 13px;"/>
+                    <Label text="Tài khoản đăng ký mới mặc định có vai trò BIDDER."
+                           style="-fx-text-fill: #834463; -fx-font-size: 11px;"/>
+                </VBox>
+
+                <!-- Nút xác nhận gửi biểu mẫu -->
+                <Button fx:id="submitButton" text="Đăng nhập" onAction="#handleSubmit" defaultButton="true"
+                        maxWidth="Infinity" prefHeight="38"
+                        style="-fx-background-color: linear-gradient(to right, #ec4899, #db2777); -fx-text-fill: #ffffff; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 10; -fx-cursor: hand;"/>
+
+                <!-- Nút chuyển nhanh hoặc thu gọn -->
+                <HBox alignment="CENTER" spacing="14">
+                    <Button fx:id="toggleModeButton" text="Chưa có tài khoản? Đăng ký ngay" onAction="#handleToggleMode"
+                            style="-fx-background-color: transparent; -fx-text-fill: #be185d; -fx-font-size: 12px; -fx-font-weight: bold; -fx-cursor: hand;"/>
+                    <Button text="Thu gọn" onAction="#collapseForm"
+                            style="-fx-background-color: transparent; -fx-text-fill: #834463; -fx-font-size: 11.5px; -fx-cursor: hand;"/>
+                </HBox>
             </VBox>
-
-            <!-- Mật khẩu -->
-            <VBox spacing="4">
-                <Label text="Mật khẩu" style="-fx-text-fill: #e2e8f0; -fx-font-size: 12px; -fx-font-weight: bold;"/>
-                <PasswordField fx:id="passwordField" promptText="Nhập mật khẩu (tối thiểu 6 ký tự)" prefHeight="38"
-                               style="-fx-background-color: rgba(255, 255, 255, 0.08); -fx-text-fill: white; -fx-prompt-text-fill: #64748b; -fx-border-color: rgba(148, 163, 184, 0.35); -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 0 12; -fx-font-size: 13px;"/>
-            </VBox>
-
-            <!-- Xác nhận mật khẩu (chỉ hiện khi ở chế độ Đăng ký) -->
-            <VBox fx:id="confirmGroup" spacing="4" visible="false" managed="false">
-                <Label text="Xác nhận mật khẩu" style="-fx-text-fill: #e2e8f0; -fx-font-size: 12px; -fx-font-weight: bold;"/>
-                <PasswordField fx:id="confirmPasswordField" promptText="Nhập lại mật khẩu để xác nhận" prefHeight="38"
-                               style="-fx-background-color: rgba(255, 255, 255, 0.08); -fx-text-fill: white; -fx-prompt-text-fill: #64748b; -fx-border-color: rgba(148, 163, 184, 0.35); -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 0 12; -fx-font-size: 13px;"/>
-                <Label text="Tài khoản đăng ký mới mặc định có vai trò BIDDER."
-                       style="-fx-text-fill: #94a3b8; -fx-font-size: 11px;"/>
-            </VBox>
-
-            <!-- Nút hành động chính -->
-            <Button fx:id="submitButton" text="Vào Khán Phòng Đấu Giá →" onAction="#handleSubmit" defaultButton="true"
-                    maxWidth="Infinity" prefHeight="40"
-                    style="-fx-background-color: linear-gradient(to right, #f59e0b, #d97706); -fx-text-fill: #0f172a; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;"/>
-
-            <Region VBox.vgrow="ALWAYS"/>
-
-            <HBox alignment="CENTER">
-                <Button fx:id="toggleModeButton" text="Chưa có tài khoản? Đăng ký ngay" onAction="#handleToggleMode"
-                        style="-fx-background-color: transparent; -fx-text-fill: #fde047; -fx-font-size: 12px; -fx-font-weight: bold; -fx-cursor: hand;"/>
-            </HBox>
         </VBox>
     </StackPane>
 </StackPane>
