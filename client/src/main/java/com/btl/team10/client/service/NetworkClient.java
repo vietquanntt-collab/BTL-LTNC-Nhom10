@@ -337,11 +337,12 @@ public final class NetworkClient implements AutoCloseable {
             RequestEnvelope request = new RequestEnvelope(
                     "v1", requestId, action, requestSessionId, payload.toString());
             synchronized (writeLock) {
-                if (writer == null) {
+                PrintWriter currentWriter = this.writer;
+                if (currentWriter == null) {
                     throw new IOException("Socket writer is not ready");
                 }
-                writer.println(JsonCodec.toJson(request));
-                if (writer.checkError()) {
+                currentWriter.println(JsonCodec.toJson(request));
+                if (currentWriter.checkError()) {
                     throw new IOException("Failed to write request to server");
                 }
             }
@@ -500,7 +501,7 @@ public final class NetworkClient implements AutoCloseable {
                             frozenCents = data.get("frozenCents").getAsLong();
                             notifyWalletChanged();
                         } catch (IOException error) {
-                            if (error.getMessage().contains("AUTHENTICATION_FAILED")) {
+                            if (error.getMessage() != null && error.getMessage().contains("AUTHENTICATION_FAILED")) {
                                 clearSession();
                             } else {
                                 throw error;
