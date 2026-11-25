@@ -5,10 +5,19 @@ import com.btl.team10.client.service.NetworkClient;
 import com.btl.team10.client.util.StageAssetLoader;
 import com.btl.team10.client.util.UiMotion;
 import com.btl.team10.common.dto.AuctionDto;
+import com.btl.team10.common.dto.BidDto;
 import com.btl.team10.common.dto.ItemDto;
 import com.btl.team10.common.model.AuctionStatus;
+import com.btl.team10.common.protocol.EventEnvelope;
+import com.btl.team10.common.protocol.EventType;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
+import javafx.animation.ParallelTransition;
+import javafx.animation.PauseTransition;
+import javafx.animation.RotateTransition;
+import javafx.animation.ScaleTransition;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
@@ -18,24 +27,25 @@ import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
-import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.ImagePattern;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.Rectangle;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -46,22 +56,33 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 public final class AuctionListController {
 
     private static final DateTimeFormatter TIME_FMT =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss").withZone(ZoneId.systemDefault());
 
+    private static final String FILTER_ALL = "ALL";
+    private static final String FILTER_LIVE = "LIVE";
+    private static final String FILTER_OPEN = "OPEN";
+    private static final String FILTER_ENDED = "ENDED";
+
     @FXML private Circle liveHeaderDot;
-    @FXML private Label totalCountBadge;
+    @FXML private Label kpiTotalLabel;
     @FXML private TextField searchField;
-    @FXML private ComboBox<String> statusFilterBox;
     @FXML private Button toggleLayoutBtn;
     @FXML private Button refreshBtn;
 
-    @FXML private Label kpiLiveLabel;
-    @FXML private Label kpiVolumeLabel;
-    @FXML private Label kpiTotalLabel;
+    @FXML private Button chipAllBtn;
+    @FXML private Button chipLiveBtn;
+    @FXML private Button chipOpenBtn;
+    @FXML private Button chipEndedBtn;
+
+    @FXML private Pane tickerViewport;
+    @FXML private Label liveTickerLabel;
+
+    @FXML private Pane hallPatternPane;
     @FXML private Label statusMessageLabel;
 
     @FXML private ScrollPane cardScrollPane;
@@ -76,36 +97,52 @@ public final class AuctionListController {
     @FXML private TableColumn<AuctionDto, String> statusCol;
     @FXML private TableColumn<AuctionDto, String> endAtCol;
 
+    @FXML private HBox bottomActionBar;
     @FXML private Button cancelAuctionBtn;
     @FXML private Button openDetailBtn;
 
     private final ObservableList<AuctionDto> visibleRows = FXCollections.observableArrayList();
     private final List<AuctionDto> allFetchedAuctions = new ArrayList<>();
     private final Map<Long, ItemDto> itemCache = new ConcurrentHashMap<>();
+    private final Map<Long, Integer> bidCountCache = new ConcurrentHashMap<>();
     private final List<Runnable> cardTickers = new ArrayList<>();
+    private final List<String> tickerMessages = new ArrayList<>();
 
     private Timeline cardCountdownTimeline;
+    private Timeline tickerMarqueeTimeline;
+    private double tickerOffsetX;
+    private String activeFilter = FILTER_ALL;
     private AuctionDto selectedAuction;
     private boolean cardViewMode = true;
     private boolean disposed;
-    private boolean initializing = true;
     private int loadGeneration;
-    private javafx.animation.PauseTransition refreshDebounce;
-    private final java.util.function.Consumer<com.btl.team10.common.protocol.EventEnvelope> listEvents = event ->
-            Platform.runLater(() -> { if (!disposed) refreshDebounce.playFromStart(); });
-    private final java.util.function.Consumer<Boolean> reconnectListener = connected ->
-            Platform.runLater(() -> { if (connected && !disposed) loadAuctions(); });
+    private PauseTransition refreshDebounce;
+
+    private final Consumer<EventEnvelope> listEvents = event ->
+            Platform.runLater(() -> {
+                if (!disposed) {
+                    handleRealtimeTickerEvent(event);
+                    refreshDebounce.playFromStart();
+                }
+            });
+
+    private final Consumer<Boolean> reconnectListener = connected ->
+            Platform.runLater(() -> {
+                if (connected && !disposed) {
+                    loadAuctions();
+                }
+            });
 
     @FXML
     private void initialize() {
-        refreshDebounce = new javafx.animation.PauseTransition(javafx.util.Duration.millis(300));
+        refreshDebounce = new PauseTransition(javafx.util.Duration.millis(300));
         refreshDebounce.setOnFinished(e -> loadAuctions());
         NetworkClient.getInstance().addEventListener(listEvents);
         NetworkClient.getInstance().addConnectionListener(reconnectListener);
 
-        statusFilterBox.setItems(FXCollections.observableArrayList(
-                "ALL", "OPEN", "RUNNING", "FINISHED", "PAID", "CANCELLED"));
-        statusFilterBox.getSelectionModel().select("ALL");
+        setupHallSubtleBackdrop();
+        setupLiveTicker();
+        updateFilterChipStyles();
 
         if (searchField != null) {
             searchField.textProperty().addListener((obs, oldVal, newVal) -> applySearchFilter());
@@ -114,12 +151,14 @@ public final class AuctionListController {
         idCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>("#" + c.getValue().auctionId()));
         itemCol.setCellValueFactory(c -> {
             ItemDto item = itemCache.get(c.getValue().itemId());
-            String text = item != null ? item.name() : "Vật phẩm #" + c.getValue().itemId();
+            String text = item != null ? item.name() : "Gấu bông #" + c.getValue().itemId();
             return new ReadOnlyObjectWrapper<>(text);
         });
         startPriceCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(formatMoney(c.getValue().startPriceCents())));
-        currentPriceCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(formatMoney(c.getValue().currentPriceCents())));
-        incrementCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>("+" + formatMoney(c.getValue().minIncrementCents())));
+        currentPriceCol.setCellValueFactory(c ->
+                new ReadOnlyObjectWrapper<>(formatMoney(c.getValue().currentPriceCents())));
+        incrementCol.setCellValueFactory(c ->
+                new ReadOnlyObjectWrapper<>("+" + formatMoney(c.getValue().minIncrementCents())));
         statusCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().status().name()));
         endAtCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(TIME_FMT.format(c.getValue().endAt())));
 
@@ -129,6 +168,10 @@ public final class AuctionListController {
 
         String role = NetworkClient.getInstance().role();
         boolean canCancel = "SELLER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role);
+        if (bottomActionBar != null) {
+            bottomActionBar.setVisible(canCancel);
+            bottomActionBar.setManaged(canCancel);
+        }
         cancelAuctionBtn.setVisible(canCancel);
         cancelAuctionBtn.setManaged(canCancel);
         cancelAuctionBtn.setDisable(true);
@@ -147,9 +190,141 @@ public final class AuctionListController {
             return row;
         });
 
-        initializing = false;
         startCardCountdownTimer();
         loadAuctions();
+    }
+
+    private void setupHallSubtleBackdrop() {
+        if (hallPatternPane == null) {
+            return;
+        }
+        Image patternImg = StageAssetLoader.loadRawBackdrop("login_bg");
+        if (patternImg == null || patternImg.getWidth() <= 0 || patternImg.getHeight() <= 0) {
+            return;
+        }
+        double tileW = patternImg.getWidth() * 0.45;
+        double tileH = patternImg.getHeight() * 0.45;
+        Rectangle patternRect = new Rectangle();
+        patternRect.widthProperty().bind(hallPatternPane.widthProperty());
+        patternRect.heightProperty().bind(hallPatternPane.heightProperty());
+        patternRect.setFill(new ImagePattern(patternImg, 0, 0, tileW, tileH, false));
+        patternRect.setOpacity(0.055);
+        patternRect.setMouseTransparent(true);
+        hallPatternPane.getChildren().add(patternRect);
+    }
+
+    private void setupLiveTicker() {
+        if (tickerViewport == null || liveTickerLabel == null) {
+            return;
+        }
+        Rectangle clip = new Rectangle();
+        clip.widthProperty().bind(tickerViewport.widthProperty());
+        clip.heightProperty().bind(tickerViewport.heightProperty());
+        tickerViewport.setClip(clip);
+
+        tickerMessages.add("Chào mừng đến với sàn đấu giá Plushie Gala");
+        tickerMessages.add("Mẹo: Dùng Auto-Bid trong phòng đấu giá để tự động giữ vị trí dẫn đầu");
+        rebuildTickerText();
+
+        tickerOffsetX = 320.0;
+        liveTickerLabel.setLayoutX(tickerOffsetX);
+        liveTickerLabel.setLayoutY(1.0);
+
+        tickerMarqueeTimeline = new Timeline(new KeyFrame(javafx.util.Duration.millis(25), e -> {
+            double viewW = tickerViewport.getWidth() > 0 ? tickerViewport.getWidth() : 700.0;
+            double textW = liveTickerLabel.getWidth() > 0 ? liveTickerLabel.getWidth() : 520.0;
+            tickerOffsetX -= 1.35;
+            if (tickerOffsetX < -textW) {
+                tickerOffsetX = viewW;
+            }
+            liveTickerLabel.setLayoutX(tickerOffsetX);
+        }));
+        tickerMarqueeTimeline.setCycleCount(Animation.INDEFINITE);
+        tickerMarqueeTimeline.play();
+    }
+
+    private void rebuildTickerText() {
+        if (liveTickerLabel == null || tickerMessages.isEmpty()) {
+            return;
+        }
+        liveTickerLabel.setText(String.join("   •   ", tickerMessages));
+    }
+
+    private void pushTickerMessage(String msg) {
+        if (msg == null || msg.isBlank()) {
+            return;
+        }
+        tickerMessages.add(0, msg);
+        while (tickerMessages.size() > 5) {
+            tickerMessages.remove(tickerMessages.size() - 1);
+        }
+        rebuildTickerText();
+    }
+
+    private void handleRealtimeTickerEvent(EventEnvelope event) {
+        JsonObject payload = parsePayload(event.payloadJson());
+        long id = event.auctionId();
+        if (event.eventType() == EventType.BID_ACCEPTED) {
+            long bidderId = payload.has("bidderId") ? payload.get("bidderId").getAsLong() : 0L;
+            long price = payload.has("currentPriceCents")
+                    ? payload.get("currentPriceCents").getAsLong()
+                    : (payload.has("amountCents") ? payload.get("amountCents").getAsLong() : 0L);
+            if (bidderId > 0 && price > 0) {
+                pushTickerMessage("Bidder #" + bidderId + " vừa nâng giá phiên #" + id
+                        + " lên " + formatMoney(price) + " cents");
+            }
+        } else if (event.eventType() == EventType.AUCTION_EXTENDED) {
+            pushTickerMessage("Anti-Snipe kích hoạt: Phiên #" + id + " vừa được gia hạn thêm giờ!");
+        } else if (event.eventType() == EventType.AUCTION_FINISHED || event.eventType() == EventType.AUCTION_SETTLED) {
+            Long winnerId = payload.has("winnerId") && !payload.get("winnerId").isJsonNull()
+                    ? payload.get("winnerId").getAsLong() : null;
+            if (winnerId != null) {
+                pushTickerMessage("Chúc mừng Bidder #" + winnerId + " vừa thắng phiên #" + id + "!");
+            }
+        }
+    }
+
+    @FXML
+    private void onSelectFilterAll() {
+        selectFilter(FILTER_ALL);
+    }
+
+    @FXML
+    private void onSelectFilterLive() {
+        selectFilter(FILTER_LIVE);
+    }
+
+    @FXML
+    private void onSelectFilterOpen() {
+        selectFilter(FILTER_OPEN);
+    }
+
+    @FXML
+    private void onSelectFilterEnded() {
+        selectFilter(FILTER_ENDED);
+    }
+
+    private void selectFilter(String filter) {
+        this.activeFilter = filter;
+        updateFilterChipStyles();
+        applySearchFilter();
+    }
+
+    private void updateFilterChipStyles() {
+        applyChipActiveStyle(chipAllBtn, FILTER_ALL.equals(activeFilter));
+        applyChipActiveStyle(chipLiveBtn, FILTER_LIVE.equals(activeFilter));
+        applyChipActiveStyle(chipOpenBtn, FILTER_OPEN.equals(activeFilter));
+        applyChipActiveStyle(chipEndedBtn, FILTER_ENDED.equals(activeFilter));
+    }
+
+    private void applyChipActiveStyle(Button btn, boolean active) {
+        if (btn == null) {
+            return;
+        }
+        btn.getStyleClass().remove("filter-chip-active");
+        if (active) {
+            btn.getStyleClass().add("filter-chip-active");
+        }
     }
 
     private String formatMoney(long cents) {
@@ -176,12 +351,15 @@ public final class AuctionListController {
         auctionTable.setVisible(!cardViewMode);
         auctionTable.setManaged(!cardViewMode);
         toggleLayoutBtn.setText(cardViewMode ? "Dạng bảng" : "Dạng thẻ");
-        UiMotion.animateEntrance(cardViewMode ? cardScrollPane : auctionTable);
-    }
 
-    @FXML
-    private void onFilterChanged() {
-        if (!initializing) loadAuctions();
+        String role = NetworkClient.getInstance().role();
+        boolean canCancel = "SELLER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role);
+        if (bottomActionBar != null) {
+            boolean showBar = !cardViewMode || canCancel;
+            bottomActionBar.setVisible(showBar);
+            bottomActionBar.setManaged(showBar);
+        }
+        UiMotion.animateEntrance(cardViewMode ? cardScrollPane : auctionTable);
     }
 
     @FXML
@@ -233,30 +411,63 @@ public final class AuctionListController {
     }
 
     private void loadAuctions() {
-        if (disposed) return;
+        if (disposed) {
+            return;
+        }
         int generation = ++loadGeneration;
-        String filter = statusFilterBox.getValue();
         refreshBtn.setDisable(true);
         Thread loader = new Thread(() -> {
             try {
-                List<AuctionDto> auctions = NetworkClient.getInstance().listAuctions(filter);
-                // Resolve names before filtering; search must work before opening a card.
-                for (AuctionDto auction : auctions) {
-                    if (!itemCache.containsKey(auction.itemId())) {
-                        var item = NetworkClient.getInstance().getAuctionDetail(auction.auctionId()).item();
-                        if (item != null) itemCache.put(auction.itemId(), item);
-                    }
-                }
+                List<AuctionDto> auctions = NetworkClient.getInstance().listAuctions("ALL");
                 Platform.runLater(() -> {
-                    if (disposed || generation != loadGeneration) return;
-                    refreshBtn.setDisable(false);
+                    if (disposed || generation != loadGeneration) {
+                        return;
+                    }
                     allFetchedAuctions.clear();
                     allFetchedAuctions.addAll(auctions);
+                    syncTickerWithLatestAuctions(auctions);
                     applySearchFilter();
+                });
+
+                boolean metadataUpdated = false;
+                for (AuctionDto auction : auctions) {
+                    if (disposed || generation != loadGeneration) {
+                        return;
+                    }
+                    NetworkClient.AuctionDetailData detail =
+                            NetworkClient.getInstance().getAuctionDetail(auction.auctionId());
+                    if (detail.item() != null) {
+                        itemCache.put(auction.itemId(), detail.item());
+                        metadataUpdated = true;
+                    }
+                    List<BidDto> bids = detail.bids();
+                    int count = bids != null ? bids.size() : 0;
+                    Integer prevCount = bidCountCache.put(auction.auctionId(), count);
+                    if (prevCount == null || prevCount != count) {
+                        metadataUpdated = true;
+                    }
+                }
+
+                if (metadataUpdated) {
+                    Platform.runLater(() -> {
+                        if (disposed || generation != loadGeneration) {
+                            return;
+                        }
+                        syncTickerWithLatestAuctions(allFetchedAuctions);
+                        applySearchFilter();
+                    });
+                }
+
+                Platform.runLater(() -> {
+                    if (!disposed && generation == loadGeneration) {
+                        refreshBtn.setDisable(false);
+                    }
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
-                    if (disposed || generation != loadGeneration) return;
+                    if (disposed || generation != loadGeneration) {
+                        return;
+                    }
                     refreshBtn.setDisable(false);
                     showBanner("Lỗi tải danh sách phiên: " + e.getMessage(), "#dc2626");
                 });
@@ -266,14 +477,31 @@ public final class AuctionListController {
         loader.start();
     }
 
+    private void syncTickerWithLatestAuctions(List<AuctionDto> auctions) {
+        for (AuctionDto a : auctions) {
+            ItemDto item = itemCache.get(a.itemId());
+            String name = item != null ? item.name() : "Vật phẩm #" + a.itemId();
+            if (a.status() == AuctionStatus.RUNNING) {
+                pushTickerMessage("Đang đấu giá: " + name + " (#" + a.auctionId()
+                        + ") • Giá hiện tại " + formatMoney(a.currentPriceCents()) + " cents");
+            } else if (a.status() == AuctionStatus.PAID && a.winnerId() != null) {
+                pushTickerMessage("Phiên #" + a.auctionId() + " (" + name + ") đã chốt cho Bidder #"
+                        + a.winnerId() + " ở mức " + formatMoney(a.currentPriceCents()) + " cents");
+            }
+        }
+    }
+
     private void applySearchFilter() {
         String keyword = searchField != null && searchField.getText() != null
                 ? searchField.getText().trim().toLowerCase(Locale.ROOT)
                 : "";
 
+        int allCount = 0;
+        int liveCount = 0;
+        int openCount = 0;
+        int endedCount = 0;
+
         List<AuctionDto> filtered = new ArrayList<>();
-        long liveCount = 0;
-        long totalVolume = 0;
 
         for (AuctionDto a : allFetchedAuctions) {
             ItemDto cached = itemCache.get(a.itemId());
@@ -288,24 +516,56 @@ public final class AuctionListController {
                 continue;
             }
 
-            filtered.add(a);
-            if (a.status() == AuctionStatus.RUNNING || a.status() == AuctionStatus.OPEN) {
+            allCount++;
+            boolean isRunning = a.status() == AuctionStatus.RUNNING;
+            boolean isOpen = a.status() == AuctionStatus.OPEN;
+            boolean isEnded = a.status() == AuctionStatus.FINISHED
+                    || a.status() == AuctionStatus.PAID
+                    || a.status() == AuctionStatus.CANCELLED;
+
+            if (isRunning) {
                 liveCount++;
             }
-            totalVolume += a.currentPriceCents();
+            if (isOpen) {
+                openCount++;
+            }
+            if (isEnded) {
+                endedCount++;
+            }
+
+            boolean matchesChip = switch (activeFilter) {
+                case FILTER_LIVE -> isRunning;
+                case FILTER_OPEN -> isOpen;
+                case FILTER_ENDED -> isEnded;
+                default -> true;
+            };
+
+            if (matchesChip) {
+                filtered.add(a);
+            }
+        }
+
+        if (chipAllBtn != null) {
+            chipAllBtn.setText("Tất cả (" + allCount + ")");
+        }
+        if (chipLiveBtn != null) {
+            chipLiveBtn.setText("Đang diễn ra (" + liveCount + ")");
+        }
+        if (chipOpenBtn != null) {
+            chipOpenBtn.setText("Sắp mở (" + openCount + ")");
+        }
+        if (chipEndedBtn != null) {
+            chipEndedBtn.setText("Đã kết thúc (" + endedCount + ")");
         }
 
         visibleRows.setAll(filtered);
-        totalCountBadge.setText(filtered.size() + " phiên");
-        if (kpiLiveLabel != null) kpiLiveLabel.setText(liveCount + " phiên");
-        if (kpiVolumeLabel != null) kpiVolumeLabel.setText(formatMoney(totalVolume) + " cents");
-        if (kpiTotalLabel != null) kpiTotalLabel.setText(filtered.size() + " phiên");
+        kpiTotalLabel.setText(filtered.size() + " phiên");
 
         updateSelectionState(null);
         rebuildCardGrid(filtered);
 
         if (filtered.isEmpty()) {
-            showBanner("Chưa có phiên đấu giá nào khớp bộ lọc hiện tại.", "#475569");
+            showBanner("Chưa có phiên đấu giá nào khớp bộ lọc hiện tại.", "#834463");
         } else {
             hideBanner();
         }
@@ -314,136 +574,150 @@ public final class AuctionListController {
     private void rebuildCardGrid(List<AuctionDto> auctions) {
         cardGridPane.getChildren().clear();
         cardTickers.clear();
+        int cardWidth = auctions.size() == 1 ? 320 : 284;
         for (AuctionDto auction : auctions) {
-            VBox card = buildAuctionCard(auction);
+            VBox card = buildAuctionCard(auction, cardWidth);
             cardGridPane.getChildren().add(card);
-            fetchItemMetadataForCard(auction, card);
         }
     }
 
-    private VBox buildAuctionCard(AuctionDto auction) {
-        VBox card = new VBox(10);
-        card.setPrefWidth(280);
-        card.setMinWidth(280);
-        card.setPadding(new Insets(14));
+    private VBox buildAuctionCard(AuctionDto auction, int cardWidth) {
+        VBox card = new VBox(12);
+        card.setPrefWidth(cardWidth);
+        card.setMinWidth(cardWidth);
+        card.setPadding(new Insets(16));
         card.setStyle(defaultCardStyle(false));
-        card.setEffect(new DropShadow(14, Color.rgb(15, 23, 42, 0.10)));
 
-        // Hàng 1: Badge trạng thái LIVE + ID phiên
+        boolean isLive = auction.status() == AuctionStatus.RUNNING || auction.status() == AuctionStatus.OPEN;
+        ItemDto cached = itemCache.get(auction.itemId());
+        int bidCount = bidCountCache.getOrDefault(auction.auctionId(), 0);
+
         HBox topRow = new HBox(6);
         topRow.setAlignment(Pos.CENTER_LEFT);
 
-        boolean isLive = auction.status() == AuctionStatus.RUNNING || auction.status() == AuctionStatus.OPEN;
-        HBox statusPill = new HBox(5);
-        statusPill.setAlignment(Pos.CENTER_LEFT);
-        String pillBg = isLive ? "#dcfce7" : (auction.status() == AuctionStatus.PAID ? "#dbeafe" : "#f1f5f9");
-        String pillFg = isLive ? "#15803d" : (auction.status() == AuctionStatus.PAID ? "#1d4ed8" : "#475569");
-        statusPill.setStyle("-fx-background-color: " + pillBg + "; -fx-padding: 3 9; -fx-background-radius: 12;");
-
         if (isLive) {
-            Circle liveDot = new Circle(4, Color.web("#16a34a"));
-            statusPill.getChildren().add(liveDot);
+            Circle liveDot = new Circle(3.5, Color.web("#16a34a"));
+            Label liveLbl = new Label(auction.status() == AuctionStatus.RUNNING ? "Đang diễn ra" : "Sắp mở");
+            liveLbl.setStyle("-fx-text-fill: #15803d; -fx-font-size: 11px; -fx-font-weight: bold;");
+            topRow.getChildren().addAll(liveDot, liveLbl);
+        } else {
+            String endedText = auction.status() == AuctionStatus.PAID
+                    ? "Đã thanh toán"
+                    : (auction.status() == AuctionStatus.CANCELLED ? "Đã hủy" : "Đã kết thúc");
+            Label statusLbl = new Label(endedText);
+            statusLbl.setStyle("-fx-text-fill: #834463; -fx-font-size: 11px; -fx-font-weight: bold;");
+            topRow.getChildren().add(statusLbl);
         }
-        Label statusText = new Label(isLive ? "LIVE • " + auction.status().name() : auction.status().name());
-        statusText.setStyle("-fx-text-fill: " + pillFg + "; -fx-font-size: 10px; -fx-font-weight: bold;");
-        statusPill.getChildren().add(statusText);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Label idBadge = new Label("PHIÊN #" + auction.auctionId());
-        idBadge.setStyle("-fx-background-color: #f1f5f9; -fx-text-fill: #334155; -fx-padding: 2 8; -fx-background-radius: 6; -fx-font-size: 10px; -fx-font-weight: bold;");
+        String typeStr = cached != null && cached.itemType() != null ? cached.itemType().name() : "PLUSH";
+        Label metaTag = new Label("#" + auction.auctionId() + " · " + typeStr);
+        metaTag.setStyle("-fx-text-fill: #9d5c7c; -fx-font-size: 11px;");
+        topRow.getChildren().addAll(spacer, metaTag);
 
-        topRow.getChildren().addAll(statusPill, spacer, idBadge);
-
-        // Hàng 2: Bục trưng bày vật phẩm Gala (nền tối ánh vàng)
         StackPane artworkBox = new StackPane();
-        artworkBox.setPrefHeight(132);
-        artworkBox.setStyle("-fx-background-color: radial-gradient(center 50% 45%, radius 70%, #2c345e, #121629); -fx-background-radius: 12; -fx-border-color: rgba(250,204,21,0.35); -fx-border-radius: 12;");
+        artworkBox.setPrefHeight(148);
+        artworkBox.setStyle("-fx-background-color: linear-gradient(to bottom right, #fdf2f8, #fce7f3); "
+                + "-fx-background-radius: 12;");
 
-        Circle spotlight = new Circle(46, Color.web("#facc15", 0.14));
         ImageView itemImg = new ImageView();
-        itemImg.setFitWidth(104);
-        itemImg.setFitHeight(104);
+        itemImg.setFitWidth(116);
+        itemImg.setFitHeight(116);
         itemImg.setPreserveRatio(true);
-
-        ItemDto cached = itemCache.get(auction.itemId());
+        itemImg.setSmooth(true);
         Image sprite = StageAssetLoader.resolveItemStageImage(cached);
         if (sprite != null) {
             itemImg.setImage(sprite);
         }
 
-        Label typeTag = new Label(cached != null && cached.itemType() != null ? cached.itemType().name() : "ITEM #" + auction.itemId());
-        typeTag.setStyle("-fx-background-color: rgba(15,23,42,0.75); -fx-text-fill: #fde047; -fx-padding: 2 8; -fx-background-radius: 6; -fx-font-size: 9px; -fx-font-weight: bold;");
-        StackPane.setAlignment(typeTag, Pos.TOP_RIGHT);
-        StackPane.setMargin(typeTag, new Insets(8, 8, 0, 0));
+        String cornerText = (bidCount >= 3 || auction.extensionCount() > 0)
+                ? "HOT"
+                : (isLive ? "MỚI LÊN SÀN" : "ĐÃ CHỐT");
+        String cornerBg = "HOT".equals(cornerText)
+                ? "#e11d48"
+                : (isLive ? "#db2777" : "#9d5c7c");
+        Label cornerBadge = new Label(cornerText);
+        cornerBadge.setStyle("-fx-background-color: " + cornerBg
+                + "; -fx-text-fill: white; -fx-padding: 2 8; -fx-background-radius: 7; "
+                + "-fx-font-size: 10px; -fx-font-weight: bold;");
+        StackPane.setAlignment(cornerBadge, Pos.TOP_LEFT);
+        StackPane.setMargin(cornerBadge, new Insets(8, 0, 0, 8));
 
-        artworkBox.getChildren().addAll(spotlight, itemImg, typeTag);
+        Label bidCountBadge = new Label(bidCount + " lượt trả giá");
+        bidCountBadge.setStyle("-fx-background-color: rgba(255, 255, 255, 0.92); -fx-text-fill: #831843; "
+                + "-fx-padding: 2 8; -fx-background-radius: 7; "
+                + "-fx-font-size: 10.5px; -fx-font-weight: bold;");
+        StackPane.setAlignment(bidCountBadge, Pos.BOTTOM_RIGHT);
+        StackPane.setMargin(bidCountBadge, new Insets(0, 8, 8, 0));
 
-        // Hàng 3: Tên vật phẩm & thông số khởi điểm
-        Label titleLabel = new Label(cached != null ? cached.name() : "Vật phẩm #" + auction.itemId());
+        artworkBox.getChildren().addAll(itemImg, cornerBadge, bidCountBadge);
+
+        UiMotion.attachHoverLift(card);
+        card.hoverProperty().addListener((obs, wasHovered, isHovered) -> {
+            ScaleTransition scale = new ScaleTransition(javafx.util.Duration.millis(180), itemImg);
+            scale.setToX(isHovered ? 1.07 : 1.0);
+            scale.setToY(isHovered ? 1.07 : 1.0);
+
+            RotateTransition rotate = new RotateTransition(javafx.util.Duration.millis(180), itemImg);
+            rotate.setToAngle(isHovered ? -4.0 : 0.0);
+
+            new ParallelTransition(scale, rotate).play();
+        });
+
+        VBox infoBox = new VBox(3);
+        Label titleLabel = new Label(cached != null ? cached.name() : "Gấu bông #" + auction.itemId());
         titleLabel.setWrapText(true);
-        titleLabel.setMinHeight(42);
-        titleLabel.setStyle("-fx-text-fill: #0f172a; -fx-font-size: 15px; -fx-font-weight: bold;");
+        titleLabel.setStyle("-fx-text-fill: #2d0a1e; -fx-font-size: 15.5px; -fx-font-weight: bold;");
 
-        Label subLabel = new Label("Khởi điểm: " + formatMoney(auction.startPriceCents())
-                + " • Bước: +" + formatMoney(auction.minIncrementCents()));
-        subLabel.setStyle("-fx-text-fill: #64748b; -fx-font-size: 11px;");
+        Label subLabel = new Label("Khởi điểm " + formatMoney(auction.startPriceCents())
+                + " · Bước +" + formatMoney(auction.minIncrementCents()));
+        subLabel.setStyle("-fx-text-fill: #834463; -fx-font-size: 11.5px;");
+        infoBox.getChildren().addAll(titleLabel, subLabel);
 
-        // Hàng 4: Giá hiện tại & Đồng hồ đếm ngược
         HBox metricsRow = new HBox(8);
-        metricsRow.setAlignment(Pos.CENTER_LEFT);
-        metricsRow.setStyle("-fx-background-color: #f8fafc; -fx-border-color: #e2e8f0; -fx-border-radius: 9; -fx-padding: 8 10; -fx-background-radius: 9;");
+        metricsRow.setAlignment(Pos.BOTTOM_LEFT);
+        metricsRow.setPadding(new Insets(4, 0, 0, 0));
 
-        VBox priceBox = new VBox(2);
+        VBox priceBox = new VBox(1);
         HBox.setHgrow(priceBox, Priority.ALWAYS);
-        Label pCap = new Label("GIÁ HIỆN TẠI");
-        pCap.setStyle("-fx-text-fill: #64748b; -fx-font-size: 9px; -fx-font-weight: bold;");
+        Label pCap = new Label("Giá hiện tại");
+        pCap.setStyle("-fx-text-fill: #834463; -fx-font-size: 10.5px;");
         Label pVal = new Label(formatMoney(auction.currentPriceCents()) + " cents");
-        pVal.setStyle("-fx-text-fill: #d97706; -fx-font-size: 15px; -fx-font-weight: bold;");
+        pVal.setStyle("-fx-text-fill: " + (isLive ? "#db2777" : "#3b0d24")
+                + "; -fx-font-size: 16px; -fx-font-weight: bold;");
         priceBox.getChildren().addAll(pCap, pVal);
 
-        VBox timeBox = new VBox(2);
-        timeBox.setAlignment(Pos.CENTER_RIGHT);
-        Label tCap = new Label("THỜI GIAN");
-        tCap.setStyle("-fx-text-fill: #64748b; -fx-font-size: 9px; -fx-font-weight: bold;");
-        Label tVal = new Label("--:--:--");
-        tVal.setStyle("-fx-text-fill: #1d4ed8; -fx-font-size: 13px; -fx-font-weight: bold;");
-        timeBox.getChildren().addAll(tCap, tVal);
-
-        metricsRow.getChildren().addAll(priceBox, timeBox);
+        Label tVal = new Label("");
+        tVal.setStyle("-fx-text-fill: #834463; -fx-font-size: 11.5px; -fx-font-weight: bold;");
+        metricsRow.getChildren().addAll(priceBox, tVal);
 
         Runnable tick = () -> {
             Duration rem = Duration.between(Instant.now(), auction.endAt());
             if (!isLive || rem.isNegative() || rem.isZero()) {
-                tVal.setText(auction.status() == AuctionStatus.PAID ? "Đã thanh toán" : "Đã kết thúc");
-                tVal.setStyle("-fx-text-fill: #64748b; -fx-font-size: 11px; -fx-font-weight: bold;");
+                tVal.setText("");
             } else {
                 long sec = rem.getSeconds();
-                tVal.setText(String.format("%02d:%02d:%02d", sec / 3600, (sec % 3600) / 60, sec % 60));
-                if (sec <= 60) {
-                    tVal.setStyle("-fx-text-fill: #dc2626; -fx-font-size: 13px; -fx-font-weight: bold;");
-                }
+                tVal.setText(String.format("Còn %02d:%02d:%02d", sec / 3600, (sec % 3600) / 60, sec % 60));
+                tVal.setStyle("-fx-text-fill: " + (sec <= 60 ? "#e11d48" : "#9d174d")
+                        + "; -fx-font-size: 11.5px; -fx-font-weight: bold;");
             }
         };
         tick.run();
         cardTickers.add(tick);
 
-        // Hàng 5: Nút lên sàn đấu giá
-        Button enterBtn = new Button(isLive ? "Vào Phòng Đấu Giá →" : "Xem Kết Quả Phiên →");
+        Button enterBtn = new Button(isLive ? "Tham gia đấu giá →" : "Xem chi tiết");
         enterBtn.setMaxWidth(Double.MAX_VALUE);
-        enterBtn.setPrefHeight(34);
+        enterBtn.setPrefHeight(35);
         enterBtn.setStyle(isLive
-                ? "-fx-background-color: linear-gradient(to right, #16a34a, #15803d); -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;"
-                : "-fx-background-color: #1e293b; -fx-text-fill: #f8fafc; -fx-font-size: 12px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;");
+                ? "-fx-background-color: #db2777; -fx-text-fill: white; "
+                + "-fx-font-size: 12px; -fx-font-weight: bold; -fx-background-radius: 9; -fx-cursor: hand;"
+                : "-fx-background-color: #fce7f3; -fx-text-fill: #831843; "
+                + "-fx-font-size: 12px; -fx-font-weight: bold; -fx-background-radius: 9; -fx-cursor: hand;");
         enterBtn.setOnAction(e -> openAuctionDetail(auction));
 
-        card.getChildren().addAll(topRow, artworkBox, titleLabel, subLabel, metricsRow, enterBtn);
-        card.getProperties().put("itemImg", itemImg);
-        card.getProperties().put("titleLabel", titleLabel);
-        card.getProperties().put("typeTag", typeTag);
-
-        UiMotion.attachHoverLift(card);
+        card.getChildren().addAll(topRow, artworkBox, infoBox, metricsRow, enterBtn);
         card.setOnMouseClicked(e -> {
             updateSelectionState(auction);
             auctionTable.getSelectionModel().select(auction);
@@ -456,39 +730,6 @@ public final class AuctionListController {
         return card;
     }
 
-    private void fetchItemMetadataForCard(AuctionDto auction, VBox card) {
-        if (itemCache.containsKey(auction.itemId())) {
-            return;
-        }
-        Thread metaLoader = new Thread(() -> {
-            try {
-                NetworkClient.AuctionDetailData detail = NetworkClient.getInstance().getAuctionDetail(auction.auctionId());
-                ItemDto item = detail.item();
-                if (item != null) {
-                    itemCache.put(auction.itemId(), item);
-                    Platform.runLater(() -> {
-                        if (card.getProperties().get("itemImg") instanceof ImageView iv) {
-                            Image resolved = StageAssetLoader.resolveItemStageImage(item);
-                            if (resolved != null) {
-                                iv.setImage(resolved);
-                            }
-                        }
-                        if (card.getProperties().get("titleLabel") instanceof Label tl) {
-                            tl.setText(item.name());
-                        }
-                        if (card.getProperties().get("typeTag") instanceof Label tag && item.itemType() != null) {
-                            tag.setText(item.itemType().name());
-                        }
-                        auctionTable.refresh();
-                    });
-                }
-            } catch (Exception ignored) {
-            }
-        }, "card-item-loader-" + auction.auctionId());
-        metaLoader.setDaemon(true);
-        metaLoader.start();
-    }
-
     private void highlightSelectedCard(VBox activeCard) {
         for (var node : cardGridPane.getChildren()) {
             if (node instanceof VBox box) {
@@ -498,14 +739,16 @@ public final class AuctionListController {
     }
 
     private String defaultCardStyle(boolean selected) {
-        String border = selected ? "#f59e0b" : "#cbd5e1";
-        String width = selected ? "2" : "1";
-        return "-fx-background-color: white; -fx-background-radius: 14; -fx-border-color: "
+        String border = selected ? "#db2777" : "#f5d0e3";
+        String width = selected ? "1.6" : "1";
+        return "-fx-background-color: #ffffff; -fx-background-radius: 14; -fx-border-color: "
                 + border + "; -fx-border-width: " + width + "; -fx-border-radius: 14;";
     }
 
     private void startCardCountdownTimer() {
-        if (cardCountdownTimeline != null) cardCountdownTimeline.stop();
+        if (cardCountdownTimeline != null) {
+            cardCountdownTimeline.stop();
+        }
         cardCountdownTimeline = new Timeline(new KeyFrame(javafx.util.Duration.seconds(1), e -> {
             for (Runnable tick : cardTickers) {
                 tick.run();
@@ -515,21 +758,39 @@ public final class AuctionListController {
         cardCountdownTimeline.play();
     }
 
+    private JsonObject parsePayload(String payloadJson) {
+        if (payloadJson == null || payloadJson.isBlank()) {
+            return new JsonObject();
+        }
+        try {
+            return JsonParser.parseString(payloadJson).getAsJsonObject();
+        } catch (Exception e) {
+            return new JsonObject();
+        }
+    }
+
     public void cleanup() {
         disposed = true;
-        if (refreshDebounce != null) refreshDebounce.stop();
+        if (refreshDebounce != null) {
+            refreshDebounce.stop();
+        }
         NetworkClient.getInstance().removeEventListener(listEvents);
         NetworkClient.getInstance().removeConnectionListener(reconnectListener);
         if (cardCountdownTimeline != null) {
             cardCountdownTimeline.stop();
             cardCountdownTimeline = null;
         }
+        if (tickerMarqueeTimeline != null) {
+            tickerMarqueeTimeline.stop();
+            tickerMarqueeTimeline = null;
+        }
     }
 
     private void showBanner(String text, String color) {
         statusMessageLabel.setText(text);
         statusMessageLabel.setStyle("-fx-background-color: " + color
-                + "; -fx-text-fill: white; -fx-padding: 10 14; -fx-background-radius: 8; -fx-font-weight: bold;");
+                + "; -fx-text-fill: white; -fx-padding: 10 14; "
+                + "-fx-background-radius: 8; -fx-font-weight: bold;");
         statusMessageLabel.setVisible(true);
         statusMessageLabel.setManaged(true);
     }

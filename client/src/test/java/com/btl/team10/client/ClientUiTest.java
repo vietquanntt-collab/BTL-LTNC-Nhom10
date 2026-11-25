@@ -90,11 +90,11 @@ class ClientUiTest {
         await(()->fxUnchecked(()->!find("itemTable",TableView.class).getItems().isEmpty()));
         snapshot("seller",1280,800); snapshot("seller-small",1100,720);
         fx(()-> { ((TableView<?>)shell.lookup("#itemTable")).getSelectionModel().clearSelection(); return null; });
-        // Actual preset handler must send a supported ItemType and preserve the image.
-        fx(()-> { Button preset=(Button)shell.lookupAll(".button").stream().filter(n->n instanceof Button b && b.getText().equals("Cúp Euro")).findFirst().orElseThrow();
+        // Actual preset handler must send a supported ItemType and preserve the plushie image.
+        fx(()-> { Button preset=(Button)shell.lookupAll(".button").stream().filter(n->n instanceof Button b && b.getText().equals("Báo Hồng")).findFirst().orElseThrow();
             preset.fire();find("createItemBtn",Button.class).fire();return null; });
         await(()->fxUnchecked(()->find("itemTable",TableView.class).getItems().size()==2));
-        assertTrue(NetworkClient.getInstance().listItems().stream().anyMatch(i->i.name().contains("Euro") && i.imageBase64()!=null));
+        assertTrue(NetworkClient.getInstance().listItems().stream().anyMatch(i->i.name().contains("Báo Hồng") && i.imageBase64()!=null));
         switchRole("admin","admin123","AdminDashboard.fxml");
         await(()->fxUnchecked(()->find("userTable",TableView.class).getItems().size()==4));
         snapshot("admin",1280,800); snapshot("admin-small",1100,720);

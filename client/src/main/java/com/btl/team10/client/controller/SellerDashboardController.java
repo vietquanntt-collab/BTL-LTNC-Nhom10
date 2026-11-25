@@ -98,21 +98,21 @@ public final class SellerDashboardController {
     }
 
     @FXML
-    private void onPresetEuro() {
-        applyPreset("euro_trophy", "Cúp Vô Địch UEFA Euro", "FIGURE",
-                "Phiên bản trưng bày mạ bạc khắc biểu tượng Giải vô địch bóng đá châu Âu UEFA.");
+    private void onPresetPinkPanther() {
+        applyPreset("pink_panther", "Gấu Bông Báo Hồng Pink Panther", "FIGURE",
+                "Phiên bản gấu bông Báo Hồng mềm mịn cao cấp, dáng vẫy tay cực kỳ đáng yêu.");
     }
 
     @FXML
-    private void onPresetBallonDor() {
-        applyPreset("ballon_dor", "Quả Bóng Vàng FIFA Ballon d'Or", "FIGURE",
-                "Tượng Quả Bóng Vàng chế tác tinh xảo trên khối đế khoáng thạch sang trọng.");
+    private void onPresetDoraemonPink() {
+        applyPreset("doraemon_pink", "Gấu Bông Doraemon Hồng Ôm Tim", "FIGURE",
+                "Phiên bản Doraemon hồng pastel giới hạn với đôi mắt trái tim ngọt ngào.");
     }
 
     @FXML
-    private void onPresetMessiGoat() {
-        applyPreset("messi_goat", "Áo Phông Phiên Bản GOAT 10 Messi", "POSTER",
-                "Áo kỷ niệm phiên bản giới hạn in họa tiết GOAT số 10 dành cho nhà sưu tầm bóng đá.");
+    private void onPresetDoraemonBlue() {
+        applyPreset("doraemon_blue", "Gấu Bông Doraemon Cổ Điển", "FIGURE",
+                "Mèo máy Doraemon xanh dương kinh điển chất liệu bông nhung siêu êm ái.");
     }
 
     private void applyPreset(String spriteName, String title, String type, String desc) {
@@ -165,7 +165,7 @@ public final class SellerDashboardController {
         selectedImageBase64 = null;
         itemPreviewImageView.setImage(null);
         previewPlaceholderLabel.setVisible(true);
-        imageFileLabel.setText("Tự động tách nền đen khi đưa lên sân khấu 2D.");
+        imageFileLabel.setText("Tự động tách nền trắng/đen khi đưa lên sân khấu 2D.");
     }
 
     @FXML
@@ -199,7 +199,9 @@ public final class SellerDashboardController {
             try {
                 long newItemId = NetworkClient.getInstance().createItem(name, type, desc, imagePayload);
                 Platform.runLater(() -> {
-                    if (disposed) return;
+                    if (disposed) {
+                        return;
+                    }
                     createItemBtn.setDisable(false);
                     auctionItemIdField.setText(String.valueOf(newItemId));
                     showSuccess("Đã tạo vật phẩm mới thành công (ID #" + newItemId + ").");
@@ -207,7 +209,9 @@ public final class SellerDashboardController {
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
-                    if (disposed) return;
+                    if (disposed) {
+                        return;
+                    }
                     createItemBtn.setDisable(false);
                     showError("Tạo vật phẩm thất bại: " + e.getMessage());
                 });
@@ -236,14 +240,18 @@ public final class SellerDashboardController {
             try {
                 NetworkClient.getInstance().updateItem(selected.itemId(), name, type, desc, imagePayload);
                 Platform.runLater(() -> {
-                    if (disposed) return;
+                    if (disposed) {
+                        return;
+                    }
                     updateItemBtn.setDisable(false);
                     showSuccess("Đã cập nhật thông tin vật phẩm #" + selected.itemId() + ".");
                     loadItems();
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
-                    if (disposed) return;
+                    if (disposed) {
+                        return;
+                    }
                     updateItemBtn.setDisable(false);
                     showError("Cập nhật vật phẩm thất bại: " + e.getMessage());
                 });
@@ -264,14 +272,18 @@ public final class SellerDashboardController {
             try {
                 NetworkClient.getInstance().deleteItem(selected.itemId());
                 Platform.runLater(() -> {
-                    if (disposed) return;
+                    if (disposed) {
+                        return;
+                    }
                     onClearForm();
                     showSuccess("Đã xóa vật phẩm #" + selected.itemId() + ".");
                     loadItems();
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
-                    if (disposed) return;
+                    if (disposed) {
+                        return;
+                    }
                     deleteItemBtn.setDisable(false);
                     showError("Xóa vật phẩm thất bại: " + e.getMessage());
                 });
@@ -308,14 +320,18 @@ public final class SellerDashboardController {
                 long auctionId = NetworkClient.getInstance()
                         .createAuction(itemId, startPrice, minIncrement, durationHours);
                 Platform.runLater(() -> {
-                    if (disposed) return;
+                    if (disposed) {
+                        return;
+                    }
                     createAuctionBtn.setDisable(false);
                     showSuccess("Đã mở phiên đấu giá #" + auctionId + " thành công!");
                     NavigationManager.getInstance().loadView("/com/btl/team10/client/view/AuctionList.fxml");
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
-                    if (disposed) return;
+                    if (disposed) {
+                        return;
+                    }
                     createAuctionBtn.setDisable(false);
                     showError("Mở phiên đấu giá thất bại: " + e.getMessage());
                 });
@@ -329,9 +345,17 @@ public final class SellerDashboardController {
         Thread loader = new Thread(() -> {
             try {
                 List<ItemDto> items = NetworkClient.getInstance().listItems();
-                Platform.runLater(() -> { if (!disposed) itemRows.setAll(items); });
+                Platform.runLater(() -> {
+                    if (!disposed) {
+                        itemRows.setAll(items);
+                    }
+                });
             } catch (Exception e) {
-                Platform.runLater(() -> { if (!disposed) showError("Không thể tải danh sách vật phẩm: " + e.getMessage()); });
+                Platform.runLater(() -> {
+                    if (!disposed) {
+                        showError("Không thể tải danh sách vật phẩm: " + e.getMessage());
+                    }
+                });
             }
         }, "seller-list-items");
         loader.setDaemon(true);
@@ -340,14 +364,16 @@ public final class SellerDashboardController {
 
     private void showSuccess(String msg) {
         feedbackLabel.setText(msg);
-        feedbackLabel.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 10 14; -fx-background-radius: 6; -fx-font-weight: bold;");
+        feedbackLabel.setStyle("-fx-background-color: #16a34a; -fx-text-fill: white; "
+                + "-fx-padding: 10 14; -fx-background-radius: 6; -fx-font-weight: bold;");
         feedbackLabel.setVisible(true);
         feedbackLabel.setManaged(true);
     }
 
     private void showError(String msg) {
         feedbackLabel.setText(msg);
-        feedbackLabel.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-padding: 10 14; -fx-background-radius: 6; -fx-font-weight: bold;");
+        feedbackLabel.setStyle("-fx-background-color: #e11d48; -fx-text-fill: white; "
+                + "-fx-padding: 10 14; -fx-background-radius: 6; -fx-font-weight: bold;");
         feedbackLabel.setVisible(true);
         feedbackLabel.setManaged(true);
     }
@@ -357,5 +383,7 @@ public final class SellerDashboardController {
         feedbackLabel.setManaged(false);
     }
 
-    public void cleanup() { disposed = true; }
+    public void cleanup() {
+        disposed = true;
+    }
 }
