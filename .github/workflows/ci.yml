@@ -1,20 +1,71 @@
-name: Nhóm 10 CI
-
+name: Nhom 10 - CI
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, 'feature/**', week5-check]
+    tags: ['v*']
   pull_request:
     branches: [main, develop]
-
+  workflow_dispatch:
+permissions:
+  contents: read
 jobs:
-  common:
-    runs-on: ubuntu-latest
+  build-test-package:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Compile and test common contract
-        run: mvn -B -pl common -am clean verify
+      - name: Check repository hygiene
+        run: |
+          git diff --check
+          if git ls-files '*.db' '*.db-wal' '*.db-shm' '*.sqlite' '*.class' '*target/*' | grep -q .; then
+            echo "Runtime databases and build output must not be tracked."
+            exit 1
+          fi
+          test -f database/migrations/V005__item_images.sql
+          test -f README.md
+      - name: Verify on Linux with virtual display
+        if: runner.os == 'Linux'
+        run: |
+          chmod +x mvnw
+          xvfb-run -a ./mvnw -B clean verify -DrunUiTests=true
+      - name: Verify on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./mvnw.cmd -B clean verify -DrunUiTests=true
+      - name: Assemble runnable release
+        run: |
+          mkdir -p release-bundle/jars release-bundle/docs
+          cp server/target/server.jar client/target/client.jar release-bundle/jars/
+          cp -r database scripts release-bundle/
+          cp README.md release-bundle/
+          cp -r docs/. release-bundle/docs/
+          cp docs/runtime-quickstart.md release-bundle/START-HERE.md
+          (cd release-bundle && sha256sum jars/server.jar jars/client.jar > SHA256SUMS.txt)
+      - name: Upload test reports and UI renders
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: verification-${{ runner.os }}
+          path: |
+            **/target/surefire-reports/*.xml
+            **/target/surefire-reports/*.txt
+            **/target/site/jacoco/
+            **/target/checkstyle-result.xml
+            client/target/ui-snapshots/
+            client/target/ui-layout.tsv
+      - name: Upload runnable package
+        uses: actions/upload-artifact@v5
+        with:
+          name: auction-release-${{ runner.os }}
+          path: release-bundle/

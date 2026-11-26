@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant UI as LoginController
+    participant N as NetworkClient
+    participant H as ClientHandler
+    participant A as AuthService
+    participant DB as SQLite
+    participant S as SessionManager
+    UI->>N: login(account, password) on worker thread
+    N->>H: LOGIN request, payloadJson
+    H->>A: login
+    A->>DB: read account and password hash
+    A->>A: verify PBKDF2
+    A->>S: create session
+    H-->>N: response with sessionId, role and wallet
+    N-->>UI: LoginResult
+    UI->>UI: Platform.runLater: show auction list

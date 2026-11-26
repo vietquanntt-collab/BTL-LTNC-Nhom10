@@ -1,0 +1,15 @@
+/* Tab đăng nhập / đăng ký & ô nhập liệu phong cách Pastel Plushie */
+.gala-auth .gala-auth-tab {
+    -fx-background-color: transparent;
+    -fx-text-fill: #834463;
+    -fx-font-weight: bold;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+}
+.gala-auth .gala-auth-tab:active {
+    -fx-background-color: linear-gradient(to right, #ec4899, #db2777);
+    -fx-text-fill: #ffffff;
+}
+.gala-auth .text-field:focused {
+    -fx-border-color: #db2777;
+}

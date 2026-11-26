@@ -4,6 +4,7 @@ target/
 *.jar
 *.log
 # The Maven Wrapper JAR is intentionally tracked in .mvn/wrapper so a clean clone can build.
+!.mvn/wrapper/maven-wrapper.jar
 
 # IDE
 .idea/
@@ -16,7 +17,21 @@ target/
 *.sqlite3
 .env
 config/local.properties
+.javafx-cache/
+
+# Keep the runtime database directory in a clean clone; database files stay ignored.
+!data/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+!data/.gitkeep
 
 # OS
 Thumbs.db
 Desktop.ini
+
+# SQLite sidecars and locally assembled release
+*.db-wal
+*.db-shm
+*.db-journal
+release-bundle/

@@ -1,5 +1,7 @@
 # ADR-001: Kiến trúc đích Client - Common - Server
 
+> Historical design. Current implemented contract and corrections: [ADR-004](ADR-004-release-contract.md).
+
 - **Status:** Accepted
 - **Date:** 2026-10-22
 - **Owner:** TV1

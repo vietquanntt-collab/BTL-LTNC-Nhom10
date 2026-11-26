@@ -1,0 +1,16 @@
+.gala-auth .gala-auth-tab {
+    -fx-background-color: transparent;
+    -fx-text-fill: #831843;
+    -fx-font-weight: bold;
+    -fx-background-radius: 9;
+    -fx-cursor: hand;
+}
+.gala-auth .gala-auth-tab:active {
+    -fx-background-color: linear-gradient(to right, #ec4899, #db2777);
+    -fx-text-fill: #ffffff;
+}
+.gala-auth .text-field:focused,
+.gala-auth .password-field:focused {
+    -fx-border-color: #db2777;
+    -fx-background-color: #ffffff;
+}

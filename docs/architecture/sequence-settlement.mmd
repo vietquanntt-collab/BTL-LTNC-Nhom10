@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant T as ExpirationScheduler
+    participant DB as SQLite
+    participant S as SettlementService
+    participant E as EventPublisher
+    T->>DB: databaseLock + transaction: expired OPEN/RUNNING -> FINISHED
+    DB-->>T: commit
+    T->>E: AUCTION_FINISHED
+    T->>S: settle FINISHED (including retries)
+    S->>DB: transaction: unique settlement, winner debit, seller credit, unlock funds
+    alt settlement already recorded
+        DB-->>S: existing settlement, no second payment
+    else transfer committed
+        DB-->>S: commit PAID and events
+        S->>E: AUCTION_SETTLED then targeted BALANCE_CHANGED
+    end
