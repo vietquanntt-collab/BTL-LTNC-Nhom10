@@ -21,6 +21,9 @@ public record CreateItemCommand(
             description = "";
         } else {
             description = description.trim();
+            if (description.length() > 2000) {
+                throw new ValidationException("description", "must be at most 2000 characters");
+            }
         }
         if (itemType == null) {
             throw new ValidationException("itemType", "must not be null");

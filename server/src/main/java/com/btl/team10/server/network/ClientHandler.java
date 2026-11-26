@@ -118,14 +118,23 @@ public final class ClientHandler implements Runnable {
                     clientObserver.beginRequest();
                 }
                 try {
+                    if (eventPublisher != null) {
+                        eventPublisher.beginDeferredBatch();
+                    }
                     synchronized (databaseLock) {
                         response = trimmed.startsWith("{")
                                 ? handleJson(trimmed) : handlePipe(trimmed);
                     }
                 } catch (RuntimeException error) {
+                    if (eventPublisher != null) {
+                        eventPublisher.discardDeferredBatch();
+                    }
                     response = trimmed.startsWith("{")
                             ? failureFor(trimmed, ErrorCode.INTERNAL_ERROR, "Request failed")
                             : "ERROR|Request failed";
+                }
+                if (eventPublisher != null) {
+                    eventPublisher.flushDeferredBatch();
                 }
                 if (clientObserver != null) {
                     clientObserver.finishRequestAndFlush(response);
@@ -348,6 +357,9 @@ public final class ClientHandler implements Runnable {
         var item = requireOwnedItem(request, payload);
         String name = payload.has("name") ? requiredString(payload, "name") : item.name();
         String description = payload.has("description") ? optionalString(payload, "description") : item.description();
+        if (description != null && description.trim().length() > 2000) {
+            throw new RequestFailure(ErrorCode.VALIDATION_ERROR, "description must be at most 2000 characters");
+        }
         ItemType type = payload.has("itemType")
                 ? itemType(requiredString(payload, "itemType")) : item.itemType();
         String image = payload.has("imageBase64") ? itemImage(payload) : item.imageBase64();
@@ -522,6 +534,9 @@ public final class ClientHandler implements Runnable {
                 case "LOGIN" -> {
                     if (parts.length != 3) yield "ERROR|LOGIN requires account and password";
                     Optional<SessionManager.UserSession> session = authService.login(parts[1], parts[2]);
+                    if (session.isPresent() && clientObserver != null) {
+                        clientObserver.bindUser(session.get().userId());
+                    }
                     yield session.map(value -> "SUCCESS|LOGIN|" + value.token() + "|"
                                     + value.account() + "|" + value.role())
                             .orElse("ERROR|Invalid account or password");
@@ -551,8 +566,11 @@ public final class ClientHandler implements Runnable {
                             startAt.plusSeconds(durationHours * 3600)));
                     yield "SUCCESS|CREATE_AUCTION|" + auctionId;
                 }
-                case "LIST_AUCTIONS" -> "SUCCESS|LIST_AUCTIONS|COUNT="
-                        + auctionRepository.findActiveAuctions().size();
+                case "LIST_AUCTIONS" -> {
+                    if (parts.length != 2) yield "ERROR|LIST_AUCTIONS requires token";
+                    requirePipeSession(parts[1], null);
+                    yield "SUCCESS|LIST_AUCTIONS|COUNT=" + auctionRepository.findActiveAuctions().size();
+                }
                 default -> "ERROR|Unknown action: " + action;
             };
         } catch (RequestFailure error) {
@@ -565,7 +583,10 @@ public final class ClientHandler implements Runnable {
     private SessionManager.UserSession requirePipeSession(String token, String role) {
         SessionManager.UserSession session = sessionManager.getSession(token).orElseThrow(
                 () -> new RequestFailure(ErrorCode.AUTHENTICATION_FAILED, "Login is required"));
-        if (!session.role().equalsIgnoreCase(role)) {
+        if (clientObserver != null) {
+            clientObserver.bindUser(session.userId());
+        }
+        if (role != null && !session.role().equalsIgnoreCase(role)) {
             throw new RequestFailure(ErrorCode.FORBIDDEN, "Role " + role + " is required");
         }
         return session;

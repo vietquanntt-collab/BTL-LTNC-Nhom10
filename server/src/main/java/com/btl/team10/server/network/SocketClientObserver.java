@@ -41,7 +41,11 @@ public final class SocketClientObserver implements AuctionEventObserver {
 
     @Override
     public void onEvent(EventEnvelope envelope, Long targetUserId) {
-        if (targetUserId != null && (boundUserId == null || !targetUserId.equals(boundUserId))) {
+        Long currentUser = boundUserId;
+        if (currentUser == null) {
+            return;
+        }
+        if (targetUserId != null && !targetUserId.equals(currentUser)) {
             return;
         }
         String line = JsonCodec.toJson(envelope);

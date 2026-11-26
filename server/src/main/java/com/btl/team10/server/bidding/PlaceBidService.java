@@ -71,9 +71,10 @@ public final class PlaceBidService {
         ReentrantLock lock = auctionLocks.computeIfAbsent(auctionId, k -> new ReentrantLock());
         lock.lock();
         try {
-            String cached = findReceipt(requestId);
+            String receiptId = receiptKey("SET_AUTO_BID", bidderId, requestId);
+            String cached = findReceipt(receiptId);
             if (cached != null) {
-                return JsonCodec.fromJson(cached, ResponseEnvelope.class);
+                return restoreReceipt(cached, sessionId);
             }
 
             boolean prevAutoCommit = connection.getAutoCommit();
@@ -100,11 +101,11 @@ public final class PlaceBidService {
                     payload.addProperty("bidderId", bidderId);
                     payload.addProperty("active", false);
                     payload.addProperty("deactivated", deactivated);
-                    ResponseEnvelope response = ResponseEnvelope.success(
-                            requestId, "SET_AUTO_BID", sessionId, payload.toString());
-                    saveReceipt(requestId, "SET_AUTO_BID", JsonCodec.toJson(response), nowIso);
+                    ResponseEnvelope stored = ResponseEnvelope.success(
+                            requestId, "SET_AUTO_BID", null, payload.toString());
+                    saveReceipt(receiptId, "SET_AUTO_BID", JsonCodec.toJson(stored), nowIso);
                     connection.commit();
-                    return response;
+                    return ResponseEnvelope.success(requestId, "SET_AUTO_BID", sessionId, payload.toString());
                 }
 
                 if (!"OPEN".equals(auction.status) && !"RUNNING".equals(auction.status)) {
@@ -127,6 +128,18 @@ public final class PlaceBidService {
                     return ResponseEnvelope.failure(requestId, "SET_AUTO_BID",
                             ErrorCode.VALIDATION_ERROR, ex.getMessage());
                 }
+                if (incrementCents < auction.minIncrementCents) {
+                    connection.rollback();
+                    return ResponseEnvelope.failure(requestId, "SET_AUTO_BID",
+                            ErrorCode.VALIDATION_ERROR,
+                            "Auto-bid increment must be at least " + auction.minIncrementCents);
+                }
+                if (incrementCents > maxAmountCents
+                        || maxAmountCents > Long.MAX_VALUE - auction.minIncrementCents) {
+                    connection.rollback();
+                    return ResponseEnvelope.failure(requestId, "SET_AUTO_BID",
+                            ErrorCode.VALIDATION_ERROR, "Auto-bid amount or increment is out of valid range");
+                }
 
                 WalletDto wallet = walletRepository.findByUserId(bidderId).orElse(null);
                 if (wallet == null) {
@@ -134,11 +147,17 @@ public final class PlaceBidService {
                     return ResponseEnvelope.failure(requestId, "SET_AUTO_BID",
                             ErrorCode.NOT_FOUND, "Wallet not found");
                 }
-                long currentlyFrozenForAuction = (auction.winnerId != null && auction.winnerId == bidderId)
-                        ? auction.currentPriceCents : 0L;
+                boolean isCurrentLeader = auction.winnerId != null && auction.winnerId == bidderId;
+                long currentlyFrozenForAuction = isCurrentLeader ? auction.currentPriceCents : 0L;
                 long available = wallet.balanceCents() - wallet.frozenCents() + currentlyFrozenForAuction;
                 long minRequired = auction.rules().minimumBidCents();
-                if (available < Math.min(maxAmountCents, minRequired)) {
+                long floorForBidder = isCurrentLeader ? auction.currentPriceCents : minRequired;
+                if (maxAmountCents < floorForBidder) {
+                    connection.rollback();
+                    return ResponseEnvelope.failure(requestId, "SET_AUTO_BID",
+                            ErrorCode.BID_TOO_LOW, "Auto-bid max amount is below minimum required: " + floorForBidder);
+                }
+                if (available < floorForBidder) {
                     connection.rollback();
                     return ResponseEnvelope.failure(requestId, "SET_AUTO_BID",
                             ErrorCode.INSUFFICIENT_BALANCE, "Insufficient balance for auto-bid");
@@ -160,13 +179,13 @@ public final class PlaceBidService {
                 payload.addProperty("registeredAt", savedRule.registeredAt().toString());
                 payload.addProperty("active", savedRule.active());
 
-                ResponseEnvelope response = ResponseEnvelope.success(
-                        requestId, "SET_AUTO_BID", sessionId, payload.toString());
-                saveReceipt(requestId, "SET_AUTO_BID", JsonCodec.toJson(response), now.toString());
+                ResponseEnvelope stored = ResponseEnvelope.success(
+                        requestId, "SET_AUTO_BID", null, payload.toString());
+                saveReceipt(receiptId, "SET_AUTO_BID", JsonCodec.toJson(stored), now.toString());
 
                 connection.commit();
                 publishAll(pendingEvents);
-                return response;
+                return ResponseEnvelope.success(requestId, "SET_AUTO_BID", sessionId, payload.toString());
             } catch (SQLException | RuntimeException e) {
                 connection.rollback();
                 throw e;
@@ -186,9 +205,10 @@ public final class PlaceBidService {
         ReentrantLock lock = auctionLocks.computeIfAbsent(auctionId, k -> new ReentrantLock());
         lock.lock();
         try {
-            String cached = findReceipt(requestId);
+            String receiptId = receiptKey("PLACE_BID", bidderId, requestId);
+            String cached = findReceipt(receiptId);
             if (cached != null) {
-                return JsonCodec.fromJson(cached, ResponseEnvelope.class);
+                return restoreReceipt(cached, sessionId);
             }
 
             boolean previousAutoCommit = connection.getAutoCommit();
@@ -241,25 +261,35 @@ public final class PlaceBidService {
 
                 long bidId = executeAcceptedBid(auction, bidderId, amountCents, requestId, now, pendingEvents);
 
+                // Trigger Auto-Bid counter-bidding policy before finalizing response snapshot
+                runAutoBidPolicy(auctionId, now, pendingEvents);
+
+                AuctionState finalState = loadAuction(auctionId);
+                boolean stillLeading = finalState != null && finalState.winnerId != null
+                        && finalState.winnerId == bidderId;
+                long finalPrice = finalState != null ? finalState.currentPriceCents : amountCents;
+                long finalVersion = finalState != null ? finalState.version : auction.version + 1L;
+
                 JsonObject responsePayload = new JsonObject();
                 responsePayload.addProperty("auctionId", auctionId);
                 responsePayload.addProperty("bidId", bidId);
                 responsePayload.addProperty("bidderId", bidderId);
                 responsePayload.addProperty("amountCents", amountCents);
-                responsePayload.addProperty("currentPriceCents", amountCents);
-                responsePayload.addProperty("auctionVersion", auction.version + 1L);
+                responsePayload.addProperty("currentPriceCents", finalPrice);
+                responsePayload.addProperty("auctionVersion", finalVersion);
                 responsePayload.addProperty("bidTime", now.toString());
-                responsePayload.addProperty("status", BidStatus.ACTIVE.name());
+                responsePayload.addProperty("status", stillLeading ? BidStatus.ACTIVE.name() : BidStatus.OUTBID.name());
+                responsePayload.addProperty("leading", stillLeading);
+                if (finalState != null && finalState.winnerId != null) {
+                    responsePayload.addProperty("leaderId", finalState.winnerId);
+                }
                 responsePayload.addProperty("clientRequestId", requestId);
-                ResponseEnvelope response = ResponseEnvelope.success(requestId, "PLACE_BID", sessionId, responsePayload.toString());
-                saveReceipt(requestId, "PLACE_BID", JsonCodec.toJson(response), now.toString());
-
-                // Trigger Auto-Bid counter-bidding policy after manual bid succeeds
-                runAutoBidPolicy(auctionId, now, pendingEvents);
+                ResponseEnvelope stored = ResponseEnvelope.success(requestId, "PLACE_BID", null, responsePayload.toString());
+                saveReceipt(receiptId, "PLACE_BID", JsonCodec.toJson(stored), now.toString());
 
                 connection.commit();
                 publishAll(pendingEvents);
-                return response;
+                return ResponseEnvelope.success(requestId, "PLACE_BID", sessionId, responsePayload.toString());
             } catch (SQLException | RuntimeException e) {
                 connection.rollback();
                 throw e;
@@ -276,7 +306,8 @@ public final class PlaceBidService {
                                     List<PendingEvent> pendingEvents) throws SQLException {
         long auctionId = auction.auctionId;
         Instant currentEndAt = Instant.parse(auction.endAt);
-        boolean extend = antiSnipePolicy.shouldExtend(now, currentEndAt, auction.extensionCount);
+        boolean isSelfRaise = auction.winnerId != null && auction.winnerId == bidderId;
+        boolean extend = !isSelfRaise && antiSnipePolicy.shouldExtend(now, currentEndAt, auction.extensionCount);
         Instant newEndAt = extend ? currentEndAt.plusSeconds(antiSnipePolicy.extensionSeconds()) : currentEndAt;
         int newExtensionCount = extend ? auction.extensionCount + 1 : auction.extensionCount;
 
@@ -367,6 +398,11 @@ public final class PlaceBidService {
     }
 
     private void runAutoBidPolicy(long auctionId, Instant now, List<PendingEvent> pendingEvents) throws SQLException {
+        Comparator<RuleCandidate> candidatePriority = Comparator
+                .comparingLong(RuleCandidate::effectiveCap).reversed()
+                .thenComparing(c -> c.rule.registeredAt())
+                .thenComparingLong(c -> c.rule.ruleId());
+
         for (int round = 0; round < 32; round++) {
             AuctionState auction = loadAuction(auctionId);
             if (auction == null || (!"OPEN".equals(auction.status) && !"RUNNING".equals(auction.status))) {
@@ -381,84 +417,116 @@ public final class PlaceBidService {
                 return;
             }
 
-            Comparator<AutoBidRuleDto> rulePriority = Comparator
-                    .comparingLong(AutoBidRuleDto::maxAmountCents).reversed()
-                    .thenComparing(AutoBidRuleDto::registeredAt)
-                    .thenComparingLong(AutoBidRuleDto::ruleId);
+            long floorNext = safeAdd(auction.currentPriceCents, auction.minIncrementCents);
+            if (floorNext <= auction.currentPriceCents) {
+                return;
+            }
 
-            java.util.PriorityQueue<AutoBidRuleDto> eligible = new java.util.PriorityQueue<>(rulePriority);
+            RuleCandidate leaderCandidate = null;
+            java.util.PriorityQueue<RuleCandidate> challengers = new java.util.PriorityQueue<>(candidatePriority);
+
             for (AutoBidRuleDto rule : activeRules) {
                 if (rule.bidderId() == auction.sellerId) {
                     continue;
                 }
-                if (auction.winnerId != null && rule.bidderId() == auction.winnerId) {
-                    continue;
-                }
-                long minNext = requiredNextBidForRule(auction, rule);
-                if (rule.maxAmountCents() < minNext) {
-                    continue;
-                }
                 WalletDto wallet = walletRepository.findByUserId(rule.bidderId()).orElse(null);
-                if (wallet == null || (wallet.balanceCents() - wallet.frozenCents()) < minNext) {
+                if (wallet == null) {
                     continue;
                 }
-                eligible.add(rule);
+                boolean isLeader = auction.winnerId != null && rule.bidderId() == auction.winnerId;
+                long available = wallet.balanceCents() - wallet.frozenCents()
+                        + (isLeader ? auction.currentPriceCents : 0L);
+                long effectiveCap = Math.min(rule.maxAmountCents(), Math.max(0L, available));
+
+                if (isLeader) {
+                    if (effectiveCap >= auction.currentPriceCents) {
+                        leaderCandidate = new RuleCandidate(rule, effectiveCap);
+                    }
+                    continue;
+                }
+                if (effectiveCap >= floorNext) {
+                    challengers.add(new RuleCandidate(rule, effectiveCap));
+                }
             }
 
-            if (eligible.isEmpty()) {
+            if (challengers.isEmpty()) {
                 return;
             }
 
-            AutoBidRuleDto topRule = eligible.remove();
-            long minNext = requiredNextBidForRule(auction, topRule);
+            RuleCandidate topChallenger = challengers.remove();
+            if (leaderCandidate != null && candidatePriority.compare(leaderCandidate, topChallenger) < 0) {
+                long leaderStep = Math.max(auction.minIncrementCents, leaderCandidate.rule.incrementCents());
+                long finalLeaderPrice = topChallenger.effectiveCap < leaderCandidate.effectiveCap
+                        ? Math.min(leaderCandidate.effectiveCap,
+                                Math.max(floorNext, safeAdd(topChallenger.effectiveCap, leaderStep)))
+                        : Math.max(floorNext, leaderCandidate.effectiveCap);
 
-            AutoBidRuleDto bestCompetitor = null;
-            if (auction.winnerId != null) {
-                Optional<AutoBidRuleDto> leaderRule = autoBidRuleRepository.findByAuctionAndBidder(auctionId, auction.winnerId);
-                if (leaderRule.isPresent() && leaderRule.get().active()) {
-                    bestCompetitor = leaderRule.get();
-                }
-            }
-            if (!eligible.isEmpty()) {
-                AutoBidRuleDto secondEligible = eligible.peek();
-                if (bestCompetitor == null || rulePriority.compare(secondEligible, bestCompetitor) < 0) {
-                    bestCompetitor = secondEligible;
-                }
-            }
-
-            long targetBid;
-            if (bestCompetitor != null && bestCompetitor.maxAmountCents() >= minNext) {
-                long competingCap = bestCompetitor.maxAmountCents();
-                boolean topHasHigherPriority = rulePriority.compare(topRule, bestCompetitor) < 0;
-                if (competingCap < topRule.maxAmountCents()) {
-                    long stepOverCompetitor = competingCap + Math.max(auction.minIncrementCents, topRule.incrementCents());
-                    targetBid = Math.min(topRule.maxAmountCents(), Math.max(minNext, stepOverCompetitor));
-                } else if (competingCap == topRule.maxAmountCents() && topHasHigherPriority) {
-                    targetBid = topRule.maxAmountCents();
+                long maxSafeChallengerBid = leaderCandidate.effectiveCap - auction.minIncrementCents;
+                long challengerBid = Math.min(topChallenger.effectiveCap, maxSafeChallengerBid);
+                if (challengerBid >= floorNext) {
+                    String autoRequestId = "autobid-" + topChallenger.rule.ruleId() + "-v" + (auction.version + 1L);
+                    executeAcceptedBid(auction, topChallenger.rule.bidderId(), challengerBid,
+                            autoRequestId, now, pendingEvents);
+                } else if (finalLeaderPrice >= floorNext && finalLeaderPrice <= leaderCandidate.effectiveCap) {
+                    String autoRequestId = "autobid-" + leaderCandidate.rule.ruleId() + "-v" + (auction.version + 1L);
+                    executeAcceptedBid(auction, leaderCandidate.rule.bidderId(), finalLeaderPrice,
+                            autoRequestId, now, pendingEvents);
                 } else {
-                    // Competitor registered earlier (or has higher cap); push price up to just below cap so competitor counters to win
-                    long stepBeforeCap = competingCap - Math.max(auction.minIncrementCents, bestCompetitor.incrementCents());
-                    targetBid = Math.max(minNext, Math.min(topRule.maxAmountCents(), stepBeforeCap));
+                    return;
+                }
+                continue;
+            }
+
+            RuleCandidate runnerUp = leaderCandidate;
+            if (!challengers.isEmpty()) {
+                RuleCandidate secondChallenger = challengers.peek();
+                if (runnerUp == null || candidatePriority.compare(secondChallenger, runnerUp) < 0) {
+                    runnerUp = secondChallenger;
+                }
+            }
+
+            long winnerStep = Math.max(auction.minIncrementCents, topChallenger.rule.incrementCents());
+            long targetBid;
+            if (runnerUp != null && runnerUp.effectiveCap >= floorNext) {
+                if (runnerUp.effectiveCap < topChallenger.effectiveCap) {
+                    targetBid = Math.min(topChallenger.effectiveCap,
+                            Math.max(floorNext, safeAdd(runnerUp.effectiveCap, winnerStep)));
+                } else {
+                    targetBid = topChallenger.effectiveCap;
                 }
             } else {
-                targetBid = minNext;
+                targetBid = Math.min(topChallenger.effectiveCap, safeAdd(auction.currentPriceCents, winnerStep));
             }
 
-            WalletDto topWallet = walletRepository.findByUserId(topRule.bidderId()).orElseThrow();
-            long maxAffordable = topWallet.balanceCents() - topWallet.frozenCents();
-            targetBid = Math.min(targetBid, maxAffordable);
-            if (targetBid < minNext) {
+            if (targetBid < floorNext || targetBid > topChallenger.effectiveCap) {
                 return;
             }
 
-            String autoRequestId = "autobid-" + topRule.ruleId() + "-v" + (auction.version + 1L);
-            executeAcceptedBid(auction, topRule.bidderId(), targetBid, autoRequestId, now, pendingEvents);
+            String autoRequestId = "autobid-" + topChallenger.rule.ruleId() + "-v" + (auction.version + 1L);
+            executeAcceptedBid(auction, topChallenger.rule.bidderId(), targetBid, autoRequestId, now, pendingEvents);
         }
     }
 
-    private long requiredNextBidForRule(AuctionState auction, AutoBidRuleDto rule) {
-        long effectiveIncrement = Math.max(auction.minIncrementCents, rule.incrementCents());
-        return Math.addExact(auction.currentPriceCents, effectiveIncrement);
+    private static long safeAdd(long a, long b) {
+        if (b > 0 && a > Long.MAX_VALUE - b) {
+            return Long.MAX_VALUE;
+        }
+        return a + b;
+    }
+
+    private static String receiptKey(String action, long bidderId, String requestId) {
+        return action + ":" + bidderId + ":" + requestId;
+    }
+
+    private static ResponseEnvelope restoreReceipt(String cachedJson, String callerSessionId) {
+        ResponseEnvelope stored = JsonCodec.fromJson(cachedJson, ResponseEnvelope.class);
+        return new ResponseEnvelope(
+                stored.protocolVersion(), stored.requestId(), stored.action(),
+                stored.ok(), stored.errorCode(), stored.message(),
+                callerSessionId, stored.payloadJson());
+    }
+
+    private record RuleCandidate(AutoBidRuleDto rule, long effectiveCap) {
     }
 
     private void recordBalanceChanged(long auctionId, WalletDto wallet, String nowIso,
