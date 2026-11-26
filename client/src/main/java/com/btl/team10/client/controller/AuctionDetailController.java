@@ -539,12 +539,24 @@ public final class AuctionDetailController {
                     if (disposed) return;
                     placeBidButton.setText("Đặt giá ngay →");
                     bidAmountField.clear();
-                    showBanner("Đặt giá thành công: " + result.amountCents() + " cents!", "#27ae60");
-                    updatePriceLocally(result.currentPriceCents(), result.auctionVersion());
+                    updatePriceLocally(result.currentPriceCents(), result.auctionVersion(),
+                            result.leading() ? NetworkClient.getInstance().userId() : null);
                     playStageHighlight();
-                    updateMcSpeech("LÊN GIÁ THÀNH CÔNG!",
-                            "Tuyệt vời! Bạn vừa nâng mức giá lên " + result.currentPriceCents()
-                                    + " cents và đang làm chủ sân khấu Gala!", "#27ae60", true);
+                    if (result.leading() && currentAuction.version() <= result.auctionVersion()) {
+                        showBanner("Đặt giá thành công: " + result.amountCents() + " cents!", "#27ae60");
+                        updateMcSpeech("LÊN GIÁ THÀNH CÔNG!",
+                                "Tuyệt vời! Bạn vừa nâng mức giá lên " + result.currentPriceCents()
+                                        + " cents và đang làm chủ sân khấu Gala!", "#27ae60", true);
+                    } else {
+                        setLeadBadge("BẠN ĐÃ BỊ VƯỢT GIÁ (OUTBID)", "#e67e22");
+                        showBanner("Đã ghi nhận mức " + result.amountCents()
+                                + " cents, nhưng đối thủ (Auto-Bid) đã vượt lên "
+                                + result.currentPriceCents() + " cents!", "#e67e22");
+                        updateMcSpeech("BẠN BỊ VƯỢT MẶT!",
+                                "Đối thủ đặt Auto-Bid vừa nâng giá lên " + result.currentPriceCents()
+                                        + " cents ngay lập tức! Ra giá cao hơn để giành lại vị trí!",
+                                "#e67e22", true);
+                    }
                     if (!isAuctionEnded(currentAuction)) {
                         placeBidButton.setDisable(false);
                     }
@@ -672,7 +684,7 @@ public final class AuctionDetailController {
                         appendBidPoint(new BidDto(bidId, currentAuction.auctionId(), bidderId, newPrice,
                                 event.occurredAt(), BidStatus.ACTIVE, event.eventId()));
                     }
-                    updatePriceLocally(newPrice, version);
+                    updatePriceLocally(newPrice, version, bidderId > 0 ? bidderId : null);
                     playStageHighlight();
 
                     if (bidderId == NetworkClient.getInstance().userId()) {
@@ -692,7 +704,9 @@ public final class AuctionDetailController {
                     long newPrice = payload.has("currentPriceCents")
                             ? payload.get("currentPriceCents").getAsLong()
                             : currentAuction.currentPriceCents();
-                    updatePriceLocally(newPrice, payload.has("auctionVersion") ? payload.get("auctionVersion").getAsLong() : currentAuction.version());
+                    updatePriceLocally(newPrice, payload.has("auctionVersion") ? payload.get("auctionVersion").getAsLong() : currentAuction.version(),
+                            payload.has("newLeaderId") && !payload.get("newLeaderId").isJsonNull()
+                                    ? payload.get("newLeaderId").getAsLong() : null);
                     setLeadBadge("BẠN ĐÃ BỊ VƯỢT GIÁ (OUTBID)", "#e67e22");
                     showBanner("CẢNH BÁO: Bạn đã bị vượt giá (OUTBID)! Giá hiện tại là " + newPrice + " cents.", "#e67e22");
                     playStageHighlight();
@@ -775,16 +789,22 @@ public final class AuctionDetailController {
         });
     }
 
-    private void updatePriceLocally(long newPriceCents, long newVersion) {
+    private void updatePriceLocally(long newPriceCents, long newVersion, Long leaderId) {
         if (currentAuction == null) {
             return;
         }
+        AuctionStatus nextStatus = currentAuction.status() == AuctionStatus.OPEN
+                ? AuctionStatus.RUNNING
+                : currentAuction.status();
+        Long nextWinner = (newVersion >= currentAuction.version() && leaderId != null)
+                ? leaderId
+                : currentAuction.winnerId();
         currentAuction = new AuctionDto(
                 currentAuction.auctionId(), currentAuction.itemId(), currentAuction.startPriceCents(),
                 Math.max(currentAuction.currentPriceCents(), newPriceCents), currentAuction.minIncrementCents(),
-                currentAuction.startAt(), currentAuction.endAt(), currentAuction.status(),
+                currentAuction.startAt(), currentAuction.endAt(), nextStatus,
                 Math.max(currentAuction.version(), newVersion), currentAuction.extensionCount(),
-                currentAuction.winnerId(), currentAuction.closedAt(), currentAuction.createdAt());
+                nextWinner, currentAuction.closedAt(), currentAuction.createdAt());
         applyAuctionState(currentAuction, null);
     }
 
@@ -795,7 +815,7 @@ public final class AuctionDetailController {
         bidRows.setAll(sorted);
         priceSeries.getData().clear();
         for (BidDto bid : sorted) {
-            priceSeries.getData().add(new XYChart.Data<>(TIME_FMT.format(bid.bidTime()), bid.amountCents()));
+            priceSeries.getData().add(new XYChart.Data<>(chartLabelFor(bid), bid.amountCents()));
         }
         if (currentAuction != null) {
             minNextBidLabel.setText(money(computeMinValidBid(currentAuction)));
@@ -819,8 +839,12 @@ public final class AuctionDetailController {
             }
         }
         bidRows.add(bid);
-        priceSeries.getData().add(new XYChart.Data<>(TIME_FMT.format(bid.bidTime()), bid.amountCents()));
+        priceSeries.getData().add(new XYChart.Data<>(chartLabelFor(bid), bid.amountCents()));
         updateLeadStatusBadge();
+    }
+
+    private static String chartLabelFor(BidDto bid) {
+        return TIME_FMT.format(bid.bidTime()) + " #" + bid.bidId();
     }
 
     private void startCountdown() {

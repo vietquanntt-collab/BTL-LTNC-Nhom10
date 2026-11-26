@@ -552,7 +552,7 @@ public final class AuctionListController {
             chipLiveBtn.setText("Đang diễn ra (" + liveCount + ")");
         }
         if (chipOpenBtn != null) {
-            chipOpenBtn.setText("Sắp mở (" + openCount + ")");
+            chipOpenBtn.setText("Mới mở (" + openCount + ")");
         }
         if (chipEndedBtn != null) {
             chipEndedBtn.setText("Đã kết thúc (" + endedCount + ")");
@@ -597,7 +597,10 @@ public final class AuctionListController {
 
         if (isLive) {
             Circle liveDot = new Circle(3.5, Color.web("#16a34a"));
-            Label liveLbl = new Label(auction.status() == AuctionStatus.RUNNING ? "Đang diễn ra" : "Sắp mở");
+            String liveText = auction.status() == AuctionStatus.RUNNING
+                    ? "Đang diễn ra"
+                    : (!Instant.now().isBefore(auction.startAt()) ? "Đang mở" : "Sắp mở");
+            Label liveLbl = new Label(liveText);
             liveLbl.setStyle("-fx-text-fill: #15803d; -fx-font-size: 11px; -fx-font-weight: bold;");
             topRow.getChildren().addAll(liveDot, liveLbl);
         } else {

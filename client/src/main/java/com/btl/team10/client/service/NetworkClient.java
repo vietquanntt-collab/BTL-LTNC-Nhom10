@@ -202,7 +202,10 @@ public final class NetworkClient implements AutoCloseable {
         long bidId = result.has("bidId") ? result.get("bidId").getAsLong() : 0L;
         long currentPrice = result.has("currentPriceCents") ? result.get("currentPriceCents").getAsLong() : amountCents;
         long version = result.has("auctionVersion") ? result.get("auctionVersion").getAsLong() : 0L;
-        return new PlaceBidResult(auctionId, bidId, amountCents, currentPrice, version, response.message());
+        boolean leading = result.has("leading") && !result.get("leading").isJsonNull()
+                ? result.get("leading").getAsBoolean()
+                : (!result.has("status") || !"OUTBID".equalsIgnoreCase(result.get("status").getAsString()));
+        return new PlaceBidResult(auctionId, bidId, amountCents, currentPrice, version, leading, response.message());
     }
 
     public AutoBidResult setAutoBid(long auctionId, long maxAmountCents, long incrementCents) throws IOException {
@@ -485,10 +488,9 @@ public final class NetworkClient implements AutoCloseable {
 
     private void attemptAutoReconnect(long disconnectedEpoch) {
         Thread reconnectThread = new Thread(() -> {
-            int maxRetries = 10;
-            for (int attempt = 1; attempt <= maxRetries && !manualClose; attempt++) {
+            for (int attempt = 1; !manualClose; attempt++) {
                 try {
-                    Thread.sleep(Math.min(1000L * attempt, 5000L));
+                    Thread.sleep(Math.min(1000L * Math.min(attempt, 5), 5000L));
                     synchronized (this) {
                         if (manualClose || connectionEpoch != disconnectedEpoch) return;
                         ensureConnected();
@@ -581,7 +583,7 @@ public final class NetworkClient implements AutoCloseable {
     }
 
     public record PlaceBidResult(long auctionId, long bidId, long amountCents,
-                                 long currentPriceCents, long auctionVersion, String message) {
+                                 long currentPriceCents, long auctionVersion, boolean leading, String message) {
     }
 
     public record AutoBidResult(long auctionId, long maxAmountCents, long incrementCents, String message) {
