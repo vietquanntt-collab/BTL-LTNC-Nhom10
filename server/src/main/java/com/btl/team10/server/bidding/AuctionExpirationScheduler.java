@@ -59,19 +59,24 @@ public final class AuctionExpirationScheduler {
     }
 
     public void closeExpiredAuctionsSafe() {
-        synchronized (databaseLock) {
-            try {
-                closeExpiredAuctions();
-            } catch (Exception e) {
-                System.err.println("Scheduler error: " + e.getMessage());
-            }
+        try {
+            closeExpiredAuctions();
+        } catch (Exception e) {
+            System.err.println("Scheduler error: " + e.getMessage());
         }
     }
 
     public void closeExpiredAuctions() throws SQLException {
-        synchronized (databaseLock) {
-            closeAndSettleAuctions();
+        eventPublisher.beginDeferredBatch();
+        try {
+            synchronized (databaseLock) {
+                closeAndSettleAuctions();
+            }
+        } catch (SQLException | RuntimeException error) {
+            eventPublisher.flushDeferredBatch();
+            throw error;
         }
+        eventPublisher.flushDeferredBatch();
     }
 
     private void closeAndSettleAuctions() throws SQLException {

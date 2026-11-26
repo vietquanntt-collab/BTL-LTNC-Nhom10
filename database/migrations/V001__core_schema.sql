@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS items (
 
 CREATE TABLE IF NOT EXISTS auctions (
     auction_id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    item_id             INTEGER NOT NULL UNIQUE,
+    item_id             INTEGER NOT NULL,
     start_price_cents   INTEGER NOT NULL CHECK (start_price_cents >= 0),
     current_price_cents INTEGER NOT NULL CHECK (current_price_cents >= start_price_cents),
     min_increment_cents INTEGER NOT NULL CHECK (min_increment_cents > 0),
@@ -65,6 +65,8 @@ CREATE TABLE IF NOT EXISTS bids (
 );
 
 CREATE INDEX IF NOT EXISTS idx_auctions_status_end ON auctions(status, end_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_auctions_non_cancelled_item
+    ON auctions(item_id) WHERE status != 'CANCELLED';
 CREATE INDEX IF NOT EXISTS idx_bids_auction_time ON bids(auction_id, bid_time);
 CREATE INDEX IF NOT EXISTS idx_bids_auction_amount ON bids(auction_id, amount_cents DESC, bid_time ASC);
 CREATE INDEX IF NOT EXISTS idx_items_seller ON items(seller_id);

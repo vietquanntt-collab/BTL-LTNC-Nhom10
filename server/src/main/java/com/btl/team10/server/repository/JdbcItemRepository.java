@@ -96,7 +96,8 @@ public final class JdbcItemRepository implements ItemRepository {
                 "UPDATE items SET name = ?, description = ?, item_type = ?, image_base64 = ?,"
                         + " updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
                         + " WHERE item_id = ? AND seller_id = ?"
-                        + " AND NOT EXISTS (SELECT 1 FROM auctions WHERE auctions.item_id = items.item_id)")) {
+                        + " AND NOT EXISTS (SELECT 1 FROM auctions WHERE auctions.item_id = items.item_id"
+                        + " AND auctions.status != 'CANCELLED')")) {
             statement.setString(1, name.trim());
             statement.setString(2, description == null ? "" : description.trim());
             statement.setString(3, itemType.name());

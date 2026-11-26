@@ -31,7 +31,8 @@ public record AntiSnipePolicy(
         if (windowSeconds <= 0 || extensionSeconds <= 0 || currentExtensionCount >= maxExtensions) {
             return false;
         }
-        long remainingSeconds = Duration.between(now, endAt).getSeconds();
-        return remainingSeconds >= 0 && remainingSeconds <= windowSeconds;
+        Duration remaining = Duration.between(now, endAt);
+        return !remaining.isNegative() && !remaining.isZero()
+                && remaining.compareTo(Duration.ofSeconds(windowSeconds)) <= 0;
     }
 }
