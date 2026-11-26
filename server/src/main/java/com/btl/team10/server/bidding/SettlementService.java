@@ -101,6 +101,10 @@ public final class SettlementService {
             return ResponseEnvelope.failure(requestId, "CANCEL_AUCTION",
                     ErrorCode.CONFLICT, "Only open auctions can be cancelled");
         }
+        if (!Instant.parse(target.endAt).isAfter(Instant.now())) {
+            return ResponseEnvelope.failure(requestId, "CANCEL_AUCTION",
+                    ErrorCode.CONFLICT, "Auction has already ended and cannot be cancelled");
+        }
 
         boolean managesTransaction = connection.getAutoCommit();
         if (managesTransaction) {
@@ -313,7 +317,7 @@ public final class SettlementService {
     }
 
     private AuctionSettlementTarget loadAuctionTarget(long auctionId) throws SQLException {
-        String sql = "SELECT a.status, a.winner_id, a.current_price_cents, i.seller_id "
+        String sql = "SELECT a.status, a.winner_id, a.current_price_cents, a.end_at, i.seller_id "
                 + "FROM auctions a JOIN items i ON a.item_id = i.item_id WHERE a.auction_id = ?";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setLong(1, auctionId);
@@ -327,6 +331,7 @@ public final class SettlementService {
                         rs.getString("status"),
                         winnerId,
                         rs.getLong("current_price_cents"),
+                        rs.getString("end_at"),
                         rs.getLong("seller_id")
                 );
             }
@@ -355,5 +360,6 @@ public final class SettlementService {
         }
     }
 
-    private record AuctionSettlementTarget(String status, Long winnerId, long currentPriceCents, long sellerId) {}
+    private record AuctionSettlementTarget(String status, Long winnerId, long currentPriceCents,
+                                           String endAt, long sellerId) {}
 }

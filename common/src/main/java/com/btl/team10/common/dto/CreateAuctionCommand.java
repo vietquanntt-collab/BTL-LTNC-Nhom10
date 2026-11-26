@@ -21,6 +21,9 @@ public record CreateAuctionCommand(
         if (minIncrementCents <= 0) {
             throw new ValidationException("minIncrementCents", "must be positive");
         }
+        if (startPriceCents > Long.MAX_VALUE - minIncrementCents) {
+            throw new ValidationException("startPriceCents", "startPriceCents + minIncrementCents exceeds maximum allowed amount");
+        }
         if (startAt == null || endAt == null || !endAt.isAfter(startAt)) {
             throw new ValidationException("endAt", "must be after startAt");
         }
